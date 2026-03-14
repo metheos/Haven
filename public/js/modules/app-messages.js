@@ -248,6 +248,28 @@ _prependMessages(messages) {
     this._suppressCoupleCheck = false;
   }, 200);
 
+  // Images in prepended messages load asynchronously after the anchor was set.
+  // When an image in a prepended element loads, its height expands from 0 to
+  // the real size, pushing the anchor element down and causing a visible jump.
+  // Re-run anchor correction each time one of these images finishes loading.
+  if (anchorEl) {
+    const correctForImageLoad = () => {
+      if (this._coupledToBottom) return; // user is at bottom, no correction needed
+      const cr = container.getBoundingClientRect();
+      const ar = anchorEl.getBoundingClientRect();
+      const drift = (ar.top - cr.top) - anchorOffset;
+      if (Math.abs(drift) > 1) container.scrollTop += drift;
+    };
+    for (let i = 0; i < added && i < container.children.length; i++) {
+      container.children[i].querySelectorAll('img').forEach(img => {
+        if (!img.complete) {
+          img.addEventListener('load', correctForImageLoad, { once: true });
+          img.addEventListener('error', correctForImageLoad, { once: true });
+        }
+      });
+    }
+  }
+
   // ── DOM trimming: cap total messages to prevent unbounded growth ──
   // When scrolling up loads more history, trim excess messages from the
   // bottom to keep total DOM nodes manageable.
@@ -752,11 +774,11 @@ _fetchLinkPreviews(containerEl) {
           const count = Math.min(data.images.length, 4);
           inner += `<div class="link-preview-gallery" data-count="${count}">`;
           data.images.slice(0, 4).forEach(imgUrl => {
-            inner += `<img class="link-preview-gallery-img" src="${this._escapeHtml(imgUrl)}" alt="" loading="lazy">`;
+            inner += `<img class="link-preview-gallery-img" src="${this._escapeHtml(imgUrl)}" alt="">`;
           });
           inner += '</div>';
         } else if (data.image) {
-          inner += `<img class="link-preview-image" src="${this._escapeHtml(data.image)}" alt="" loading="lazy">`;
+          inner += `<img class="link-preview-image" src="${this._escapeHtml(data.image)}" alt="">`;
         }
         inner += '<div class="link-preview-text">';
         if (data.siteName) inner += `<span class="link-preview-site">${this._escapeHtml(data.siteName)}</span>`;

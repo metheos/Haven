@@ -117,8 +117,10 @@ _formatContent(str) {
   }
 
   // Render server-hosted images inline (early return)
+  // No loading="lazy" — content-visibility:auto on .message already skips off-screen
+  // rendering; lazy loading on top creates 0→real-height jumps when scrolling history.
   if (/^\/uploads\/[\w\-]+\.(jpg|jpeg|png|gif|webp)$/i.test(str.trim())) {
-    return `<img src="${this._escapeHtml(str.trim())}" class="chat-image" alt="image" loading="lazy">`;
+    return `<img src="${this._escapeHtml(str.trim())}" class="chat-image" alt="image">`;
   }
 
   // ── Extract fenced code blocks before escaping ──
@@ -138,7 +140,7 @@ _formatContent(str) {
     try { new URL(url); } catch { return full; }
     const safeUrl = url.replace(/['"<>]/g, '');
     const idx = mdLinks.length;
-    mdLinks.push(`<img src="${safeUrl}" class="chat-image" alt="${alt || 'image'}" loading="lazy">`);
+    mdLinks.push(`<img src="${safeUrl}" class="chat-image" alt="${alt || 'image'}">`);
     return `\x00MDLINK_${idx}\x00`;
   });
   // [text](url)
