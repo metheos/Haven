@@ -1539,6 +1539,7 @@ _setupResizableSidebars() {
 
     let dragging = false;
     splitHandle.addEventListener('mousedown', (e) => {
+      if (e.target.closest('#dm-pane-toggle-btn')) return; // ignore collapse button clicks
       e.preventDefault();
       dragging = true;
       splitHandle.classList.add('dragging');
