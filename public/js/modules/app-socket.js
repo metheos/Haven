@@ -347,6 +347,9 @@ _setupSocketListeners() {
     // have shifted scrollHeight without updating scrollTop.
     this._coupledToBottom = true;
     msgContainer.addEventListener('scroll', () => {
+      // Don't update coupling state while prepending messages — the DOM
+      // mutations cause transient scroll positions that would false-trigger.
+      if (this._suppressCoupleCheck) return;
       const dist = msgContainer.scrollHeight - msgContainer.clientHeight - msgContainer.scrollTop;
       if (dist < 150) {
         this._coupledToBottom = true;

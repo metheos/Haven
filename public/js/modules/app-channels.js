@@ -200,11 +200,12 @@ _openChannelCtxMenu(code, btnEl) {
   if (cfnPanel) cfnPanel.style.display = 'none';
   const cfnArrow = menu.querySelector('[data-action="channel-functions"] .cfn-arrow');
   if (cfnArrow) cfnArrow.textContent = '▶';
-  // Hide "Create Sub-channel" if this is already a sub-channel
+  // Show "Create Sub-channel" for mods OR users with create_channel / manage_sub_channels perm
   const ch = this.channels.find(c => c.code === code);
   const createSubBtn = menu.querySelector('[data-action="create-sub-channel"]');
-  if (createSubBtn && ch && ch.parent_channel_id) {
-    createSubBtn.style.display = 'none';
+  if (createSubBtn) {
+    const canCreateSub = isMod || this._hasPerm('manage_sub_channels') || this._hasPerm('create_channel');
+    createSubBtn.style.display = (canCreateSub && ch && !ch.parent_channel_id) ? '' : 'none';
   }
   // Hide "Leave Channel" for admins (always in all channels)
   const leaveBtn = menu.querySelector('[data-action="leave-channel"]');

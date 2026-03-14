@@ -159,9 +159,24 @@ _renderMessages(messages) {
 /** Prepend older messages to the top of the messages container, preserving scroll position */
 _prependMessages(messages) {
   const container = document.getElementById('messages');
-  const prevScrollHeight = container.scrollHeight;
-  const prevScrollTop = container.scrollTop;
   const firstChild = container.firstChild;
+
+  // Capture the first visible message as a scroll anchor.  After prepending,
+  // we'll re-align to this element rather than relying on scrollHeight deltas
+  // (which are unstable when content-visibility:auto is in play).
+  let anchorEl = null;
+  let anchorOffset = 0;
+  if (firstChild) {
+    const containerRect = container.getBoundingClientRect();
+    for (const child of container.children) {
+      const r = child.getBoundingClientRect();
+      if (r.bottom > containerRect.top) {
+        anchorEl = child;
+        anchorOffset = r.top - containerRect.top;
+        break;
+      }
+    }
+  }
 
   // We need prevMsg chain: older messages are oldest-first, then link to existing first message
   const fragment = document.createDocumentFragment();
@@ -183,6 +198,9 @@ _prependMessages(messages) {
     }
   }
 
+  // Suppress _coupledToBottom check while we mutate the DOM and restore scroll
+  this._suppressCoupleCheck = true;
+
   container.insertBefore(fragment, firstChild);
 
   // Force all newly-prepended elements to render at real height so that
@@ -197,20 +215,38 @@ _prependMessages(messages) {
     }
   }
 
-  // Restore scroll position so the view doesn't jump
-  const newScrollHeight = container.scrollHeight;
-  container.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+  // Restore scroll position using the anchor element — this is stable even
+  // when content-visibility estimates cause scrollHeight to fluctuate.
+  if (anchorEl) {
+    const containerRect = container.getBoundingClientRect();
+    const anchorRect = anchorEl.getBoundingClientRect();
+    const drift = (anchorRect.top - containerRect.top) - anchorOffset;
+    container.scrollTop += drift;
+  } else {
+    // Fallback: delta-based restore
+    const newScrollHeight = container.scrollHeight;
+    container.scrollTop = newScrollHeight - container.clientHeight;
+  }
 
-  // After scroll is restored, let content-visibility:auto resume for
-  // the prepended elements so the browser can skip rendering distant msgs.
-  requestAnimationFrame(() => {
+  // Release content-visibility after a safe delay — give the browser enough
+  // frames to settle before estimates can change heights again.  We use a
+  // longer timeout to avoid the sub-frame race that caused jumping.
+  setTimeout(() => {
     for (let i = 0; i < added && i < container.children.length; i++) {
       const child = container.children[i];
       if (child.classList.contains('message') || child.classList.contains('message-compact')) {
         child.style.contentVisibility = '';
       }
     }
-  });
+    // Re-align anchor after content-visibility release in case heights shifted
+    if (anchorEl) {
+      const containerRect = container.getBoundingClientRect();
+      const anchorRect = anchorEl.getBoundingClientRect();
+      const drift = (anchorRect.top - containerRect.top) - anchorOffset;
+      if (Math.abs(drift) > 2) container.scrollTop += drift;
+    }
+    this._suppressCoupleCheck = false;
+  }, 200);
 
   // ── DOM trimming: cap total messages to prevent unbounded growth ──
   // When scrolling up loads more history, trim excess messages from the

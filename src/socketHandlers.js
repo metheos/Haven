@@ -5605,8 +5605,8 @@ function setupSocketHandlers(io, db) {
       const parentChannel = db.prepare('SELECT * FROM channels WHERE code = ? AND is_dm = 0').get(parentCode);
       if (!parentChannel) return socket.emit('error-msg', 'Parent channel not found');
 
-      // Check permission: admin, or manage_sub_channels (channel-scoped), or create_channel (server-scoped)
-      if (!socket.user.isAdmin && !userHasPermission(socket.user.id, 'manage_sub_channels', parentChannel.id) && !userHasPermission(socket.user.id, 'create_channel')) {
+      // Check permission: admin, manage_sub_channels, or create_channel (all support channel-scoped roles)
+      if (!socket.user.isAdmin && !userHasPermission(socket.user.id, 'manage_sub_channels', parentChannel.id) && !userHasPermission(socket.user.id, 'create_channel', parentChannel.id)) {
         return socket.emit('error-msg', 'You don\'t have permission to create sub-channels');
       }
 
