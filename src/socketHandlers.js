@@ -1415,7 +1415,7 @@ function setupSocketHandlers(io, db) {
       }
 
       const channel = db.prepare('SELECT id, name, slow_mode_interval, text_enabled, voice_enabled, media_enabled FROM channels WHERE code = ?').get(code);
-      if (!channel) return;
+      if (!channel) return socket.emit('error-msg', 'Channel not found — try switching channels and back');
 
       const member = db.prepare(
         'SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?'
