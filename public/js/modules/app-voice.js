@@ -1695,20 +1695,30 @@ _closeMusicSearchPicker() {
 },
 
 _handleMusicShared(data) {
+  //Switch to active voice channel if reconnecting and music is shared so playback will resume
+  if (!this.currentChannel && this.voice && this.voice.currentChannel) {
+    this.switchChannel(this.voice.currentChannel);
+  }
   const embedUrl = this._getMusicEmbed(data.url);
   if (!embedUrl) return;
   const platform = this._getMusicPlatform(data.url);
   const panel = document.getElementById('music-panel');
   const container = document.getElementById('music-embed-container');
   const label = document.getElementById('music-panel-label');
+  if (this.voice && this.voice.inVoice) this._updateVoiceButtons(true);
 
   // Clean up previous player references
   this._musicYTPlayer = null;
   this._musicSCWidget = null;
   this._musicPlatform = platform ? platform.name : null;
-  this._musicPlaying = true;
+  this._musicPlaying = data.syncState?.isPlaying !== false;
   this._musicActive = true;
   this._musicUrl = data.url;
+  this._pendingMusicSyncState = data.syncState || null;
+  this._musicSuppressBroadcastUntil = 0;
+  this._musicLastTrackedPosition = null;
+  this._musicLastTrackedAt = 0;
+  this._musicLastSeekBroadcastAt = 0;
   this._removeMusicIndicator();
 
   let iframeH = '152';
@@ -1736,7 +1746,7 @@ _handleMusicShared(data) {
   // Update play/pause button — hide for Spotify (no external API)
   const ppBtn = document.getElementById('music-play-pause-btn');
   if (ppBtn) {
-    ppBtn.textContent = isSpotify ? '' : '⏸';
+    ppBtn.textContent = isSpotify ? '' : (data.syncState?.isPlaying === false ? '▶' : '⏸');
     ppBtn.style.display = isSpotify ? 'none' : '';
   }
 
@@ -1790,6 +1800,132 @@ _handleMusicShared(data) {
   this._showToast(`${who} ${platformLabel}`, 'info');
 },
 
+_suppressMusicBroadcasts(ms = 1500) {
+  this._musicSuppressBroadcastUntil = Date.now() + ms;
+},
+
+_shouldSuppressMusicBroadcasts() {
+  return Date.now() < (this._musicSuppressBroadcastUntil || 0);
+},
+
+_setMusicPlayingUi(isPlaying) {
+  this._musicPlaying = !!isPlaying;
+  const label = this._musicPlaying ? '⏸' : '▶';
+  const ppBtn = document.getElementById('music-play-pause-btn');
+  if (ppBtn && ppBtn.style.display !== 'none') ppBtn.textContent = label;
+  const pipPP = document.getElementById('music-pip-pp');
+  if (pipPP) pipPP.textContent = label;
+},
+
+_getEffectiveMusicSyncState(syncState) {
+  if (!syncState) return null;
+  const effective = { ...syncState };
+  if (effective.isPlaying && Number.isFinite(effective.positionSeconds)) {
+    const updatedAt = Number(effective.updatedAt);
+    if (Number.isFinite(updatedAt) && updatedAt > 0) {
+      const elapsed = Math.max(0, Date.now() - updatedAt) / 1000;
+      effective.positionSeconds += elapsed;
+      if (Number.isFinite(effective.durationSeconds)) {
+        effective.positionSeconds = Math.min(effective.positionSeconds, effective.durationSeconds);
+      }
+    }
+  }
+  return effective;
+},
+
+_withMusicTiming(callback) {
+  if (this._musicYTPlayer && this._musicYTPlayer.getCurrentTime && this._musicYTPlayer.getDuration) {
+    const positionSeconds = this._musicYTPlayer.getCurrentTime() || 0;
+    const durationSeconds = this._musicYTPlayer.getDuration() || 0;
+    callback(positionSeconds, durationSeconds);
+    return;
+  }
+  if (this._musicSCWidget) {
+    this._musicSCWidget.getPosition((pos) => {
+      this._musicSCWidget.getDuration((dur) => {
+        callback((pos || 0) / 1000, (dur || 0) / 1000);
+      });
+    });
+    return;
+  }
+  callback(0, 0);
+},
+
+_withMusicDuration(callback) {
+  if (this._musicYTPlayer && this._musicYTPlayer.getDuration) {
+    callback(this._musicYTPlayer.getDuration() || 0);
+    return;
+  }
+  if (this._musicSCWidget) {
+    this._musicSCWidget.getDuration((dur) => {
+      callback((dur || 0) / 1000);
+    });
+    return;
+  }
+  callback(0);
+},
+
+_emitMusicControl(action) {
+  if (!this.voice || !this.voice.inVoice) return;
+  this._withMusicTiming((positionSeconds, durationSeconds) => {
+    this.socket.emit('music-control', {
+      code: this.voice.currentChannel,
+      action,
+      positionSeconds,
+      durationSeconds
+    });
+  });
+},
+
+_emitMusicSeek(positionSeconds, durationSeconds) {
+  if (!this.voice || !this.voice.inVoice) return;
+  const pct = durationSeconds > 0 ? (positionSeconds / durationSeconds) * 100 : undefined;
+  this.socket.emit('music-seek', {
+    code: this.voice.currentChannel,
+    position: pct,
+    positionSeconds,
+    durationSeconds
+  });
+  this._musicLastTrackedPosition = positionSeconds;
+  this._musicLastTrackedAt = Date.now();
+  this._musicLastSeekBroadcastAt = Date.now();
+},
+
+_seekMusicToSeconds(seconds) {
+  try {
+    if (this._musicYTPlayer && this._musicYTPlayer.seekTo) {
+      this._musicYTPlayer.seekTo(Math.max(0, seconds), true);
+    } else if (this._musicSCWidget) {
+      this._musicSCWidget.seekTo(Math.max(0, seconds) * 1000);
+    }
+  } catch { /* player gone? */ }
+},
+
+_applyMusicSyncState(syncState) {
+  if (!syncState) return;
+  const effectiveState = this._getEffectiveMusicSyncState(syncState);
+  if (!this._musicYTPlayer && !this._musicSCWidget) {
+    this._pendingMusicSyncState = effectiveState;
+    return;
+  }
+  this._pendingMusicSyncState = null;
+  this._suppressMusicBroadcasts();
+  if (Number.isFinite(effectiveState.positionSeconds)) {
+    this._seekMusicToSeconds(effectiveState.positionSeconds);
+    this._musicLastTrackedPosition = effectiveState.positionSeconds;
+    this._musicLastTrackedAt = Date.now();
+  }
+  if (typeof effectiveState.isPlaying === 'boolean') {
+    if (effectiveState.isPlaying) this._playMusicEmbed();
+    else this._pauseMusicEmbed();
+    this._setMusicPlayingUi(effectiveState.isPlaying);
+  }
+},
+
+_flushPendingMusicSyncState() {
+  if (this._pendingMusicSyncState) this._applyMusicSyncState(this._pendingMusicSyncState);
+},
+
 _initYouTubePlayer(iframe, volume) {
   // YouTube IFrame API — load the API script once, then create a player
   if (!window.YT || !window.YT.Player) {
@@ -1819,27 +1955,22 @@ _createYTPlayer(iframe, volume) {
         onReady: (e) => {
           e.target.setVolume(volume);
           this._startMusicTimeTracking();
+          this._flushPendingMusicSyncState();
         },
         onStateChange: (e) => {
           // Sync Haven's play/pause state when user interacts with YT's native controls
-          const ppBtn = document.getElementById('music-play-pause-btn');
-          const pipPP = document.getElementById('music-pip-pp');
           if (e.data === YT.PlayerState.PLAYING) {
-            this._musicPlaying = true;
-            if (ppBtn) ppBtn.textContent = '⏸';
-            if (pipPP) pipPP.textContent = '⏸';
+            this._setMusicPlayingUi(true);
+            if (!this._shouldSuppressMusicBroadcasts()) this._emitMusicControl('play');
           } else if (e.data === YT.PlayerState.PAUSED) {
-            this._musicPlaying = false;
-            if (ppBtn) ppBtn.textContent = '▶';
-            if (pipPP) pipPP.textContent = '▶';
+            this._setMusicPlayingUi(false);
+            if (!this._shouldSuppressMusicBroadcasts()) this._emitMusicControl('pause');
           } else if (e.data === YT.PlayerState.ENDED) {
             // Auto-advance: if YouTube playlist, play the next video
             if (this._musicIsYTPlaylist) {
               try { e.target.nextVideo(); } catch {}
             } else {
-              this._musicPlaying = false;
-              if (ppBtn) ppBtn.textContent = '▶';
-              if (pipPP) pipPP.textContent = '▶';
+              this._setMusicPlayingUi(false);
             }
           }
         }
@@ -1878,6 +2009,7 @@ _createSCWidget(iframe, volume) {
     this._musicSCWidget.bind(SC.Widget.Events.READY, () => {
       this._musicSCWidget.setVolume(volume);
       this._startMusicTimeTracking();
+      this._flushPendingMusicSyncState();
       // Get track count for shuffle support
       this._musicSCWidget.getSounds((sounds) => {
         this._musicSCTrackCount = sounds ? sounds.length : 0;
@@ -1900,7 +2032,13 @@ _createSCWidget(iframe, volume) {
     });
     // Track current index for shuffle
     this._musicSCWidget.bind(SC.Widget.Events.PLAY, () => {
+      this._setMusicPlayingUi(true);
+      if (!this._shouldSuppressMusicBroadcasts()) this._emitMusicControl('play');
       this._musicSCWidget.getCurrentSoundIndex((idx) => { this._musicSCCurrentIndex = idx; });
+    });
+    this._musicSCWidget.bind(SC.Widget.Events.PAUSE, () => {
+      this._setMusicPlayingUi(false);
+      if (!this._shouldSuppressMusicBroadcasts()) this._emitMusicControl('pause');
     });
   } catch { /* iframe may already be destroyed */ }
 },
@@ -1918,43 +2056,41 @@ _handleMusicStopped(data) {
 
 _handleMusicControl(data) {
   if (data.action === 'pause') {
+    this._suppressMusicBroadcasts();
     this._pauseMusicEmbed();
-    this._musicPlaying = false;
+    this._setMusicPlayingUi(false);
   } else if (data.action === 'play') {
+    this._suppressMusicBroadcasts();
     this._playMusicEmbed();
-    this._musicPlaying = true;
+    this._setMusicPlayingUi(true);
   } else if (data.action === 'next') {
+    this._suppressMusicBroadcasts();
     this._musicNextTrack();
   } else if (data.action === 'prev') {
+    this._suppressMusicBroadcasts();
     this._musicPrevTrack();
   } else if (data.action === 'shuffle') {
+    this._suppressMusicBroadcasts();
     this._musicToggleShuffle();
   }
-  const ppBtn = document.getElementById('music-play-pause-btn');
-  if (ppBtn) ppBtn.textContent = this._musicPlaying ? '⏸' : '▶';
+  if (data.syncState) this._applyMusicSyncState(data.syncState);
 },
 
 _toggleMusicPlayPause() {
+  this._suppressMusicBroadcasts();
   if (this._musicPlaying) {
     this._pauseMusicEmbed();
-    this._musicPlaying = false;
+    this._setMusicPlayingUi(false);
   } else {
     this._playMusicEmbed();
-    this._musicPlaying = true;
+    this._setMusicPlayingUi(true);
   }
-  const ppBtn = document.getElementById('music-play-pause-btn');
-  if (ppBtn) ppBtn.textContent = this._musicPlaying ? '⏸' : '▶';
-  // Broadcast to others in voice
-  if (this.voice && this.voice.inVoice) {
-    this.socket.emit('music-control', {
-      code: this.voice.currentChannel,
-      action: this._musicPlaying ? 'play' : 'pause'
-    });
-  }
+  this._emitMusicControl(this._musicPlaying ? 'play' : 'pause');
 },
 
 _musicTrackControl(action) {
   // Execute locally
+  this._suppressMusicBroadcasts();
   if (action === 'next') this._musicNextTrack();
   else if (action === 'prev') this._musicPrevTrack();
   else if (action === 'shuffle') this._musicToggleShuffle();
@@ -2059,6 +2195,7 @@ _hideMusicPanel() {
   }
   this._removeMusicIndicator();
   this._musicActive = false;
+  this._pendingMusicSyncState = null;
 },
 
 _minimizeMusicPanel() {
@@ -2311,10 +2448,10 @@ _seekMusic(pct) {
   try {
     if (this._musicYTPlayer && this._musicYTPlayer.getDuration) {
       const dur = this._musicYTPlayer.getDuration();
-      if (dur > 0) this._musicYTPlayer.seekTo(dur * pct / 100, true);
+      if (dur > 0) this._seekMusicToSeconds(dur * pct / 100);
     } else if (this._musicSCWidget) {
       this._musicSCWidget.getDuration((dur) => {
-        if (dur > 0) this._musicSCWidget.seekTo(dur * pct / 100);
+        if (dur > 0) this._seekMusicToSeconds((dur / 1000) * pct / 100);
       });
     }
   } catch { /* player may be gone */ }
@@ -2332,17 +2469,37 @@ _startMusicTimeTracking() {
       if (this._musicYTPlayer && this._musicYTPlayer.getCurrentTime && this._musicYTPlayer.getDuration) {
         const cur = this._musicYTPlayer.getCurrentTime() || 0;
         const dur = this._musicYTPlayer.getDuration() || 0;
+        const now = Date.now();
         if (curEl) curEl.textContent = fmt(cur);
         if (durEl) durEl.textContent = fmt(dur);
         if (seekSlider && !this._musicSeeking && dur > 0) seekSlider.value = (cur / dur * 100).toFixed(1);
+        if (this._musicLastTrackedPosition != null && !this._shouldSuppressMusicBroadcasts()) {
+          const elapsed = this._musicPlaying ? (now - (this._musicLastTrackedAt || now)) / 1000 : 0;
+          const expected = this._musicLastTrackedPosition + Math.max(0, elapsed);
+          if (Math.abs(cur - expected) > 2 && now - (this._musicLastSeekBroadcastAt || 0) > 1200) {
+            this._emitMusicSeek(cur, dur);
+          }
+        }
+        this._musicLastTrackedPosition = cur;
+        this._musicLastTrackedAt = now;
       } else if (this._musicSCWidget) {
         this._musicSCWidget.getPosition((pos) => {
           this._musicSCWidget.getDuration((dur) => {
             const curS = (pos || 0) / 1000;
             const durS = (dur || 0) / 1000;
+            const now = Date.now();
             if (curEl) curEl.textContent = fmt(curS);
             if (durEl) durEl.textContent = fmt(durS);
             if (seekSlider && !this._musicSeeking && durS > 0) seekSlider.value = (curS / durS * 100).toFixed(1);
+            if (this._musicLastTrackedPosition != null && !this._shouldSuppressMusicBroadcasts()) {
+              const elapsed = this._musicPlaying ? (now - (this._musicLastTrackedAt || now)) / 1000 : 0;
+              const expected = this._musicLastTrackedPosition + Math.max(0, elapsed);
+              if (Math.abs(curS - expected) > 2 && now - (this._musicLastSeekBroadcastAt || 0) > 1200) {
+                this._emitMusicSeek(curS, durS);
+              }
+            }
+            this._musicLastTrackedPosition = curS;
+            this._musicLastTrackedAt = now;
           });
         });
       }
@@ -2358,6 +2515,8 @@ _stopMusicTimeTracking() {
   if (seekSlider) seekSlider.value = 0;
   if (curEl) curEl.textContent = '0:00';
   if (durEl) durEl.textContent = '0:00';
+  this._musicLastTrackedPosition = null;
+  this._musicLastTrackedAt = 0;
 },
 
 _getMusicEmbed(url) {

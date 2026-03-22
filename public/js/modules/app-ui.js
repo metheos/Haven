@@ -774,14 +774,12 @@ _setupUI() {
   seekSlider.addEventListener('change', (e) => {
     this._musicSeeking = false;
     const pct = parseFloat(e.target.value);
+    this._suppressMusicBroadcasts();
     this._seekMusic(pct);
-    // Broadcast seek to others in voice
-    if (this.voice && this.voice.inVoice) {
-      this.socket.emit('music-seek', {
-        code: this.voice.currentChannel,
-        position: pct
-      });
-    }
+    this._withMusicDuration((durationSeconds) => {
+      const positionSeconds = durationSeconds > 0 ? (durationSeconds * pct) / 100 : 0;
+      this._emitMusicSeek(positionSeconds, durationSeconds);
+    });
   });
   document.getElementById('music-link-input').addEventListener('input', (e) => {
     this._previewMusicLink(e.target.value.trim());

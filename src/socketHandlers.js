@@ -483,7 +483,7 @@ function setupSocketHandlers(io, db) {
   // Online tracking:  code → Map<userId, { id, username, socketId }>
   const channelUsers = new Map();
   const voiceUsers = new Map();
-  // Active music per voice room:  code → { url, userId, username } | null
+  // Active music per voice room:  code → { url, userId, username, playbackState } | null
   const activeMusic = new Map();
   // Active screen sharers per voice room:  code → Set<userId>
   const activeScreenSharers = new Map();
@@ -498,6 +498,58 @@ function setupSocketHandlers(io, db) {
     const cutoff = Date.now() - 3600000; // 1 hour
     for (const [k, v] of slowModeTracker) { if (v < cutoff) slowModeTracker.delete(k); }
   }, 5 * 60 * 1000);
+
+  function clampMusicPosition(positionSeconds, durationSeconds = null) {
+    const pos = Number(positionSeconds);
+    if (!Number.isFinite(pos)) return 0;
+    if (Number.isFinite(durationSeconds) && durationSeconds >= 0) {
+      return Math.max(0, Math.min(pos, durationSeconds));
+    }
+    return Math.max(0, pos);
+  }
+
+  function getActiveMusicSyncState(music) {
+    if (!music) return null;
+    const playback = music.playbackState || {};
+    const baseUpdatedAt = Number(playback.updatedAt) || Date.now();
+    const durationSeconds = Number.isFinite(playback.durationSeconds) ? playback.durationSeconds : null;
+    let positionSeconds = clampMusicPosition(playback.positionSeconds || 0, durationSeconds);
+    if (playback.isPlaying) {
+      positionSeconds = clampMusicPosition(
+        positionSeconds + Math.max(0, Date.now() - baseUpdatedAt) / 1000,
+        durationSeconds
+      );
+    }
+    return {
+      isPlaying: !!playback.isPlaying,
+      positionSeconds,
+      durationSeconds,
+      updatedAt: Date.now()
+    };
+  }
+
+  function updateActiveMusicPlaybackState(code, next = {}) {
+    const music = activeMusic.get(code);
+    if (!music) return null;
+    const current = getActiveMusicSyncState(music) || {
+      isPlaying: false,
+      positionSeconds: 0,
+      durationSeconds: null
+    };
+    const durationSeconds = Number.isFinite(next.durationSeconds)
+      ? Math.max(0, Number(next.durationSeconds))
+      : current.durationSeconds;
+    const positionSeconds = Number.isFinite(next.positionSeconds)
+      ? clampMusicPosition(next.positionSeconds, durationSeconds)
+      : current.positionSeconds;
+    music.playbackState = {
+      isPlaying: typeof next.isPlaying === 'boolean' ? next.isPlaying : current.isPlaying,
+      positionSeconds,
+      durationSeconds,
+      updatedAt: Date.now()
+    };
+    return getActiveMusicSyncState(music);
+  }
 
   // ── Temporary channel cleanup (check every 60s) ──────────
   setInterval(() => {
@@ -1649,7 +1701,8 @@ function setupSocketHandlers(io, db) {
           username: music.username,
           url: music.url,
           channelCode: code,
-          resolvedFrom: music.resolvedFrom
+          resolvedFrom: music.resolvedFrom,
+          syncState: getActiveMusicSyncState(music)
         });
       }
 
@@ -2020,7 +2073,13 @@ function setupSocketHandlers(io, db) {
         url: playUrl,
         userId: socket.user.id,
         username: socket.user.displayName,
-        resolvedFrom
+        resolvedFrom,
+        playbackState: {
+          isPlaying: true,
+          positionSeconds: 0,
+          durationSeconds: null,
+          updatedAt: Date.now()
+        }
       });
       for (const [uid, user] of voiceRoom) {
         io.to(user.socketId).emit('music-shared', {
@@ -2028,7 +2087,8 @@ function setupSocketHandlers(io, db) {
           username: socket.user.displayName,
           url: playUrl,
           channelCode: data.code,
-          resolvedFrom
+          resolvedFrom,
+          syncState: getActiveMusicSyncState(activeMusic.get(data.code))
         });
       }
     });
@@ -2058,13 +2118,21 @@ function setupSocketHandlers(io, db) {
       if (!allowed.includes(action)) return;
       const voiceRoom = voiceUsers.get(data.code);
       if (!voiceRoom || !voiceRoom.has(socket.user.id)) return;
+      const rawPosition = Number(data.positionSeconds);
+      const rawDuration = Number(data.durationSeconds);
+      const syncState = updateActiveMusicPlaybackState(data.code, {
+        isPlaying: action === 'play' ? true : action === 'pause' ? false : undefined,
+        positionSeconds: Number.isFinite(rawPosition) ? rawPosition : undefined,
+        durationSeconds: Number.isFinite(rawDuration) && rawDuration >= 0 ? rawDuration : undefined
+      });
       for (const [uid, user] of voiceRoom) {
         if (uid === socket.user.id) continue; // don't echo back to sender
         io.to(user.socketId).emit('music-control', {
           action,
           userId: socket.user.id,
           username: socket.user.displayName,
-          channelCode: data.code
+          channelCode: data.code,
+          syncState
         });
       }
     });
@@ -2073,17 +2141,32 @@ function setupSocketHandlers(io, db) {
     socket.on('music-seek', (data) => {
       if (!data || typeof data !== 'object') return;
       if (!isString(data.code, 8, 8)) return;
-      const position = parseFloat(data.position);
-      if (isNaN(position) || position < 0 || position > 100) return;
       const voiceRoom = voiceUsers.get(data.code);
       if (!voiceRoom || !voiceRoom.has(socket.user.id)) return;
+      const rawDuration = Number(data.durationSeconds);
+      const durationSeconds = Number.isFinite(rawDuration) && rawDuration >= 0 ? rawDuration : undefined;
+      let positionSeconds = Number(data.positionSeconds);
+      if (!Number.isFinite(positionSeconds)) {
+        const positionPct = Number(data.position);
+        if (!Number.isFinite(positionPct) || positionPct < 0 || positionPct > 100 || !Number.isFinite(durationSeconds)) return;
+        positionSeconds = (durationSeconds * positionPct) / 100;
+      }
+      const syncState = updateActiveMusicPlaybackState(data.code, {
+        positionSeconds,
+        durationSeconds
+      });
       for (const [uid, user] of voiceRoom) {
         if (uid === socket.user.id) continue;
         io.to(user.socketId).emit('music-seek', {
-          position,
+          position: syncState && Number.isFinite(syncState.durationSeconds) && syncState.durationSeconds > 0
+            ? (syncState.positionSeconds / syncState.durationSeconds) * 100
+            : undefined,
+          positionSeconds: syncState ? syncState.positionSeconds : positionSeconds,
+          durationSeconds: syncState ? syncState.durationSeconds : (durationSeconds ?? null),
           userId: socket.user.id,
           username: socket.user.displayName,
-          channelCode: data.code
+          channelCode: data.code,
+          syncState
         });
       }
     });
@@ -2464,6 +2547,18 @@ function setupSocketHandlers(io, db) {
 
       broadcastVoiceUsers(code);
       broadcastStreamInfo(code); // Ensure re-joined user gets current stream info
+
+      const music = activeMusic.get(code);
+      if (music) {
+        socket.emit('music-shared', {
+          userId: music.userId,
+          username: music.username,
+          url: music.url,
+          channelCode: code,
+          resolvedFrom: music.resolvedFrom,
+          syncState: getActiveMusicSyncState(music)
+        });
+      }
     });
 
     // Let clients explicitly request voice counts (fallback for missed push events)

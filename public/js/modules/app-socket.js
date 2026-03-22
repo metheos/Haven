@@ -631,7 +631,10 @@ _setupSocketListeners() {
     this._handleMusicControl(data);
   });
   this.socket.on('music-seek', (data) => {
-    if (data && typeof data.position === 'number') this._seekMusic(data.position);
+    if (!data) return;
+    if (data.syncState) this._applyMusicSyncState(data.syncState);
+    else if (typeof data.positionSeconds === 'number') this._applyMusicSyncState({ positionSeconds: data.positionSeconds });
+    else if (typeof data.position === 'number') this._seekMusic(data.position);
   });
   this.socket.on('music-search-results', (data) => {
     this._showMusicSearchResults(data);
