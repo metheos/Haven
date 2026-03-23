@@ -305,7 +305,7 @@ window.HavenPluginLoader = (function () {
 
     // Plugins
     if (loadedPlugins.size === 0) {
-      container.innerHTML = '<p class="plugin-empty">No plugins found. Drop <code>.plugin.js</code> files into the <code>plugins/</code> folder.</p>';
+      container.innerHTML = `<p class="plugin-empty">${t('settings.plugins_section.no_plugins')}</p>`;
     } else {
       container.innerHTML = '';
       for (const [file, p] of loadedPlugins) {

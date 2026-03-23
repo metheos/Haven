@@ -94,7 +94,7 @@ async switchChannel(code) {
   this._updateBadge(code);
 
   document.getElementById('status-channel').textContent = isDm && channel.dm_target
-    ? `DM: ${channel.dm_target.username}` : channel ? channel.name : code;
+    ? t('channels.dm_status', { name: channel.dm_target.username }) : channel ? channel.name : code;
 
   // Reset pagination state for the new channel
   this._oldestMsgId = null;
@@ -139,12 +139,12 @@ _updateTopicBar(topic) {
   if (topic) {
     bar.textContent = topic;
     bar.style.display = 'block';
-    bar.title = canEdit ? 'Click to edit topic' : topic;
+    bar.title = canEdit ? t('channels.topic_edit_hint') : topic;
     bar.onclick = canEdit ? () => this._editTopic() : null;
     bar.style.cursor = canEdit ? 'pointer' : 'default';
   } else {
     if (canEdit) {
-      bar.textContent = 'Click to set a topic...';
+      bar.textContent = t('channels.topic_placeholder');
       bar.style.display = 'block';
       bar.style.opacity = '0.4';
       bar.style.cursor = 'pointer';
@@ -159,7 +159,7 @@ _updateTopicBar(topic) {
 async _editTopic() {
   const channel = this.channels.find(c => c.code === this.currentChannel);
   const current = channel?.topic || '';
-  const newTopic = await this._showPromptModal('Channel Topic', 'Set channel topic (max 256 chars):', current);
+  const newTopic = await this._showPromptModal(t('channels.topic_modal_title'), t('channels.topic_modal_hint'), current);
   if (newTopic === null) return; // cancelled
   this.socket.emit('set-channel-topic', { code: this.currentChannel, topic: newTopic.slice(0, 256) });
 },
@@ -167,7 +167,7 @@ async _editTopic() {
 _showWelcome() {
   document.getElementById('message-area').style.display = 'none';
   document.getElementById('no-channel-msg').style.display = 'flex';
-  document.getElementById('channel-header-name').textContent = 'Select a channel';
+  document.getElementById('channel-header-name').textContent = t('header.select_channel');
   // Clear scramble cache when going back to welcome
   const welcomeHeader = document.getElementById('channel-header-name');
   if (welcomeHeader) { delete welcomeHeader.dataset.originalText; welcomeHeader._scrambling = false; }
@@ -182,7 +182,7 @@ _showWelcome() {
   if (mobileJoin) mobileJoin.style.display = 'none';
   const actionsBox = document.getElementById('header-actions-box');
   if (actionsBox) actionsBox.style.display = 'none';
-  document.getElementById('status-channel').textContent = 'None';
+  document.getElementById('status-channel').textContent = t('channels.status_none');
   document.getElementById('status-online-count').textContent = '0';
   const topicBar = document.getElementById('channel-topic-bar');
   if (topicBar) topicBar.style.display = 'none';
@@ -259,7 +259,7 @@ _openChannelCtxMenu(code, btnEl) {
   // Update mute label
   const muted = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
   const muteBtn = menu.querySelector('[data-action="mute"]');
-  if (muteBtn) muteBtn.textContent = muted.includes(code) ? '🔕 Unmute Channel' : '🔔 Mute Channel';
+  if (muteBtn) muteBtn.textContent = muted.includes(code) ? `🔕 ${t('channels.unmute_channel')}` : `🔔 ${t('channels.mute_channel')}`;
   // Show/hide voice options based on current voice state
   const joinVoiceBtn = menu.querySelector('[data-action="join-voice"]');
   const leaveVoiceBtn = menu.querySelector('[data-action="leave-voice"]');
@@ -361,8 +361,8 @@ _initDmContextMenu() {
     this._closeDmCtxMenu();
     const muted = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
     const idx = muted.indexOf(code);
-    if (idx >= 0) { muted.splice(idx, 1); this._showToast('DM unmuted', 'success'); }
-    else { muted.push(code); this._showToast('DM muted', 'success'); }
+    if (idx >= 0) { muted.splice(idx, 1); this._showToast(t('channels.dm_unmuted'), 'success'); }
+    else { muted.push(code); this._showToast(t('channels.dm_muted'), 'success'); }
     localStorage.setItem('haven_muted_channels', JSON.stringify(muted));
   });
 
@@ -371,7 +371,7 @@ _initDmContextMenu() {
     const code = this._dmCtxMenuCode;
     if (!code) return;
     this._closeDmCtxMenu();
-    if (!confirm('⚠️ Delete this DM?\nAll messages will be permanently deleted for both users.')) return;
+    if (!confirm('⚠️ ' + t('channels.dm_delete_confirm'))) return;
     this.socket.emit('delete-dm', { code });
   });
 
@@ -391,7 +391,7 @@ _openDmCtxMenu(code, anchorEl, mouseEvent) {
   // Update mute label
   const muted = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
   const muteBtn = menu.querySelector('[data-action="dm-mute"]');
-  if (muteBtn) muteBtn.textContent = muted.includes(code) ? '🔕 Unmute DM' : '🔔 Mute DM';
+  if (muteBtn) muteBtn.textContent = muted.includes(code) ? `🔕 ${t('channels.unmute_dm')}` : `🔔 ${t('channels.mute_dm')}`;
 
   // Position
   if (mouseEvent) {
@@ -455,7 +455,7 @@ _renderSubChannelPanel() {
   const subChannels = regularChannels.filter(c => c.parent_channel_id);
 
   if (!subChannels.length) {
-    container.innerHTML = '<p style="text-align:center;opacity:0.5;padding:24px">No sub-channels on this server.</p>';
+    container.innerHTML = `<p style="text-align:center;opacity:0.5;padding:24px">${t('channels.no_sub_channels')}</p>`;
     return;
   }
 
@@ -489,7 +489,7 @@ _renderSubChannelPanel() {
     if (subbed.length) {
       const subbedLabel = document.createElement('div');
       subbedLabel.className = 'sub-panel-group-label';
-      subbedLabel.textContent = 'Subscribed';
+      subbedLabel.textContent = t('channels.subscribed');
       section.appendChild(subbedLabel);
       const subbedGrid = document.createElement('div');
       subbedGrid.className = 'sub-panel-grid';
@@ -500,7 +500,7 @@ _renderSubChannelPanel() {
     if (unsubbed.length) {
       const unsubbedLabel = document.createElement('div');
       unsubbedLabel.className = 'sub-panel-group-label unsubbed';
-      unsubbedLabel.textContent = 'Unsubscribed';
+      unsubbedLabel.textContent = t('channels.unsubscribed');
       section.appendChild(unsubbedLabel);
       const unsubbedGrid = document.createElement('div');
       unsubbedGrid.className = 'sub-panel-grid';
@@ -521,7 +521,7 @@ _createSubPanelTile(ch, isSubbed) {
   const unreadBadge = unread > 0 ? `<span class="sub-panel-badge">${unread > 99 ? '99+' : unread}</span>` : '';
 
   tile.innerHTML = `
-    <label class="sub-panel-toggle" title="${isSubbed ? 'Unsubscribe (mute notifications)' : 'Subscribe (enable notifications)'}">
+    <label class="sub-panel-toggle" title="${isSubbed ? t('channels.unsubscribe_hint') : t('channels.subscribe_hint')}">
       <input type="checkbox" ${isSubbed ? 'checked' : ''}>
       <span class="sub-panel-toggle-label">${isSubbed ? '🔔' : '🔕'}</span>
     </label>
@@ -538,11 +538,11 @@ _createSubPanelTile(ch, isSubbed) {
     if (checkbox.checked) {
       // Subscribe: remove from muted
       if (idx >= 0) muted.splice(idx, 1);
-      this._showToast(`Subscribed to ${ch.name}`, 'success');
+      this._showToast(t('channels.subscribed_to', { name: ch.name }), 'success');
     } else {
       // Unsubscribe: add to muted
       if (idx < 0) muted.push(ch.code);
-      this._showToast(`Unsubscribed from ${ch.name}`, 'success');
+      this._showToast(t('channels.unsubscribed_from', { name: ch.name }), 'success');
     }
     localStorage.setItem('haven_muted_channels', JSON.stringify(muted));
     // Re-render the panel and sidebar
@@ -570,8 +570,8 @@ _openReparentModal(code) {
   const descEl = document.getElementById('reparent-modal-desc');
   const listEl = document.getElementById('reparent-channel-list');
 
-  titleEl.textContent = '📦 Move Channel';
-  descEl.textContent = `Select a new parent for "${ch.name}"`;
+  titleEl.textContent = `📦 ${t('channels.move_channel')}`;
+  descEl.textContent = t('channels.move_channel_desc', { name: ch.name });
 
   // Build list of valid parent targets (top-level channels that aren't this one)
   const targets = this.channels.filter(c =>
@@ -587,13 +587,13 @@ _openReparentModal(code) {
   if (ch.parent_channel_id) {
     html += `<div class="organize-item reparent-option" data-target="__top__" style="border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:4px;padding-bottom:8px">
       <span style="opacity:0.5">⬆️</span>
-      <span style="flex:1"><strong>Promote to top-level channel</strong></span>
+      <span style="flex:1"><strong>${t('channels.promote_to_top_level')}</strong></span>
     </div>`;
   }
 
   for (const t of targets) {
     const subCount = this.channels.filter(c => c.parent_channel_id === t.id).length;
-    const badge = subCount > 0 ? ` <span style="opacity:0.4;font-size:0.8em">(${subCount} sub-ch)</span>` : '';
+    const badge = subCount > 0 ? ` <span style="opacity:0.4;font-size:0.8em">${t('channels.sub_ch_count', { count: subCount })}</span>` : '';
     html += `<div class="organize-item reparent-option" data-target="${t.code}">
       <span style="opacity:0.5">#</span>
       <span style="flex:1">${this._escapeHtml(t.name)}${badge}</span>
@@ -601,7 +601,7 @@ _openReparentModal(code) {
   }
 
   if (!targets.length && !ch.parent_channel_id) {
-    html += '<p style="text-align:center;opacity:0.5;padding:16px;font-size:0.85rem">No valid parent channels available</p>';
+    html += `<p style="text-align:center;opacity:0.5;padding:16px;font-size:0.85rem">${t('channels.no_valid_parents')}</p>`;
   }
 
   listEl.innerHTML = html;
@@ -612,8 +612,8 @@ _openReparentModal(code) {
       const target = el.dataset.target;
       const newParentCode = target === '__top__' ? null : target;
       const action = newParentCode === null
-        ? `Promote "${ch.name}" to a top-level channel?`
-        : `Move "${ch.name}" under "${this.channels.find(c => c.code === newParentCode)?.name || target}"?`;
+        ? t('channels.confirm_promote', { name: ch.name })
+        : t('channels.confirm_move', { name: ch.name, parent: this.channels.find(c => c.code === newParentCode)?.name || target });
       if (confirm(action)) {
         this.socket.emit('reparent-channel', { code, newParentCode });
         document.getElementById('reparent-modal').style.display = 'none';
@@ -640,8 +640,8 @@ _openOrganizeModal(parentCode, serverLevel) {
     this._organizeCatOrder = JSON.parse(localStorage.getItem('haven_cat_order___server__') || '[]');
     this._organizeCatSort = localStorage.getItem('haven_cat_sort___server__') || 'az';
 
-    document.getElementById('organize-modal-title').textContent = '📋 Organize Channels';
-    document.getElementById('organize-modal-parent-name').textContent = 'Reorder channels and assign category tags';
+    document.getElementById('organize-modal-title').textContent = `📋 ${t('channels.organize_channels')}`;
+    document.getElementById('organize-modal-parent-name').textContent = t('channels.organize_desc');
     // Server-level sort is stored in localStorage (no single parent channel to hold it)
     const sortSel = document.getElementById('organize-global-sort');
     const savedSort = localStorage.getItem('haven_server_sort_mode') || 'manual';
@@ -671,7 +671,7 @@ _openOrganizeModal(parentCode, serverLevel) {
   this._organizeCatOrder = JSON.parse(localStorage.getItem(`haven_cat_order_${parentCode}`) || '[]');
   this._organizeCatSort = localStorage.getItem(`haven_cat_sort_${parentCode}`) || 'az';
 
-  document.getElementById('organize-modal-title').textContent = '📋 Organize Sub-channels';
+  document.getElementById('organize-modal-title').textContent = `📋 ${t('channels.organize_sub_channels')}`;
   document.getElementById('organize-modal-parent-name').textContent = `# ${parent.name}`;
   // Map sort_alphabetical: 0=manual, 1=alpha, 2=created
   const sortSel = document.getElementById('organize-global-sort');
@@ -778,16 +778,16 @@ _renderOrganizeList() {
     // Tag header
     if (hasTags) {
       const tagKey = group.tag || '__untagged__';
-      const label = group.tag ? this._escapeHtml(group.tag) : 'Untagged';
+      const label = group.tag ? this._escapeHtml(group.tag) : t('channels.untagged');
       const isTagSelected = this._organizeSelectedTag === tagKey;
       html += `<div class="organize-tag-header${isTagSelected ? ' selected' : ''}" data-tag-key="${this._escapeHtml(tagKey)}">
         <span>${label}</span>
         <select class="tag-sort-select" data-tag="${this._escapeHtml(tagKey)}" title="Sort this group">
-          <option value="manual"${group.sort === 'manual' ? ' selected' : ''}>Manual</option>
-          <option value="alpha"${group.sort === 'alpha' ? ' selected' : ''}>A→Z</option>
-          <option value="created"${group.sort === 'created' ? ' selected' : ''}>Newest</option>
-          <option value="oldest"${group.sort === 'oldest' ? ' selected' : ''}>Oldest</option>
-          <option value="dynamic"${group.sort === 'dynamic' ? ' selected' : ''}>Dynamic</option>
+          <option value="manual"${group.sort === 'manual' ? ' selected' : ''}>${t('channels.sort.manual')}</option>
+          <option value="alpha"${group.sort === 'alpha' ? ' selected' : ''}>${t('channels.sort.alpha')}</option>
+          <option value="created"${group.sort === 'created' ? ' selected' : ''}>${t('channels.sort.newest')}</option>
+          <option value="oldest"${group.sort === 'oldest' ? ' selected' : ''}>${t('channels.sort.oldest')}</option>
+          <option value="dynamic"${group.sort === 'dynamic' ? ' selected' : ''}>${t('channels.sort.dynamic')}</option>
         </select>
       </div>`;
     }
@@ -797,7 +797,7 @@ _renderOrganizeList() {
       const tagBadge = ch.category ? `<span class="organize-tag-badge">${this._escapeHtml(ch.category)}</span>` : '';
       const icon = this._organizeServerLevel ? '#' : (ch.is_private ? '🔒' : '↳');
       const hasSubs = this._organizeServerLevel && this.channels.some(c => c.parent_channel_id === ch.id);
-      const drillHint = hasSubs ? `<span class="organize-drill-hint" title="Double-click to organize sub-channels">▶</span>` : '';
+      const drillHint = hasSubs ? `<span class="organize-drill-hint" title="${t('channels.drill_hint')}">▶</span>` : '';
       html += `<div class="organize-item${sel ? ' selected' : ''}${hasSubs ? ' organize-has-subs' : ''}" data-code="${ch.code}">
         <span style="opacity:0.5">${icon}</span>
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this._escapeHtml(ch.name)}</span>
@@ -807,7 +807,7 @@ _renderOrganizeList() {
   }
 
   if (!displayList.length) {
-    html = '<div style="padding:24px;text-align:center;opacity:0.4;font-size:0.9rem">' + (this._organizeServerLevel ? 'No channels yet' : 'No sub-channels yet') + '</div>';
+    html = `<div style="padding:24px;text-align:center;opacity:0.4;font-size:0.9rem">${this._organizeServerLevel ? t('channels.no_channels_yet') : t('channels.no_sub_channels_yet')}</div>`;
   }
 
   listEl.innerHTML = html;
@@ -1015,7 +1015,7 @@ _renderDmOrganizeList() {
   const allTags = [...new Set(displayList.map(c => assignments[c.code]).filter(Boolean))].sort();
   const hasTags = allTags.length > 0;
 
-  const getDmName = (ch) => ch.dm_target ? this._getNickname(ch.dm_target.id, ch.dm_target.username) : 'Unknown';
+  const getDmName = (ch) => ch.dm_target ? this._getNickname(ch.dm_target.id, ch.dm_target.username) : t('channels.unknown_user');
 
   const sortGroup = (arr, mode) => {
     if (mode === 'alpha') {
@@ -1046,7 +1046,7 @@ _renderDmOrganizeList() {
     if (group.tag) {
       html += `<div class="organize-tag-header">🏷️ ${this._escapeHtml(group.tag)}</div>`;
     } else if (hasTags) {
-      html += `<div class="organize-tag-header" style="opacity:0.5">Uncategorized</div>`;
+      html += `<div class="organize-tag-header" style="opacity:0.5">${t('channels.uncategorized')}</div>`;
     }
     for (const ch of group.items) {
       const name = getDmName(ch);
@@ -1058,7 +1058,7 @@ _renderDmOrganizeList() {
       </div>`;
     }
   }
-  listEl.innerHTML = html || '<p class="muted-text">No DMs to organize</p>';
+  listEl.innerHTML = html || `<p class="muted-text">${t('channels.no_dms_to_organize')}</p>`;
 
   // Click to select
   listEl.querySelectorAll('.organize-item').forEach(el => {
@@ -1091,7 +1091,7 @@ _openWebhookModal(channelCode) {
   document.getElementById('webhook-modal-channel-name').textContent = ch ? `# ${ch.name}` : '';
   document.getElementById('webhook-name-input').value = '';
   document.getElementById('webhook-token-reveal').style.display = 'none';
-  document.getElementById('webhook-list').innerHTML = '<p style="opacity:0.5;font-size:0.85rem">Loading…</p>';
+  document.getElementById('webhook-list').innerHTML = `<p style="opacity:0.5;font-size:0.85rem">${t('channels.webhook_loading')}</p>`;
   modal.style.display = 'flex';
   this.socket.emit('get-webhooks', { channelCode });
 },
@@ -1099,13 +1099,13 @@ _openWebhookModal(channelCode) {
 _renderWebhookList(webhooks, channelCode) {
   const container = document.getElementById('webhook-list');
   if (!webhooks.length) {
-    container.innerHTML = '<p style="opacity:0.5;font-size:0.85rem">No webhooks yet. Create one above.</p>';
+    container.innerHTML = `<p style="opacity:0.5;font-size:0.85rem">${t('channels.no_webhooks')}</p>`;
     return;
   }
   container.innerHTML = webhooks.map(wh => {
     const maskedToken = wh.token.slice(0, 8) + '••••••••';
-    const statusLabel = wh.is_active ? '🟢 Active' : '🔴 Disabled';
-    const toggleLabel = wh.is_active ? 'Disable' : 'Enable';
+    const statusLabel = wh.is_active ? `🟢 ${t('channels.webhook_active')}` : `🔴 ${t('channels.webhook_disabled')}`;
+    const toggleLabel = wh.is_active ? t('channels.webhook_disable') : t('channels.webhook_enable');
     return `
       <div class="webhook-item" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.04);margin-bottom:6px">
         <div style="flex:1;min-width:0">
@@ -1120,7 +1120,7 @@ _renderWebhookList(webhooks, channelCode) {
 
   container.querySelectorAll('.webhook-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (confirm('Delete this webhook? This cannot be undone.')) {
+      if (confirm(t('channels.webhook_delete_confirm'))) {
         this.socket.emit('delete-webhook', { webhookId: parseInt(btn.dataset.id) });
       }
     });
@@ -1290,22 +1290,22 @@ _renderChannels() {
     // Build small status indicators for channel features
     const _badges = [];
     if (!isSub) {
-      if (ch.streams_enabled === 0) _badges.push('<span class="ch-disabled-badge" title="Screen sharing not allowed">🖥️</span>');
-      if (ch.music_enabled === 0) _badges.push('<span class="ch-disabled-badge" title="Music not allowed">🎵</span>');
-      if (ch.slow_mode_interval > 0) _badges.push('<span title="Slow mode: ' + ch.slow_mode_interval + 's" style="opacity:0.5;font-size:0.65rem">🐢</span>');
-      if (ch.cleanup_exempt === 1) _badges.push('<span title="Exempt from auto-cleanup" style="opacity:0.5;font-size:0.65rem">🛡️</span>');
+      if (ch.streams_enabled === 0) _badges.push(`<span class="ch-disabled-badge" title="${t('channels.screen_share_not_allowed')}">🖥️</span>`);
+      if (ch.music_enabled === 0) _badges.push(`<span class="ch-disabled-badge" title="${t('channels.music_not_allowed')}">🎵</span>`);
+      if (ch.slow_mode_interval > 0) _badges.push(`<span title="${t('channels.slow_mode_title', { seconds: ch.slow_mode_interval })}" style="opacity:0.5;font-size:0.65rem">🐢</span>`);
+      if (ch.cleanup_exempt === 1) _badges.push(`<span title="${t('channels.cleanup_exempt_title')}" style="opacity:0.5;font-size:0.65rem">🛡️</span>`);
     }
     const _mutedList = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
-    if (_mutedList.includes(ch.code)) _badges.push('<span class="ch-disabled-badge" title="Muted / Unsubscribed">🔕</span>');
+    if (_mutedList.includes(ch.code)) _badges.push(`<span class="ch-disabled-badge" title="${t('channels.muted_unsubscribed')}">🔕</span>`);
     const indicators = _badges.length ? `<span class="channel-indicators" style="margin-left:auto;display:flex;gap:2px;align-items:center;flex-shrink:0">${_badges.join('')}</span>` : '';
 
-    const expiryTitle = isTemporary ? ` title="Temporary — expires ${new Date(ch.expires_at).toLocaleString()}"` : '';
+    const expiryTitle = isTemporary ? ` title="${t('channels.temporary_expires', { date: new Date(ch.expires_at).toLocaleString() })}"` : '';
     el.innerHTML = `
-      ${hasSubs ? `<span class="channel-collapse-arrow${isCollapsed ? ' collapsed' : ''}" title="Expand/collapse sub-channels">▾</span>` : ''}
+      ${hasSubs ? `<span class="channel-collapse-arrow${isCollapsed ? ' collapsed' : ''}" title="${t('channels.expand_collapse')}">▾</span>` : ''}
       <span class="channel-hash"${expiryTitle}>${hashIcon}</span>
       <span class="channel-name">${this._escapeHtml(ch.name)}</span>
       ${indicators}
-      <button class="channel-more-btn" title="Channel options">⋯</button>
+      <button class="channel-more-btn" title="${t('channels.channel_options')}">⋯</button>
     `;
 
     // If parent has sub-channels, clicking the arrow toggles them
@@ -1461,7 +1461,7 @@ _renderChannels() {
           tagLabel.className = 'sub-channel-item sub-tag-label';
           tagLabel.dataset.parentId = ch.id;
           tagLabel.style.cssText = 'padding:4px 12px 2px 28px;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;opacity:0.35;user-select:none;font-weight:600';
-          tagLabel.textContent = sub.category || 'Untagged';
+          tagLabel.textContent = sub.category || t('channels.untagged');
           if (isCollapsed) tagLabel.style.display = 'none';
           list.appendChild(tagLabel);
           lastSubTag = sub.category;
@@ -1552,7 +1552,7 @@ _renderChannels() {
     const dmSortMode = localStorage.getItem('haven_dm_sort_mode') || 'manual';
     const dmOrder = JSON.parse(localStorage.getItem('haven_dm_order') || '[]');
 
-    const getDmName = (ch) => ch.dm_target ? this._getNickname(ch.dm_target.id, ch.dm_target.username) : 'Unknown';
+    const getDmName = (ch) => ch.dm_target ? this._getNickname(ch.dm_target.id, ch.dm_target.username) : t('channels.unknown_user');
 
     // Sort DMs by saved order first, then append any new ones
     let sortedDms = [];
@@ -1596,7 +1596,7 @@ _renderChannels() {
       const moreBtn = document.createElement('button');
       moreBtn.className = 'channel-more-btn dm-more-btn';
       moreBtn.textContent = '⋯';
-      moreBtn.title = 'More options';
+      moreBtn.title = t('channels.more_options');
       moreBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this._openDmCtxMenu(ch.code, moreBtn);
@@ -1651,7 +1651,7 @@ _renderChannels() {
         header.className = 'dm-category-header';
         header.style.opacity = '0.5';
         header.style.cursor = 'pointer';
-        header.innerHTML = `<span class="dm-category-arrow${uncatCollapsed ? ' collapsed' : ''}">▾</span> <span class="dm-category-name">Uncategorized</span>`;
+        header.innerHTML = `<span class="dm-category-arrow${uncatCollapsed ? ' collapsed' : ''}">▾</span> <span class="dm-category-name">${t('channels.uncategorized')}</span>`;
         header.addEventListener('click', () => {
           const cats = JSON.parse(localStorage.getItem('haven_dm_categories') || '{}');
           if (!cats['__uncategorized__']) cats['__uncategorized__'] = {};

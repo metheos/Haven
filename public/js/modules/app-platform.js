@@ -34,8 +34,8 @@ async _checkForUpdates() {
       // Cache the update info so visibility can be toggled without re-fetching
       const zipAsset = (release.assets || []).find(a => a.name && a.name.endsWith('.zip'));
       this._pendingUpdate = {
-        text: `Update v${remoteVersion}`,
-        title: `Haven v${remoteVersion} is available (you have v${localVersion}). Click to view.`,
+        text: t('header.update_text', { version: remoteVersion }),
+        title: t('header.update_title', { remote: remoteVersion, local: localVersion }),
         href: zipAsset ? zipAsset.browser_download_url : release.html_url
       };
       this._applyUpdateBanner();

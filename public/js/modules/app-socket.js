@@ -69,7 +69,7 @@ _setupSocketListeners() {
     const canCreateChannel = this.user.isAdmin || this._hasPerm('create_channel');
     document.getElementById('admin-controls').style.display = canCreateChannel ? 'block' : 'none';
     document.getElementById('admin-mod-panel').style.display = (canModerate || this._hasPerm('manage_emojis') || this._hasPerm('manage_soundboard')) ? 'block' : 'none';
-    this._showToast('Your roles have been updated', 'info');
+    this._showToast(t('toasts.roles_updated'), 'info');
   });
 
   // Avatar updated confirmation (from socket broadcast by other tabs/reconnect)
@@ -305,7 +305,7 @@ _setupSocketListeners() {
   this.socket.on('channel-created', (channel) => {
     this.channels.push(channel);
     this._renderChannels();
-    this._showToast(`Channel "#${channel.name}" created!\nCode: ${channel.code}`, 'success');
+    this._showToast(t('toasts.channel_created', { name: channel.name, code: channel.code }), 'success');
     this.switchChannel(channel.code);
   });
 
@@ -575,7 +575,7 @@ _setupSocketListeners() {
 
   this.socket.on('user-joined', (data) => {
     if (data.channelCode === this.currentChannel) {
-      this._appendSystemMessage(`${this._getNickname(data.user.id, data.user.username)} joined the channel`);
+      this._appendSystemMessage(t('header.messages.user_joined', { name: this._getNickname(data.user.id, data.user.username) }));
       this.notifications.play('join');
     }
   });
@@ -586,7 +586,7 @@ _setupSocketListeners() {
     if (this.currentChannel === data.code) {
       this.currentChannel = null;
       this._showWelcome();
-      this._showToast('Channel was deleted', 'error');
+      this._showToast(t('toasts.channel_deleted'), 'error');
     }
   });
 
@@ -644,7 +644,7 @@ _setupSocketListeners() {
       this._updateVoiceButtons(false);
       this._updateVoiceStatus(false);
       this._updateVoiceBar();
-      this._showToast(`Kicked from voice by ${data.kickedBy || 'a moderator'}`, 'error');
+      this._showToast(t('toasts.kicked_from_voice', { by: data.kickedBy || t('toasts.a_moderator') }), 'error');
     }
   });
 
@@ -720,7 +720,7 @@ _setupSocketListeners() {
         if (codeDisplay) codeDisplay.textContent = ch.display_code || data.newCode;
       }
       if (this.user.isAdmin) {
-        this._showToast(`Channel code rotated for #${ch.name}`, 'info');
+        this._showToast(t('toasts.channel_code_rotated', { name: ch.name }), 'info');
       }
     }
   });
@@ -811,7 +811,7 @@ _setupSocketListeners() {
 
   this.socket.on('user-renamed', (data) => {
     if (data.channelCode === this.currentChannel) {
-      this._appendSystemMessage(`${data.oldName} is now known as ${data.newName}`);
+      this._appendSystemMessage(t('header.messages.user_renamed', { oldName: data.oldName, newName: data.newName }));
     }
   });
 
@@ -830,10 +830,10 @@ _setupSocketListeners() {
             try {
               const plain = await this.e2e.decrypt(data.content, partner.userId, partner.publicKeyJwk);
               if (plain !== null) displayContent = plain;
-              else displayContent = '[Encrypted message — unable to decrypt]';
-            } catch { displayContent = '[Encrypted message — unable to decrypt]'; }
+              else displayContent = t('header.messages.decrypt_failed');
+            } catch { displayContent = t('header.messages.decrypt_failed'); }
           } else {
-            displayContent = '[Encrypted message — unable to decrypt]';
+            displayContent = t('header.messages.decrypt_failed');
           }
         }
         contentEl.innerHTML = this._formatContent(displayContent);
@@ -846,8 +846,8 @@ _setupSocketListeners() {
         if (!editedTag) {
           editedTag = document.createElement('span');
           editedTag.className = 'edited-tag';
-          editedTag.title = `Edited at ${new Date(data.editedAt).toLocaleString()}`;
-          editedTag.textContent = '(edited)';
+          editedTag.title = t('header.messages.edited_at', { date: new Date(data.editedAt).toLocaleString() });
+          editedTag.textContent = t('header.messages.edited');
           contentEl.appendChild(editedTag);
         }
       }
@@ -884,7 +884,7 @@ _setupSocketListeners() {
         const pinBtn = msgEl.querySelector('[data-action="pin"]');
         if (pinBtn) { pinBtn.dataset.action = 'unpin'; pinBtn.title = 'Unpin'; }
       }
-      this._appendSystemMessage(`📌 ${data.pinnedBy} pinned a message`);
+      this._appendSystemMessage(`📌 ${t('header.messages.pinned_by', { name: data.pinnedBy })}`);
     }
   });
 
@@ -900,7 +900,7 @@ _setupSocketListeners() {
         const unpinBtn = msgEl.querySelector('[data-action="unpin"]');
         if (unpinBtn) { unpinBtn.dataset.action = 'pin'; unpinBtn.title = 'Pin'; }
       }
-      this._appendSystemMessage('📌 A message was unpinned');
+      this._appendSystemMessage(`📌 ${t('header.messages.message_unpinned')}`);
     }
   });
 
@@ -929,7 +929,7 @@ _setupSocketListeners() {
         const archBtn = msgEl.querySelector('[data-action="archive"]');
         if (archBtn) { archBtn.dataset.action = 'unarchive'; archBtn.title = 'Unprotect'; }
       }
-      this._appendSystemMessage(`🛡️ ${data.archivedBy} protected a message from cleanup`);
+      this._appendSystemMessage(`🛡️ ${t('header.messages.protected_by', { name: data.archivedBy })}`);
     }
   });
 
@@ -948,13 +948,13 @@ _setupSocketListeners() {
         const unarchBtn = msgEl.querySelector('[data-action="unarchive"]');
         if (unarchBtn) { unarchBtn.dataset.action = 'archive'; unarchBtn.title = 'Protect from cleanup'; }
       }
-      this._appendSystemMessage('🛡️ A message was unprotected');
+      this._appendSystemMessage(`🛡️ ${t('header.messages.message_unprotected')}`);
     }
   });
 
   // ── Admin moderation events ────────────────────────
   this.socket.on('kicked', (data) => {
-    this._showToast(`You were kicked${data.reason ? ': ' + data.reason : ''}`, 'error');
+    this._showToast(data.reason ? t('toasts.kicked_from_server_reason', { reason: data.reason }) : t('toasts.kicked_from_server'), 'error');
     if (this.currentChannel === data.channelCode) {
       this.currentChannel = null;
       this._showWelcome();
@@ -962,7 +962,7 @@ _setupSocketListeners() {
   });
 
   this.socket.on('banned', (data) => {
-    this._showToast(`You have been banned${data.reason ? ': ' + data.reason : ''}`, 'error');
+    this._showToast(data.reason ? t('toasts.banned_from_server_reason', { reason: data.reason }) : t('toasts.banned_from_server'), 'error');
     setTimeout(() => {
       localStorage.removeItem('haven_token');
       localStorage.removeItem('haven_user');
@@ -971,7 +971,7 @@ _setupSocketListeners() {
   });
 
   this.socket.on('muted', (data) => {
-    this._showToast(`You have been muted for ${data.duration} min${data.reason ? ': ' + data.reason : ''}`, 'error');
+    this._showToast(data.reason ? t('toasts.muted_reason', { duration: data.duration, reason: data.reason }) : t('toasts.muted', { duration: data.duration }), 'error');
   });
 
   this.socket.on('ban-list', (data) => {
@@ -1014,7 +1014,7 @@ _setupSocketListeners() {
         if (stillExists) this._showBotDetail(this._selectedBotId);
         else {
           this._selectedBotId = null;
-          document.getElementById('bot-detail-panel').innerHTML = '<p class="muted-text" style="padding:20px;text-align:center">Select a bot to edit, or create a new one</p>';
+          document.getElementById('bot-detail-panel').innerHTML = `<p class="muted-text" style="padding:20px;text-align:center">${t('settings.admin.bots_select_hint')}</p>`;
         }
       }
     }
@@ -1036,9 +1036,9 @@ _setupSocketListeners() {
     const panel = document.getElementById('search-results-panel');
     const list = document.getElementById('search-results-list');
     const count = document.getElementById('search-results-count');
-    count.textContent = `${data.results.length} result${data.results.length !== 1 ? 's' : ''} for "${this._escapeHtml(data.query)}"`;
+    count.textContent = t(data.results.length === 1 ? 'header.search_results_one' : 'header.search_results_other', { count: data.results.length, query: this._escapeHtml(data.query) });
     list.innerHTML = data.results.length === 0
-      ? '<p class="muted-text" style="padding:12px">No results found</p>'
+      ? `<p class="muted-text" style="padding:12px">${t('header.search_no_results')}</p>`
       : data.results.map(r => `
         <div class="search-result-item" data-msg-id="${r.id}">
           <span class="search-result-author" style="color:${this._getUserColor(r.username)}">${this._escapeHtml(this._getNickname(r.user_id, r.username))}</span>
@@ -1076,7 +1076,7 @@ _setupSocketListeners() {
 
   this.socket.on('new-high-score', (data) => {
     const gameName = this._gamesRegistry?.find(g => g.id === data.game)?.name || data.game;
-    this._showToast(`🏆 ${this._getNickname(data.user_id, data.username)} set a new ${gameName} record: ${data.score}!`, 'success');
+    this._showToast(`🏆 ${t('toasts.record_set', { user: this._getNickname(data.user_id, data.username), game: gameName, score: data.score })}`, 'success');
   });
 },
 

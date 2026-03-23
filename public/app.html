@@ -296,7 +296,7 @@
           <!-- Update available banner -->
           <a id="update-banner" class="update-banner" href="#" style="display:none" target="_blank" rel="noopener">
             <span class="update-pulse"></span>
-            <span class="update-text" data-i18n="header.update_available">Update Available</span>
+            <span class="update-text">Update Available</span>
           </a>
           <!-- Desktop app banner -->
           <a id="desktop-app-banner" class="desktop-app-banner" href="https://ancsemi.github.io/Haven/#download" target="_blank" rel="noopener" style="display:none">
@@ -326,9 +326,7 @@
               </svg>
             </button>
             <!-- Dynamic indicators (music, streams) inject here via JS -->
-            <button id="voice-join-btn" class="btn-voice" style="display:none">
-              🎤 <span data-i18n="voice.join">Join Voice</span>
-            </button>
+            <button id="voice-join-btn" class="btn-voice" style="display:none"><span data-i18n="voice.join">🎤 Join Voice</span></button>
             <div id="voice-active-indicator" class="voice-active-indicator" style="display:none">
               <span class="voice-indicator-icon">🎤</span>
               <span class="voice-indicator-text" data-i18n="header.voice_active">Voice Active</span>
@@ -1099,7 +1097,7 @@
             <span data-i18n="settings.sounds_section.auto_accept_streams">Auto-accept Streams</span>
             <input type="checkbox" id="auto-accept-streams" checked>
           </label>
-          <small class="settings-hint" style="display:block;margin-bottom:6px">Automatically open screen shares when someone starts streaming. Turn off to join manually.</small>
+          <small class="settings-hint" style="display:block;margin-bottom:6px" data-i18n="settings.sounds_section.auto_accept_streams_hint">Automatically open screen shares when someone starts streaming. Turn off to join manually.</small>
           <label class="volume-row">
             <span data-i18n="settings.sounds_section.volume">Volume</span>
             <input type="range" id="notif-volume" min="0" max="100" value="50" class="slider-sm">
@@ -1170,7 +1168,7 @@
           </label>
           <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
             <button class="btn-sm btn-full btn-accent" id="open-sound-manager-user-btn">🎵 <span data-i18n="settings.sounds_section.sound_manager_btn">Sound Manager</span></button>
-            <small class="settings-hint" style="display:block;margin-top:4px">Browse sounds, assign to events, set hotkeys</small>
+            <small class="settings-hint" style="display:block;margin-top:4px" data-i18n="settings.sounds_section.sound_manager_hint">Browse sounds, assign to events, set hotkeys</small>
           </div>
         </div>
       </div>
@@ -1184,7 +1182,7 @@
             <input type="checkbox" id="push-notif-enabled">
           </label>
           <small class="settings-hint" id="push-notif-status" data-i18n="settings.push_section.checking">Checking...</small>
-          <small class="settings-hint" style="opacity:0.5">Receive notifications even when Haven is closed</small>
+          <small class="settings-hint" style="opacity:0.5" data-i18n="settings.push_section.hint">Receive notifications even when Haven is closed</small>
         </div>
       </div>
 
@@ -1549,24 +1547,24 @@
 
         <!-- Tab: Upload File -->
         <div id="import-tab-file">
-          <p class="settings-hint" style="margin-bottom:10px">
+          <p class="settings-hint" style="margin-bottom:10px" data-i18n="modals.discord_import.upload_hint">
             Upload a Discord export file to import channels and messages into Haven.
           </p>
           <div class="import-format-info">
             <div class="import-format-row">
               <strong>DiscordChatExporter</strong>
-              <span class="muted-text">— JSON or ZIP (recommended — includes all users)</span>
+              <span class="muted-text" data-i18n="modals.discord_import.format_dce">— JSON or ZIP (recommended — includes all users)</span>
             </div>
             <div class="import-format-row">
               <strong>Discord Data Package</strong>
-              <span class="muted-text">— ZIP from Settings → Privacy (your messages only)</span>
+              <span class="muted-text" data-i18n="modals.discord_import.format_ddp">— ZIP from Settings → Privacy (your messages only)</span>
             </div>
           </div>
           <div class="import-dropzone" id="import-dropzone">
             <input type="file" id="import-file-input" accept=".json,.zip" style="display:none">
             <div class="import-dropzone-content">
               <span class="import-dropzone-icon">📁</span>
-              <span>Drop file here or <a href="#" id="import-browse-link">browse</a></span>
+              <span><span data-i18n="modals.discord_import.drop_text">Drop file here or </span><a href="#" id="import-browse-link" data-i18n="modals.discord_import.browse_link">browse</a></span>
               <span class="muted-text" style="font-size:11px" data-i18n="modals.discord_import.dropzone_hint">.json or .zip — up to 500 MB</span>
             </div>
           </div>
@@ -1579,25 +1577,25 @@
         <!-- Tab: Connect to Discord -->
         <div id="import-tab-connect" style="display:none">
           <div id="import-connect-step-token">
-            <p class="settings-hint" style="margin-bottom:8px">
+            <p class="settings-hint" style="margin-bottom:8px" data-i18n="modals.discord_import.connect_hint">
               Connect directly to Discord and pull your messages — no external tools needed.
             </p>
             <details class="import-token-help">
-              <summary>How do I get my Discord token?</summary>
+              <summary data-i18n="modals.discord_import.token_help_summary">How do I get my Discord token?</summary>
               <div class="import-token-steps">
                 <ol>
-                  <li>Open <a href="https://discord.com/app" target="_blank" rel="noopener">discord.com/app</a> in Chrome/Edge (or use the desktop app)</li>
-                  <li>Press <kbd>F12</kbd> to open DevTools</li>
-                  <li>Click the <strong>Application</strong> tab (click <code>&gt;&gt;</code> in the toolbar if you don't see it)</li>
-                  <li>In the left sidebar, expand <strong>Local Storage</strong> → click <strong>https://discord.com</strong></li>
-                  <li>Find the <code>token</code> key — copy the value (without the quotes)</li>
+                  <li data-i18n-html="modals.discord_import.token_step_1">Open <a href="https://discord.com/app" target="_blank" rel="noopener">discord.com/app</a> in Chrome/Edge (or use the desktop app)</li>
+                  <li data-i18n-html="modals.discord_import.token_step_2">Press <kbd>F12</kbd> to open DevTools</li>
+                  <li data-i18n-html="modals.discord_import.token_step_3">Click the <strong>Application</strong> tab (click <code>&gt;&gt;</code> in the toolbar if you don't see it)</li>
+                  <li data-i18n-html="modals.discord_import.token_step_4">In the left sidebar, expand <strong>Local Storage</strong> → click <strong>https://discord.com</strong></li>
+                  <li data-i18n-html="modals.discord_import.token_step_5">Find the <code>token</code> key — copy the value (without the quotes)</li>
                 </ol>
-                <p style="margin-top:8px"><strong>Desktop app:</strong> If F12 doesn't open DevTools, close Discord fully, then edit:</p>
+                <p style="margin-top:8px" data-i18n-html="modals.discord_import.desktop_app_hint"><strong>Desktop app:</strong> If F12 doesn't open DevTools, close Discord fully, then edit:</p>
                 <code class="import-token-snippet">%appdata%\discord\settings.json</code>
-                <p style="margin-top:4px">Add this line anywhere inside the { }:</p>
+                <p style="margin-top:4px" data-i18n="modals.discord_import.add_line_hint">Add this line anywhere inside the { }:</p>
                 <code class="import-token-snippet">"DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING": true</code>
-                <p style="margin-top:4px">Restart Discord, then follow the steps above.</p>
-                <p class="muted-text" style="margin-top:8px">⚠️ Your token is like a password. Haven uses it only for this import and never stores it.</p>
+                <p style="margin-top:4px" data-i18n="modals.discord_import.restart_hint">Restart Discord, then follow the steps above.</p>
+                <p class="muted-text" style="margin-top:8px">⚠️ <span data-i18n="modals.discord_import.token_warning">Your token is like a password. Haven uses it only for this import and never stores it.</span></p>
               </div>
             </details>
             <div style="display:flex;gap:8px;margin-top:10px">
@@ -1609,7 +1607,7 @@
 
           <div id="import-connect-step-servers" style="display:none">
             <div class="import-info-bar" style="margin-bottom:8px">
-              <span>Connected as <strong id="import-discord-username"></strong></span>
+              <span><span data-i18n="modals.discord_import.connected_as">Connected as</span> <strong id="import-discord-username"></strong></span>
               <a href="#" id="import-connect-disconnect" data-i18n="modals.discord_import.disconnect" style="font-size:11px;margin-left:auto">Disconnect</a>
             </div>
             <p class="settings-hint" style="margin-bottom:6px" data-i18n="modals.discord_import.pick_server">Pick a server to import from:</p>

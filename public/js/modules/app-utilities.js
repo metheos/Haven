@@ -271,8 +271,8 @@ _formatTime(dateStr) {
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
-  if (isToday) return `Today at ${time}`;
-  if (isYesterday) return `Yesterday at ${time}`;
+  if (isToday) return t('utils.today_at', { time });
+  if (isYesterday) return t('utils.yesterday_at', { time });
   return `${date.toLocaleDateString()} ${time}`;
 },
 
@@ -339,18 +339,18 @@ _showRecoveryNotice() {
   overlay.style.cssText = 'display:flex;z-index:9999';
   overlay.innerHTML = `
     <div class="modal" style="max-width:400px">
-      <h3>🔑 Account Recovery Codes</h3>
-      <p class="modal-desc" style="margin-bottom:12px">You can now generate one-time recovery codes in <strong>Settings → 🔑 Recovery</strong>. If you ever forget your password, these codes let you reset it — no admin needed.</p>
+      <h3>🔑 ${t('modals.recovery_notice.title')}</h3>
+      <p class="modal-desc" style="margin-bottom:12px">${t('modals.recovery_notice.body')}</p>
       <div style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.83rem;color:var(--text-secondary)">
-        ⚠️ <strong>Heads up:</strong> Using a recovery code resets your password <em>and</em> wipes your E2E encryption keys on other devices. Encrypted DMs will be unreadable on any device you haven't used recently.
+        ⚠️ ${t('modals.recovery_notice.warning')}
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;cursor:pointer">
         <input type="checkbox" id="recovery-notice-dsa">
-        <span>Don't show this again</span>
+        <span>${t('modals.recovery_notice.dsa')}</span>
       </label>
       <div class="modal-actions">
-        <button class="btn-primary" id="recovery-notice-go">Go to Recovery Settings</button>
-        <button class="btn-sm" id="recovery-notice-close" style="padding:8px 18px">Dismiss</button>
+        <button class="btn-primary" id="recovery-notice-go">${t('modals.recovery_notice.go_btn')}</button>
+        <button class="btn-sm" id="recovery-notice-close" style="padding:8px 18px">${t('modals.common.dismiss')}</button>
       </div>
     </div>
   `;

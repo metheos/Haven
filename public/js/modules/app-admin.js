@@ -50,8 +50,8 @@ _maybeShowSetupWizard() {
   newCopy.addEventListener('click', () => {
     if (this._wizardChannelCode) {
       const markCopied = () => {
-        newCopy.textContent = 'Copied!';
-        setTimeout(() => newCopy.textContent = 'Copy', 2000);
+        newCopy.textContent = t('modals.wizard.copied_btn');
+        setTimeout(() => newCopy.textContent = t('modals.wizard.copy_btn'), 2000);
       };
       navigator.clipboard.writeText(this._wizardChannelCode).then(markCopied).catch(() => {
         try {
@@ -94,11 +94,11 @@ _wizardUpdateUI() {
   const nextBtn = document.getElementById('wizard-next-btn');
   if (nextBtn) {
     if (step === 4) {
-      nextBtn.textContent = '🚀 Get Started';
+      nextBtn.textContent = `🚀 ${t('modals.wizard.get_started_btn')}`;
     } else if (step === 2 && !this._wizardChannelCode) {
-      nextBtn.textContent = 'Create & Continue →';
+      nextBtn.textContent = t('modals.wizard.create_continue_btn');
     } else {
-      nextBtn.textContent = 'Next →';
+      nextBtn.textContent = t('modals.wizard.next_btn');
     }
   }
 
@@ -107,14 +107,14 @@ _wizardUpdateUI() {
     const chanSummary = document.getElementById('wizard-summary-channel');
     if (chanSummary) {
       chanSummary.textContent = this._wizardChannelCode
-        ? `✅ Channel created (code: ${this._wizardChannelCode})`
-        : '⏭️ No channel created (you can create one from the sidebar)';
+        ? `✅ ${t('modals.wizard.channel_created_summary', { code: this._wizardChannelCode })}`
+        : `⏭️ ${t('modals.wizard.no_channel_created')}`;
     }
     const portSummary = document.getElementById('wizard-summary-port');
     if (portSummary) {
-      if (this._wizardPortResult === true) portSummary.textContent = '✅ Port is open — friends can connect from anywhere';
-      else if (this._wizardPortResult === false) portSummary.textContent = '⚠️ Port not reachable — check port forwarding for remote access';
-      else portSummary.textContent = '⏭️ Port check skipped';
+      if (this._wizardPortResult === true) portSummary.textContent = `✅ ${t('modals.wizard.port_open_summary')}`;
+      else if (this._wizardPortResult === false) portSummary.textContent = `⚠️ ${t('modals.wizard.port_blocked_summary')}`;
+      else portSummary.textContent = `⏭️ ${t('modals.wizard.check_port_skipped')}`;
     }
 
     // Set final URL
@@ -207,29 +207,29 @@ async _wizardCheckPort() {
       this._wizardPortResult = true;
       result.innerHTML = `
         <div class="wizard-port-success">
-          ✅ <strong>Your server is reachable from the internet!</strong><br>
-          Public IP: <code>${this._escapeHtml(data.publicIp)}</code><br>
-          Friends can connect at: <code>${location.protocol}//${this._escapeHtml(data.publicIp)}:${location.port || 3000}</code>
+          ✅ <strong>${t('modals.wizard.port_reachable_title')}</strong><br>
+          ${t('modals.wizard.public_ip_label')} <code>${this._escapeHtml(data.publicIp)}</code><br>
+          ${t('modals.wizard.friends_connect_at')} <code>${location.protocol}//${this._escapeHtml(data.publicIp)}:${location.port || 3000}</code>
         </div>`;
     } else {
       this._wizardPortResult = false;
       const port = location.port || 3000;
       result.innerHTML = `
         <div class="wizard-port-fail">
-          ⚠️ <strong>Port ${port} is not reachable from the internet.</strong><br>
-          ${data.publicIp ? `Your public IP is <code>${this._escapeHtml(data.publicIp)}</code>, but the port is blocked.` : this._escapeHtml(data.error || 'Could not reach port.')}<br><br>
-          <strong>To fix this:</strong>
+          ⚠️ <strong>${t('modals.wizard.port_fail_title', { port })}</strong><br>
+          ${data.publicIp ? t('modals.wizard.port_fail_blocked_ip', { ip: `<code>${this._escapeHtml(data.publicIp)}</code>` }) : this._escapeHtml(data.error || t('modals.wizard.port_fail_error'))}<br><br>
+          <strong>${t('modals.wizard.to_fix')}</strong>
           <ol>
-            <li>Log into your router (usually <code>192.168.1.1</code>)</li>
-            <li>Find <strong>Port Forwarding</strong> (or NAT / Virtual Servers)</li>
-            <li>Forward port <code>${port}</code> (TCP) to your PC's local IP</li>
-            <li>Open <strong>Windows Firewall</strong> for port <code>${port}</code></li>
-            <li>Re-run this check</li>
+            <li>${t('modals.wizard.fix_step_1')}</li>
+            <li>${t('modals.wizard.fix_step_2')}</li>
+            <li>${t('modals.wizard.fix_step_3', { port })}</li>
+            <li>${t('modals.wizard.fix_step_4', { port })}</li>
+            <li>${t('modals.wizard.fix_step_5')}</li>
           </ol>
-          <strong>LAN only?</strong> If friends are on the same WiFi, this doesn't matter — they can connect directly.
+          <strong>${t('modals.wizard.lan_only')}</strong> ${t('modals.wizard.lan_detail')}
         </div>`;
       if (checkBtn) {
-        checkBtn.textContent = '🔄 Re-check';
+        checkBtn.textContent = `🔄 ${t('modals.wizard.recheck_btn')}`;
         checkBtn.style.display = '';
       }
     }
@@ -237,10 +237,10 @@ async _wizardCheckPort() {
     if (checking) checking.style.display = 'none';
     if (result) {
       result.style.display = 'block';
-      result.innerHTML = `<div class="wizard-port-fail">❌ Check failed: ${this._escapeHtml(err.message)}. You may be offline.</div>`;
+      result.innerHTML = `<div class="wizard-port-fail">❌ ${t('modals.wizard.check_failed', { error: this._escapeHtml(err.message) })}</div>`;
     }
     if (checkBtn) {
-      checkBtn.textContent = '🔄 Retry';
+      checkBtn.textContent = `🔄 ${t('modals.wizard.retry_btn')}`;
       checkBtn.style.display = '';
     }
   }
@@ -254,7 +254,7 @@ _wizardComplete() {
   const modal = document.getElementById('setup-wizard-modal');
   if (modal) modal.style.display = 'none';
 
-  this._showToast('Setup complete! Welcome to Haven.', 'success');
+  this._showToast(t('modals.wizard.setup_complete'), 'success');
 },
 
 _applyServerSettings() {
@@ -501,9 +501,9 @@ _saveAdminSettings() {
   }
 
   if (changed) {
-    this._showToast('Settings saved', 'success');
+    this._showToast(t('settings.admin.settings_saved'), 'success');
   } else {
-    this._showToast('No changes to save', 'info');
+    this._showToast(t('settings.admin.no_changes'), 'info');
   }
   document.getElementById('settings-modal').style.display = 'none';
 },
@@ -545,7 +545,7 @@ _renderWhitelist(list) {
   const el = document.getElementById('whitelist-list');
   if (!el) return;
   if (!list || list.length === 0) {
-    el.innerHTML = '<p class="muted-text">No whitelisted users</p>';
+    el.innerHTML = `<p class="muted-text">${t('settings.admin.no_whitelisted_users')}</p>`;
     return;
   }
   el.innerHTML = list.map(w => `
@@ -631,7 +631,7 @@ _initServerBranding() {
   // Server icon upload
   document.getElementById('server-icon-upload-btn')?.addEventListener('click', async () => {
     const fileInput = document.getElementById('server-icon-file');
-    if (!fileInput || !fileInput.files[0]) return this._showToast('Select an image first', 'error');
+    if (!fileInput || !fileInput.files[0]) return this._showToast(t('settings.admin.select_image_first'), 'error');
     const form = new FormData();
     form.append('image', fileInput.files[0]);
     try {
@@ -643,36 +643,36 @@ _initServerBranding() {
       const data = await res.json();
       if (data.error) return this._showToast(data.error, 'error');
       this.socket.emit('update-server-setting', { key: 'server_icon', value: data.url });
-      this._showToast('Server icon updated', 'success');
+      this._showToast(t('settings.admin.server_icon_updated'), 'success');
       fileInput.value = '';
     } catch (err) {
-      this._showToast('Upload failed', 'error');
+      this._showToast(t('settings.admin.upload_failed'), 'error');
     }
   });
 
   // Server icon remove
   document.getElementById('server-icon-remove-btn')?.addEventListener('click', () => {
     this.socket.emit('update-server-setting', { key: 'server_icon', value: '' });
-    this._showToast('Server icon removed', 'success');
+    this._showToast(t('settings.admin.server_icon_removed'), 'success');
   });
 },
 
 _renderBanList(bans) {
   const list = document.getElementById('bans-list');
   if (bans.length === 0) {
-    list.innerHTML = '<p class="muted-text">No banned users</p>';
+    list.innerHTML = `<p class="muted-text">${t('settings.admin.no_banned_users')}</p>`;
     return;
   }
   list.innerHTML = bans.map(b => `
     <div class="ban-item">
       <div class="ban-info">
         <strong>${this._escapeHtml(b.username)}</strong>
-        <span class="ban-reason">${b.reason ? this._escapeHtml(b.reason) : 'No reason'}</span>
+        <span class="ban-reason">${b.reason ? this._escapeHtml(b.reason) : t('settings.admin.no_reason')}</span>
         <span class="ban-date">${new Date(b.created_at).toLocaleDateString()}</span>
       </div>
       <div class="ban-actions">
-        <button class="btn-sm btn-unban" data-uid="${b.user_id}">Unban</button>
-        <button class="btn-sm btn-delete-user" data-uid="${b.user_id}" data-uname="${this._escapeHtml(b.username)}" title="Delete user permanently (frees username)">🗑️</button>
+        <button class="btn-sm btn-unban" data-uid="${b.user_id}">${t('settings.admin.unban_btn')}</button>
+        <button class="btn-sm btn-delete-user" data-uid="${b.user_id}" data-uname="${this._escapeHtml(b.username)}" title="${t('settings.admin.delete_user_title')}">🗑️</button>
       </div>
     </div>
   `).join('');
@@ -686,7 +686,7 @@ _renderBanList(bans) {
   list.querySelectorAll('.btn-delete-user').forEach(btn => {
     btn.addEventListener('click', () => {
       const name = btn.dataset.uname;
-      if (confirm(`Permanently delete user "${name}"? This frees their username but cannot be undone.`)) {
+      if (confirm(t('settings.admin.confirm_delete_user', { name }))) {
         this.socket.emit('delete-user', { userId: parseInt(btn.dataset.uid) });
       }
     });
@@ -696,7 +696,7 @@ _renderBanList(bans) {
 _renderDeletedUsersList(entries) {
   const list = document.getElementById('deleted-users-list');
   if (!entries || entries.length === 0) {
-    list.innerHTML = '<p class="muted-text">No deleted users</p>';
+    list.innerHTML = `<p class="muted-text">${t('settings.admin.no_deleted_users')}</p>`;
     return;
   }
   list.innerHTML = entries.map(e => `
@@ -704,8 +704,8 @@ _renderDeletedUsersList(entries) {
       <div class="ban-info">
         <strong>${this._escapeHtml(e.display_name || e.username)}</strong>
         ${e.display_name ? `<span class="ban-reason">@${this._escapeHtml(e.username)}</span>` : ''}
-        <span class="ban-reason">${e.reason ? this._escapeHtml(e.reason) : 'No reason'}</span>
-        <span class="ban-date">${new Date(e.deleted_at).toLocaleDateString()}${e.deleted_by_name ? ` by ${this._escapeHtml(e.deleted_by_name)}` : ''}</span>
+        <span class="ban-reason">${e.reason ? this._escapeHtml(e.reason) : t('settings.admin.no_reason')}</span>
+        <span class="ban-date">${new Date(e.deleted_at).toLocaleDateString()}${e.deleted_by_name ? ` ${t('settings.admin.deleted_by', { name: this._escapeHtml(e.deleted_by_name) })}` : ''}</span>
       </div>
     </div>
   `).join('');
@@ -718,7 +718,7 @@ _renderDeletedUsersList(entries) {
 _openAllMembersModal() {
   const modal = document.getElementById('all-members-modal');
   const list = document.getElementById('all-members-list');
-  list.innerHTML = '<p class="muted-text" style="text-align:center;padding:20px">Loading...</p>';
+  list.innerHTML = `<p class="muted-text" style="text-align:center;padding:20px">${t('modals.common.loading')}</p>`;
   document.getElementById('all-members-search').value = '';
   document.getElementById('all-members-filter').value = 'all';
   document.getElementById('all-members-count').textContent = '';
@@ -766,7 +766,7 @@ _filterAllMembers() {
 _renderAllMembers(members) {
   const list = document.getElementById('all-members-list');
   if (!members || members.length === 0) {
-    list.innerHTML = '<p class="muted-text" style="text-align:center;padding:20px">No members found</p>';
+    list.innerHTML = `<p class="muted-text" style="text-align:center;padding:20px">${t('settings.admin.no_members_found')}</p>`;
     return;
   }
 
@@ -778,13 +778,13 @@ _renderAllMembers(members) {
     const rolesHtml = m.isAdmin ? '' : m.roles.map(r =>
       `<span class="aml-role-badge" style="border-color:${this._safeColor(r.color, '#888')};color:${this._safeColor(r.color, '#888')}">${this._escapeHtml(r.name)}</span>`
     ).join('');
-    const adminBadge = m.isAdmin ? '<span class="aml-admin-badge">Admin</span>' : '';
-    const bannedBadge = m.banned ? '<span class="aml-banned-badge">Banned</span>' : '';
+    const adminBadge = m.isAdmin ? `<span class="aml-admin-badge">${t('settings.admin.badge_admin')}</span>` : '';
+    const bannedBadge = m.banned ? `<span class="aml-banned-badge">${t('settings.admin.badge_banned')}</span>` : '';
     const onlineDot = m.online && !m.banned ? 'aml-online' : 'aml-offline';
     const created = m.createdAt ? new Date(m.createdAt.endsWith('Z') ? m.createdAt : m.createdAt + 'Z') : null;
     const joinedStr = created ? created.toLocaleDateString() : '';
     const isNew = created && (Date.now() - created.getTime()) < 7 * 24 * 60 * 60 * 1000;
-    const newBadge = isNew ? '<span class="aml-new-badge">New</span>' : '';
+    const newBadge = isNew ? `<span class="aml-new-badge">${t('settings.admin.badge_new')}</span>` : '';
 
     const avatarUrl = m.avatar ? m.avatar : '';
     const avatarShape = m.avatarShape === 'square' ? 'border-radius:4px' : 'border-radius:50%';
@@ -797,23 +797,23 @@ _renderAllMembers(members) {
     if (!isSelf(m.id)) {
       let btns = '';
       // Always-available: DM and Nickname
-      btns += `<button class="aml-action-btn aml-btn-dm" data-uid="${m.id}" data-uname="${this._escapeHtml(m.displayName)}" title="Send Message">💬</button>`;
-      btns += `<button class="aml-action-btn aml-btn-nick" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="Set Nickname">🏷️</button>`;
+      btns += `<button class="aml-action-btn aml-btn-dm" data-uid="${m.id}" data-uname="${this._escapeHtml(m.displayName)}" title="${t('users.direct_message')}">💬</button>`;
+      btns += `<button class="aml-action-btn aml-btn-nick" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="${t('users.set_nickname')}">🏷️</button>`;
       if (perms.canPromote && !m.banned) {
-        btns += `<button class="aml-action-btn aml-btn-role" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="Assign Role">👑</button>`;
+        btns += `<button class="aml-action-btn aml-btn-role" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="${t('users.gear_menu.assign_role')}">👑</button>`;
       }
       if (perms.canKick && !m.banned) {
-        btns += `<button class="aml-action-btn aml-btn-addch" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="Add to Channel">➕</button>`;
-        btns += `<button class="aml-action-btn aml-btn-remch" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="Remove from Channel">➖</button>`;
+        btns += `<button class="aml-action-btn aml-btn-addch" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="${t('settings.admin.add_to_channel_title')}">➕</button>`;
+        btns += `<button class="aml-action-btn aml-btn-remch" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="${t('settings.admin.remove_from_channel_title')}">➖</button>`;
       }
       if (perms.canBan && !m.banned) {
-        btns += `<button class="aml-action-btn aml-btn-ban" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="Ban from Server">⛔</button>`;
+        btns += `<button class="aml-action-btn aml-btn-ban" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="${t('settings.admin.ban_from_server_title')}">⛔</button>`;
       }
       if (perms.isAdmin && m.banned) {
-        btns += `<button class="aml-action-btn aml-btn-unban" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="Unban">✅</button>`;
+        btns += `<button class="aml-action-btn aml-btn-unban" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="${t('settings.admin.unban_btn')}">✅</button>`;
       }
       if (perms.isAdmin && !m.isAdmin) {
-        btns += `<button class="aml-action-btn aml-btn-delete" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="Delete from Server">🗑️</button>`;
+        btns += `<button class="aml-action-btn aml-btn-delete" data-uid="${m.id}" data-uname="${this._escapeHtml(m.username)}" title="${t('settings.admin.delete_from_server_title')}">🗑️</button>`;
       }
       actionsHtml = `<div class="aml-actions">${btns}</div>`;
     }
@@ -831,8 +831,8 @@ _renderAllMembers(members) {
           </div>
           <div class="aml-member-meta">
             ${rolesHtml}
-            <span class="aml-member-joined">${joinedStr ? 'Joined ' + joinedStr : ''}</span>
-            ${m.channels > 0 ? `<span class="aml-member-channels">${m.channels} ch</span>` : ''}
+            <span class="aml-member-joined">${joinedStr ? t('settings.admin.joined_date', { date: joinedStr }) : ''}</span>
+            ${m.channels > 0 ? `<span class="aml-member-channels">${t(m.channels === 1 ? 'settings.admin.channel_count_one' : 'settings.admin.channel_count_other', { count: m.channels })}</span>` : ''}
           </div>
         </div>
       </div>
@@ -854,7 +854,7 @@ _bindMemberListActions(container) {
       const uid = parseInt(btn.dataset.uid);
       self.socket.emit('start-dm', { targetUserId: uid });
       document.getElementById('all-members-modal').style.display = 'none';
-      self._showToast(`Opening DM with ${btn.dataset.uname}…`, 'info');
+      self._showToast(t('users.opening_dm', { name: btn.dataset.uname }), 'info');
     });
   });
 
@@ -914,7 +914,7 @@ _bindMemberListActions(container) {
       e.stopPropagation();
       const uid = parseInt(btn.dataset.uid);
       self.socket.emit('unban-user', { userId: uid });
-      self._showToast('User unbanned', 'success');
+      self._showToast(t('settings.admin.user_unbanned'), 'success');
       setTimeout(() => self._openAllMembersModal(), 500);
     });
   });
@@ -946,7 +946,7 @@ _openMemberChannelPicker(userId, username, mode) {
   }
 
   if (channels.length === 0) {
-    this._showToast(mode === 'add' ? `${username} is already in all channels` : `${username} isn't in any channels`, 'info');
+    this._showToast(mode === 'add' ? t('settings.admin.already_in_all_channels', { name: username }) : t('settings.admin.not_in_any_channels', { name: username }), 'info');
     return;
   }
 
@@ -957,8 +957,8 @@ _openMemberChannelPicker(userId, username, mode) {
   overlay.style.zIndex = '100002';
 
   const title = mode === 'add'
-    ? `Add ${this._escapeHtml(username)} to Channel`
-    : `Remove ${this._escapeHtml(username)} from Channel`;
+    ? t('settings.admin.picker_add_title', { name: this._escapeHtml(username) })
+    : t('settings.admin.picker_remove_title', { name: this._escapeHtml(username) });
 
   const allCheckboxId = `aml-ch-all-${userId}-${mode}`;
 
@@ -968,7 +968,7 @@ _openMemberChannelPicker(userId, username, mode) {
       <div style="margin-bottom:8px">
         <label class="toggle-row" style="font-size:13px;gap:6px;cursor:pointer">
           <input type="checkbox" id="${allCheckboxId}">
-          <span>Select All</span>
+          <span>${t('settings.admin.select_all')}</span>
         </label>
       </div>
       <div class="aml-channel-list" style="overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:2px">
@@ -980,8 +980,8 @@ _openMemberChannelPicker(userId, username, mode) {
         `).join('')}
       </div>
       <div class="modal-actions" style="margin-top:8px">
-        <button class="btn-sm aml-ch-cancel">Cancel</button>
-        <button class="btn-sm btn-accent aml-ch-confirm">${mode === 'add' ? 'Add' : 'Remove'}</button>
+        <button class="btn-sm aml-ch-cancel">${t('modals.common.cancel')}</button>
+        <button class="btn-sm btn-accent aml-ch-confirm">${mode === 'add' ? t('settings.admin.picker_confirm_add') : t('settings.admin.picker_confirm_remove')}</button>
       </div>
     </div>
   `;
@@ -1006,7 +1006,7 @@ _openMemberChannelPicker(userId, username, mode) {
       name: cb.dataset.name
     }));
     if (selected.length === 0) {
-      this._showToast('Select at least one channel', 'warning');
+      this._showToast(t('settings.admin.select_channel_warning'), 'warning');
       return;
     }
     overlay.remove();
@@ -1023,8 +1023,10 @@ _openMemberChannelPicker(userId, username, mode) {
       completed++;
     });
 
-    const action = mode === 'add' ? 'Added to' : 'Removed from';
-    this._showToast(`${action} ${selected.length} channel${selected.length > 1 ? 's' : ''}`, 'success');
+    const toastKey = mode === 'add'
+      ? (selected.length === 1 ? 'settings.admin.channels_added_one' : 'settings.admin.channels_added_other')
+      : (selected.length === 1 ? 'settings.admin.channels_removed_one' : 'settings.admin.channels_removed_other');
+    this._showToast(t(toastKey, { count: selected.length }), 'success');
     // Refresh after a short delay
     setTimeout(() => this._openAllMembersModal(), 800);
   });
@@ -1486,15 +1488,15 @@ _handleFileUpload(input) {
 
 /** Upload any file via /api/upload-file — used by drag & drop, paste, and 📎 button */
 _uploadGeneralFile(file) {
-  if (!this.currentChannel) return this._showToast('Select a channel first', 'error');
+  if (!this.currentChannel) return this._showToast(t('media.select_channel_first'), 'error');
   // Block media uploads if disabled in this channel
   const _ugCh = this.channels.find(c => c.code === this.currentChannel);
   if (_ugCh && _ugCh.media_enabled === 0) {
-    return this._showToast('Media uploads are disabled in this channel', 'error');
+    return this._showToast(t('media.uploads_disabled'), 'error');
   }
   const maxMb = parseInt(this.serverSettings?.max_upload_mb) || 25;
   if (file.size > maxMb * 1024 * 1024) {
-    this._showToast(`File too large (max ${maxMb} MB)`, 'error');
+    this._showToast(t('media.file_too_large', { maxMb }), 'error');
     return;
   }
 
@@ -1524,7 +1526,7 @@ _uploadGeneralFile(file) {
     this.notifications.play('sent');
     this._clearReply();
   })
-  .catch(err => this._showToast(err.message || 'Upload failed', 'error'));
+  .catch(err => this._showToast(err.message || t('settings.admin.upload_failed'), 'error'));
 },
 
 _formatFileSize(bytes) {
@@ -1678,7 +1680,7 @@ _setupDiscordImport() {
     stepDone.style.display    = 'none';
     progressWrap.style.display = 'none';
     progressFill.style.width  = '0%';
-    statusText.textContent    = 'Uploading...';
+    statusText.textContent    = t('settings.admin.import_uploading');
     dropzone.style.display    = '';
     fileInput.value           = '';
     channelList.innerHTML     = '';
@@ -1755,7 +1757,7 @@ _setupDiscordImport() {
     const boxes = channelList.querySelectorAll('input[type="checkbox"]');
     const allChecked = [...boxes].every(cb => cb.checked);
     boxes.forEach(cb => cb.checked = !allChecked);
-    toggleAllLink.textContent = allChecked ? 'Select All' : 'Deselect All';
+    toggleAllLink.textContent = allChecked ? t('settings.admin.select_all') : t('settings.admin.deselect_all');
   });
 
   // Execute button
@@ -1773,13 +1775,13 @@ _setupDiscordImport() {
       });
     });
     if (selected.length === 0) {
-      alert('Select at least one channel to import.');
+      alert(t('settings.admin.import_select_channel'));
       return;
     }
     const totalMsgs = currentPreview.channels
       .filter(c => selected.some(s => (s.discordId && s.discordId === c.discordId) || s.originalName === c.name))
       .reduce((sum, c) => sum + c.messageCount, 0);
-    if (!confirm(`Import ${selected.length} channel${selected.length !== 1 ? 's' : ''} with ~${totalMsgs.toLocaleString()} messages?\n\nThis cannot be undone easily.`)) return;
+    if (!confirm(t(selected.length === 1 ? 'settings.admin.import_confirm_one' : 'settings.admin.import_confirm_other', { count: selected.length, messages: totalMsgs.toLocaleString() }))) return;
     this._importExecute(currentImportId, selected);
   });
 
@@ -1803,12 +1805,12 @@ _setupDiscordImport() {
   connectBtn?.addEventListener('click', async () => {
     const tokenInput = document.getElementById('import-discord-token');
     const discordToken = tokenInput?.value?.trim();
-    if (!discordToken) { this._showToast('Paste your Discord token first', 'error'); return; }
+    if (!discordToken) { this._showToast(t('settings.admin.import_paste_token'), 'error'); return; }
 
     connectBtn.disabled = true;
     connectBtn.textContent = '⏳';
     connectStatus.style.display = '';
-    connectStatus.textContent = 'Connecting...';
+    connectStatus.textContent = t('settings.admin.import_connecting');
     connectStatus.style.color = '';
 
     try {
@@ -1846,7 +1848,7 @@ _setupDiscordImport() {
       connectStatus.style.color = '#ed4245';
     } finally {
       connectBtn.disabled = false;
-      connectBtn.textContent = 'Connect';
+      connectBtn.textContent = t('settings.admin.import_connect_btn');
     }
   });
 
@@ -1873,7 +1875,7 @@ _setupDiscordImport() {
     const boxes = cList.querySelectorAll('input[type="checkbox"]');
     const allChecked = [...boxes].every(cb => cb.checked);
     boxes.forEach(cb => cb.checked = !allChecked);
-    connectToggleAll.textContent = allChecked ? 'Select All' : 'Deselect All';
+    connectToggleAll.textContent = allChecked ? t('settings.admin.select_all') : t('settings.admin.deselect_all');
   });
 
   // Fetch messages button
@@ -1901,7 +1903,7 @@ async _importUploadFile(file) {
   // Validate extension
   const ext = file.name.split('.').pop().toLowerCase();
   if (!['json', 'zip'].includes(ext)) {
-    alert('Please upload a .json or .zip file.');
+    alert(t('settings.admin.import_file_type_error'));
     return;
   }
 
@@ -1909,7 +1911,7 @@ async _importUploadFile(file) {
   dropzone.style.display     = 'none';
   progressWrap.style.display = '';
   progressFill.style.width   = '0%';
-  statusText.textContent     = `Uploading ${file.name}...`;
+  statusText.textContent     = t('settings.admin.import_uploading_file', { name: file.name });
 
   try {
     const formData = new FormData();
@@ -1924,7 +1926,7 @@ async _importUploadFile(file) {
       if (e.lengthComputable) {
         const pct = Math.round((e.loaded / e.total) * 100);
         progressFill.style.width = pct + '%';
-        statusText.textContent = `Uploading... ${pct}%`;
+        statusText.textContent = t('settings.admin.import_uploading_pct', { pct });
       }
     });
 
@@ -1947,7 +1949,7 @@ async _importUploadFile(file) {
 
     // Switch to parsing
     progressFill.style.width = '100%';
-    statusText.textContent = 'Parsing...';
+    statusText.textContent = t('settings.admin.import_parsing');
     await new Promise(r => setTimeout(r, 300));
 
     // Show preview
@@ -1961,7 +1963,7 @@ async _importUploadFile(file) {
     badge.classList.toggle('official', result.format === 'Discord Data Package');
 
     document.getElementById('import-server-name').textContent = result.serverName;
-    document.getElementById('import-total-msgs').textContent = `${result.totalMessages.toLocaleString()} messages total`;
+    document.getElementById('import-total-msgs').textContent = t('settings.admin.import_total_messages', { count: result.totalMessages.toLocaleString() });
 
     // Build channel list
     channelList.innerHTML = '';
@@ -2005,7 +2007,7 @@ async _importPickGuild(guild) {
   serversStep.style.display = 'none';
   channelsStep.style.display = '';
   fetchStatus.style.display = '';
-  fetchStatus.textContent = 'Loading channels...';
+  fetchStatus.textContent = t('settings.admin.import_loading_channels');
   fetchStatus.style.color = '';
 
   try {
@@ -2085,7 +2087,7 @@ async _importPickGuild(guild) {
       if (orphans.length > 0) {
         const catDiv = document.createElement('div');
         catDiv.className = 'import-channel-category';
-        catDiv.textContent = 'Other Threads';
+        catDiv.textContent = t('settings.admin.import_other_threads');
         cList.appendChild(catDiv);
         orphans.forEach(t => {
           const tRow = document.createElement('div');
@@ -2134,12 +2136,12 @@ async _importConnectFetch() {
       category: row.dataset.channelCategory
     });
   });
-  if (!selected.length) { this._showToast('Select at least one channel', 'error'); return; }
+  if (!selected.length) { this._showToast(t('settings.admin.select_channel_warning'), 'error'); return; }
 
   fetchBtn.disabled = true;
   fetchBtn.textContent = '⏳ Fetching...';
   fetchStatus.style.display = '';
-  fetchStatus.textContent = `Fetching ${selected.length} channel${selected.length !== 1 ? 's' : ''}... This may take a while for large servers.`;
+  fetchStatus.textContent = t(selected.length === 1 ? 'settings.admin.import_fetching_one' : 'settings.admin.import_fetching_other', { count: selected.length });
   fetchStatus.style.color = '';
 
   try {
@@ -2166,7 +2168,7 @@ async _importConnectFetch() {
     badge.classList.remove('official');
 
     document.getElementById('import-server-name').textContent = result.serverName;
-    document.getElementById('import-total-msgs').textContent = `${result.totalMessages.toLocaleString()} messages total`;
+    document.getElementById('import-total-msgs').textContent = t('settings.admin.import_total_messages', { count: result.totalMessages.toLocaleString() });
 
     channelList.innerHTML = '';
     result.channels.forEach(ch => {
@@ -2190,7 +2192,7 @@ async _importConnectFetch() {
     fetchStatus.style.color = '#ed4245';
   } finally {
     fetchBtn.disabled = false;
-    fetchBtn.textContent = '📥 Fetch Messages';
+    fetchBtn.textContent = `📥 ${t('settings.admin.import_fetch_btn')}`;
   }
 },
 
@@ -2201,7 +2203,7 @@ async _importExecute(importId, selectedChannels) {
   const doneMsg     = document.getElementById('import-done-msg');
 
   executeBtn.disabled = true;
-  executeBtn.textContent = '⏳ Importing...';
+  executeBtn.textContent = `⏳ ${t('settings.admin.import_importing')}`;
 
   try {
     const res = await fetch('/api/import/discord/execute', {
@@ -2213,20 +2215,20 @@ async _importExecute(importId, selectedChannels) {
       body: JSON.stringify({ importId, selectedChannels })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Import failed');
+    if (!res.ok) throw new Error(data.error || t('settings.admin.import_failed'));
 
     // Show done step
     stepPreview.style.display = 'none';
     stepDone.style.display    = '';
-    doneMsg.textContent = `Successfully imported ${data.channelsCreated} channel${data.channelsCreated !== 1 ? 's' : ''} with ${data.messagesImported.toLocaleString()} messages.`;
+    doneMsg.textContent = t(data.channelsCreated === 1 ? 'settings.admin.import_success_one' : 'settings.admin.import_success_other', { count: data.channelsCreated, messages: data.messagesImported.toLocaleString() });
 
     // Refresh channel list
     if (this.socket) this.socket.emit('get-channels');
   } catch (err) {
-    alert('Import failed: ' + err.message);
+    alert(t('settings.admin.import_failed_alert', { error: err.message }));
   } finally {
     executeBtn.disabled = false;
-    executeBtn.textContent = '📦 Import Selected';
+    executeBtn.textContent = `📦 ${t('settings.admin.import_btn')}`;
   }
 },
 
@@ -2245,15 +2247,15 @@ _initRoleManagement() {
     document.getElementById('role-modal').style.display = 'none';
   });
   document.getElementById('create-role-btn')?.addEventListener('click', async () => {
-    const name = await this._showPromptModal('Create Role', 'Enter role name:');
+    const name = await this._showPromptModal(t('settings.admin.roles_create_title'), t('settings.admin.roles_create_hint'));
     if (!name || !name.trim()) return;
-    const levelStr = await this._showPromptModal('Role Level', 'Role level (1-99, higher = more authority):\nServer Mod default = 50, Channel Mod default = 25', '25');
+    const levelStr = await this._showPromptModal(t('settings.admin.roles_level_title'), t('settings.admin.roles_level_hint'), '25');
     if (levelStr === null) return;
     const level = parseInt(levelStr, 10);
-    if (isNaN(level) || level < 1 || level > 99) { this._showToast('Level must be 1-99', 'error'); return; }
+    if (isNaN(level) || level < 1 || level > 99) { this._showToast(t('settings.admin.roles_level_invalid'), 'error'); return; }
     this.socket.emit('create-role', { name: name.trim(), level, color: '#aaaaaa' }, (res) => {
       if (res.error) { this._showToast(res.error, 'error'); return; }
-      this._showToast('Role created', 'success');
+      this._showToast(t('settings.admin.roles_created'), 'success');
       this._loadRoles();
     });
   });
@@ -2270,7 +2272,7 @@ _initRoleManagement() {
     const channelId = scope !== 'server' ? parseInt(scope, 10) : null;
     this.socket.emit('assign-role', { userId: parseInt(userId, 10), roleId: parseInt(roleId, 10), channelId }, (res) => {
       if (res.error) { this._showToast(res.error, 'error'); return; }
-      this._showToast('Role assigned', 'success');
+      this._showToast(t('settings.admin.roles_assigned'), 'success');
       document.getElementById('assign-role-modal').style.display = 'none';
     });
   });
@@ -2280,10 +2282,10 @@ _initRoleManagement() {
 
   // Reset roles to default
   document.getElementById('reset-roles-btn')?.addEventListener('click', () => {
-    if (!confirm('Reset all roles to deployment defaults?\n\nThis will delete all current roles and re-create the defaults (Server Mod, Channel Mod, User). Existing role assignments will be lost.')) return;
+    if (!confirm(t('settings.admin.roles_reset_confirm'))) return;
     this.socket.emit('reset-roles-to-default', {}, (res) => {
       if (res.error) { this._showToast(res.error, 'error'); return; }
-      this._showToast('Roles reset to defaults', 'success');
+      this._showToast(t('settings.admin.roles_reset_success'), 'success');
       this._selectedRoleId = null;
       this._loadRoles();
     });
@@ -2313,13 +2315,13 @@ _renderRolesPreview() {
   const container = document.getElementById('roles-list-preview');
   if (!container) return;
   if (this._allRoles.length === 0) {
-    container.innerHTML = '<p class="muted-text">No custom roles</p>';
+    container.innerHTML = `<p class="muted-text">${t('settings.admin.roles_no_custom')}</p>`;
     return;
   }
   container.innerHTML = this._allRoles.map(r =>
     `<div class="role-preview-item">
       <span class="role-color-dot" style="background:${this._safeColor(r.color, '#aaa')}"></span>
-      <span>${this._escapeHtml(r.name)}${r.auto_assign ? ' <span title="Auto-assigned to new members" style="font-size:10px;opacity:0.6">⚡</span>' : ''}</span>
+      <span>${this._escapeHtml(r.name)}${r.auto_assign ? ` <span title="${t('settings.admin.role_form.auto_assign')}" style="font-size:10px;opacity:0.6">⚡</span>` : ''}</span>
       <span class="muted-text" style="font-size:11px;margin-left:auto">Lv.${r.level}</span>
     </div>`
   ).join('');
@@ -2352,7 +2354,7 @@ _renderRoleDetail() {
   const panel = document.getElementById('role-detail-panel');
   const role = this._allRoles.find(r => r.id === this._selectedRoleId);
   if (!role) {
-    panel.innerHTML = '<p class="muted-text" style="padding:20px;text-align:center">Select a role</p>';
+    panel.innerHTML = `<p class="muted-text" style="padding:20px;text-align:center">${t('settings.admin.roles_select_role')}</p>`;
     const sb = document.getElementById('save-role-btn'); if (sb) sb.style.display = 'none';
     return;
   }
@@ -2436,10 +2438,10 @@ _renderRoleDetail() {
 
   // Reapply button
   document.getElementById('rca-reapply-btn').addEventListener('click', () => {
-    if (!confirm('Reapply channel access to ALL users with this role?\nThis will grant configured channels to every user who currently has this role.')) return;
+    if (!confirm(t('settings.admin.roles_reapply_confirm'))) return;
     this.socket.emit('reapply-role-access', { roleId: role.id }, (res) => {
       if (res && res.error) return this._showToast(res.error, 'error');
-      this._showToast(`Access reapplied to ${res.affected} user(s)`, 'success');
+      this._showToast(t(res.affected === 1 ? 'settings.admin.roles_reapplied_one' : 'settings.admin.roles_reapplied_other', { count: res.affected }), 'success');
     });
   });
 
@@ -2454,7 +2456,7 @@ _renderRoleDetail() {
     const perms = [...panel.querySelectorAll('.role-perm-checkbox:checked')].map(cb => cb.dataset.perm);
     const linkEnabled = document.getElementById('role-edit-link-channel-access').checked;
     freshSaveBtn.disabled = true;
-    freshSaveBtn.textContent = 'Saving...';
+    freshSaveBtn.textContent = t('settings.admin.roles_saving');
 
     // Collect channel access config
     const accessRows = [...panel.querySelectorAll('.rca-channel-row')];
@@ -2473,7 +2475,7 @@ _renderRoleDetail() {
       linkChannelAccess: linkEnabled,
       permissions: perms
     }, (res) => {
-      if (res.error) { this._showToast(res.error, 'error'); freshSaveBtn.disabled = false; freshSaveBtn.textContent = 'Save'; return; }
+      if (res.error) { this._showToast(res.error, 'error'); freshSaveBtn.disabled = false; freshSaveBtn.textContent = t('settings.admin.roles_save'); return; }
 
       // Save channel access config separately
       if (linkEnabled && accessData.length) {
@@ -2496,7 +2498,7 @@ _renderRoleDetail() {
       // Reset button BEFORE re-render (re-render clones the button,
       // so the clone must inherit the clean state, not "Saving...").
       freshSaveBtn.disabled = false;
-      freshSaveBtn.textContent = 'Save';
+      freshSaveBtn.textContent = t('settings.admin.roles_save');
 
       // Use server-returned roles directly (no re-fetch needed)
       if (res.roles) {
@@ -2509,15 +2511,15 @@ _renderRoleDetail() {
       } else {
         this._loadRoles();
       }
-      this._showToast('Role saved', 'success');
+      this._showToast(t('settings.admin.roles_saved'), 'success');
     });
   });
 
   document.getElementById('delete-role-btn').addEventListener('click', () => {
-    if (!confirm(`Delete role "${role.name}"? Users with this role will lose it.`)) return;
+    if (!confirm(t('settings.admin.roles_delete_confirm', { name: role.name }))) return;
     this.socket.emit('delete-role', { roleId: role.id }, (res) => {
       if (res.error) { this._showToast(res.error, 'error'); return; }
-      this._showToast('Role deleted', 'success');
+      this._showToast(t('settings.admin.roles_deleted'), 'success');
       this._selectedRoleId = null;
       this._loadRoles();
       this._renderRoleDetail();
@@ -2528,7 +2530,7 @@ _renderRoleDetail() {
 _loadRoleChannelAccess(roleId) {
   const listEl = document.getElementById('role-channel-access-list');
   if (!listEl) return;
-  listEl.innerHTML = '<p class="muted-text" style="padding:12px;text-align:center;font-size:12px">Loading…</p>';
+  listEl.innerHTML = `<p class="muted-text" style="padding:12px;text-align:center;font-size:12px">${t('modals.common.loading')}</p>`;
 
   this.socket.emit('get-role-channel-access', { roleId }, (res) => {
     if (res && res.error) {
@@ -2540,7 +2542,7 @@ _loadRoleChannelAccess(roleId) {
     (res.access || []).forEach(a => { accessMap[a.channel_id] = a; });
 
     if (!channels.length) {
-      listEl.innerHTML = '<p class="muted-text" style="padding:12px;text-align:center;font-size:12px">No channels found</p>';
+      listEl.innerHTML = `<p class="muted-text" style="padding:12px;text-align:center;font-size:12px">${t('settings.admin.roles_no_channels')}</p>`;
       return;
     }
 
@@ -2571,8 +2573,8 @@ _renderRcaRow(ch, access, isSub) {
   const lockIcon = ch.is_private ? ' 🔒' : '';
   return `<div class="rca-channel-row" data-channel-id="${ch.id}">
     <span class="rca-channel-name${isSub ? ' rca-sub' : ''}">${isSub ? '↳ ' : '# '}${this._escapeHtml(ch.name)}${lockIcon}</span>
-    <label><input type="checkbox" class="rca-grant"${grantChecked}> Grant</label>
-    <label><input type="checkbox" class="rca-revoke"${revokeChecked}> Revoke</label>
+    <label><input type="checkbox" class="rca-grant"${grantChecked}> ${t('settings.admin.roles_grant')}</label>
+    <label><input type="checkbox" class="rca-revoke"${revokeChecked}> ${t('settings.admin.roles_revoke')}</label>
   </div>`;
 },
 
@@ -2590,10 +2592,10 @@ _openChannelRolesModal(channelCode) {
   const modal = document.getElementById('channel-roles-modal');
   const ch = this.channels.find(c => c.code === channelCode);
   document.getElementById('channel-roles-channel-name').textContent = ch ? `# ${ch.name}` : '';
-  document.getElementById('channel-roles-member-list').innerHTML = '<p class="channel-roles-no-members">Loading…</p>';
+  document.getElementById('channel-roles-member-list').innerHTML = `<p class="channel-roles-no-members">${t('modals.common.loading')}</p>`;
   document.getElementById('channel-roles-actions').style.display = 'none';
   document.getElementById('channel-roles-role-detail').innerHTML =
-    '<p class="muted-text" style="padding:12px;text-align:center;font-size:0.82rem">Select a role to configure</p>';
+    `<p class="muted-text" style="padding:12px;text-align:center;font-size:0.82rem">${t('settings.admin.roles_select_to_configure')}</p>`;
   modal.style.display = 'flex';
 
   // Fetch members + roles and all available roles in parallel
@@ -2610,7 +2612,7 @@ _openChannelRolesModal(channelCode) {
       this._renderChannelRolesMembers();
       // Populate role dropdown
       const roleSel = document.getElementById('channel-roles-role-select');
-      roleSel.innerHTML = '<option value="">-- Select Role --</option>' +
+      roleSel.innerHTML = `<option value="">${t('settings.admin.roles_select_dropdown')}</option>` +
         this._allRoles.map(r =>
           `<option value="${r.id}">● ${this._escapeHtml(r.name)} — Lv.${r.level}</option>`
         ).join('');
@@ -2621,7 +2623,7 @@ _openChannelRolesModal(channelCode) {
 _renderChannelRolesMembers() {
   const list = document.getElementById('channel-roles-member-list');
   if (!this._channelRolesMembers.length) {
-    list.innerHTML = '<p class="channel-roles-no-members">No members in this channel</p>';
+    list.innerHTML = `<p class="channel-roles-no-members">${t('settings.admin.roles_no_members')}</p>`;
     return;
   }
 
@@ -2635,10 +2637,10 @@ _renderChannelRolesMembers() {
     const avatarSrc = m.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(m.loginName)}`;
     const shapeClass = m.avatarShape === 'square' ? ' square' : '';
     const badges = m.isAdmin
-      ? '<span class="channel-roles-badge badge-admin"><span class="badge-dot" style="background:#e74c3c"></span>Admin</span>'
+      ? `<span class="channel-roles-badge badge-admin"><span class="badge-dot" style="background:#e74c3c"></span>${t('settings.admin.badge_admin')}</span>`
       : (m.roles || []).map(r =>
           `<span class="channel-roles-badge"><span class="badge-dot" style="background:${this._safeColor(r.color, '#aaa')}"></span>${this._escapeHtml(r.name)}<span class="badge-scope">${r.scope === 'channel' ? '📌 Channel' : '🌐 Server'}</span><span class="revoke-btn" data-uid="${m.id}" data-rid="${r.roleId}" data-scope="${r.scope}" title="Revoke">✕</span></span>`
-        ).join('') || '<span class="channel-roles-no-role">No roles</span>';
+        ).join('') || `<span class="channel-roles-no-role">${t('settings.admin.roles_no_roles')}</span>`;
 
     return `<div class="channel-roles-member${sel}" data-uid="${m.id}">
       <img class="channel-roles-member-avatar${shapeClass}" src="${avatarSrc}" alt="">
@@ -2670,7 +2672,7 @@ _renderChannelRolesMembers() {
       const scope = btn.dataset.scope;
       const channelId = scope === 'channel' ? this._channelRolesChannelId : null;
       this.socket.emit('revoke-role', { userId: uid, roleId: rid, channelId });
-      this._showToast('Role revoked', 'success');
+      this._showToast(t('settings.admin.roles_revoked'), 'success');
       // Refresh after a short delay
       setTimeout(() => this._refreshChannelRoles(), 400);
     });
@@ -2698,29 +2700,29 @@ _showChannelRolesActions(userId) {
   if (assignArea) assignArea.style.display = '';
 
   if (member.isAdmin) {
-    currentDiv.innerHTML = '<span class="channel-roles-badge badge-admin"><span class="badge-dot" style="background:#e74c3c"></span>Admin</span>';
+    currentDiv.innerHTML = `<span class="channel-roles-badge badge-admin"><span class="badge-dot" style="background:#e74c3c"></span>${t('settings.admin.badge_admin')}</span>`;
   } else if (member.roles.length) {
     currentDiv.innerHTML = member.roles.map(r =>
       `<span class="channel-roles-badge"><span class="badge-dot" style="background:${this._safeColor(r.color, '#aaa')}"></span>${this._escapeHtml(r.name)} <span class="badge-scope">${r.scope === 'channel' ? '📌 Channel' : '🌐 Server'}</span></span>`
     ).join('');
   } else {
-    currentDiv.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted)">No roles assigned</span>';
+    currentDiv.innerHTML = `<span style="font-size:0.78rem;color:var(--text-muted)">${t('settings.admin.roles_no_assigned')}</span>`;
   }
 },
 
 _assignChannelRole() {
   const userId = this._channelRolesSelectedUser;
-  if (!userId) return this._showToast('Select a member first', 'error');
+  if (!userId) return this._showToast(t('settings.admin.roles_select_member'), 'error');
 
   const roleId = parseInt(document.getElementById('channel-roles-role-select').value);
-  if (!roleId) return this._showToast('Select a role', 'error');
+  if (!roleId) return this._showToast(t('settings.admin.roles_select_role'), 'error');
 
   const scopeVal = document.getElementById('channel-roles-scope-select').value;
   const channelId = scopeVal === 'channel' ? this._channelRolesChannelId : null;
 
   this.socket.emit('assign-role', { userId, roleId, channelId }, (res) => {
     if (res.error) return this._showToast(res.error, 'error');
-    this._showToast('Role assigned', 'success');
+    this._showToast(t('settings.admin.roles_assigned'), 'success');
     // Reset selection
     document.getElementById('channel-roles-role-select').value = '';
     // Refresh member list
@@ -2747,7 +2749,7 @@ _renderChannelRolesRoleList() {
   const list = document.getElementById('channel-roles-role-list');
   if (!list) return;
   if (!this._allRoles.length) {
-    list.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted);text-align:center;padding:8px">No roles yet</p>';
+    list.innerHTML = `<p style="font-size:0.82rem;color:var(--text-muted);text-align:center;padding:8px">${t('settings.admin.roles_none_yet')}</p>`;
     return;
   }
   list.innerHTML = this._allRoles.map(r =>
@@ -2770,7 +2772,7 @@ _renderChannelRolesRoleDetail() {
   const panel = document.getElementById('channel-roles-role-detail');
   const role = this._allRoles.find(r => r.id === this._channelRolesSelectedRole);
   if (!role) {
-    panel.innerHTML = '<p class="muted-text" style="padding:12px;text-align:center;font-size:0.82rem">Select a role to configure</p>';
+    panel.innerHTML = `<p class="muted-text" style="padding:12px;text-align:center;font-size:0.82rem">${t('settings.admin.roles_select_to_configure')}</p>`;
     return;
   }
 
@@ -2804,24 +2806,24 @@ _renderChannelRolesRoleDetail() {
   panel.innerHTML = `
     <div class="cr-role-form">
       <div class="cr-role-form-row">
-        <label class="cr-role-label">Name</label>
+        <label class="cr-role-label">${t('settings.admin.role_form.name')}</label>
         <input type="text" class="settings-text-input" id="cr-role-name" value="${this._escapeHtml(role.name)}" maxlength="30">
       </div>
       <div class="cr-role-form-row cr-role-inline">
         <div>
-          <label class="cr-role-label">Level (1-99)</label>
+          <label class="cr-role-label">${t('settings.admin.role_form.level')}</label>
           <input type="number" class="settings-number-input" id="cr-role-level" value="${role.level}" min="1" max="99" style="width:60px">
         </div>
         <div>
-          <label class="cr-role-label">Color</label>
+          <label class="cr-role-label">${t('settings.admin.role_form.color')}</label>
           <input type="color" id="cr-role-color" value="${role.color || '#aaaaaa'}" style="width:36px;height:28px;border:none;cursor:pointer;background:none">
         </div>
       </div>
       <label class="cr-perm-toggle" style="margin-top:6px">
         <input type="checkbox" id="cr-role-auto-assign" ${role.auto_assign ? 'checked' : ''}>
-        <span>Auto-assign to new members</span>
+        <span>${t('settings.admin.role_form.auto_assign')}</span>
       </label>
-      <label class="cr-role-label" style="margin-top:4px">Permissions</label>
+      <label class="cr-role-label" style="margin-top:4px">${t('settings.admin.role_form.permissions')}</label>
       <div class="cr-role-perms">
         ${allPerms.map(p => `
           <label class="cr-perm-toggle">
@@ -2831,8 +2833,8 @@ _renderChannelRolesRoleDetail() {
         `).join('')}
       </div>
       <div class="cr-role-btns">
-        <button class="btn-sm btn-accent" id="cr-save-role-btn">Save</button>
-        <button class="btn-sm danger" id="cr-delete-role-btn">Delete</button>
+        <button class="btn-sm btn-accent" id="cr-save-role-btn">${t('settings.admin.roles_save')}</button>
+        <button class="btn-sm danger" id="cr-delete-role-btn">${t('settings.admin.role_form.delete')}</button>
       </div>
     </div>
   `;
@@ -2840,7 +2842,7 @@ _renderChannelRolesRoleDetail() {
   document.getElementById('cr-save-role-btn').addEventListener('click', () => {
     const perms = [...panel.querySelectorAll('.cr-perm-cb:checked')].map(cb => cb.dataset.perm);
     const newLevel = parseInt(document.getElementById('cr-role-level').value, 10);
-    if (isNaN(newLevel) || newLevel < 1 || newLevel > 99) { this._showToast('Level must be 1–99', 'error'); return; }
+    if (isNaN(newLevel) || newLevel < 1 || newLevel > 99) { this._showToast(t('settings.admin.roles_level_invalid'), 'error'); return; }
     this.socket.emit('update-role', {
       roleId: role.id,
       name: document.getElementById('cr-role-name').value.trim(),
@@ -2850,7 +2852,7 @@ _renderChannelRolesRoleDetail() {
       permissions: perms
     }, (res) => {
       if (res.error) { this._showToast(res.error, 'error'); return; }
-      this._showToast('Role updated', 'success');
+      this._showToast(t('settings.admin.roles_updated'), 'success');
       this._loadRoles(() => {
         this._renderChannelRolesRoleList();
         this._renderChannelRolesRoleDetail();
@@ -2861,10 +2863,10 @@ _renderChannelRolesRoleDetail() {
   });
 
   document.getElementById('cr-delete-role-btn').addEventListener('click', () => {
-    if (!confirm(`Delete role "${role.name}"? Users with this role will lose it.`)) return;
+    if (!confirm(t('settings.admin.roles_delete_confirm', { name: role.name }))) return;
     this.socket.emit('delete-role', { roleId: role.id }, (res) => {
       if (res.error) { this._showToast(res.error, 'error'); return; }
-      this._showToast('Role deleted', 'success');
+      this._showToast(t('settings.admin.roles_deleted'), 'success');
       this._channelRolesSelectedRole = null;
       this._loadRoles(() => {
         this._renderChannelRolesRoleList();
@@ -2877,15 +2879,15 @@ _renderChannelRolesRoleDetail() {
 },
 
 async _createChannelRole() {
-  const name = await this._showPromptModal('Create Role', 'Enter role name:');
+  const name = await this._showPromptModal(t('settings.admin.roles_create_title'), t('settings.admin.roles_create_hint'));
   if (!name || !name.trim()) return;
-  const levelStr = await this._showPromptModal('Role Level', 'Role level (1-99, higher = more authority):\nServer Mod default = 50, Channel Mod default = 25', '25');
+  const levelStr = await this._showPromptModal(t('settings.admin.roles_level_title'), t('settings.admin.roles_level_hint'), '25');
   if (levelStr === null) return;
   const level = parseInt(levelStr, 10);
-  if (isNaN(level) || level < 1 || level > 99) { this._showToast('Level must be 1–99', 'error'); return; }
+  if (isNaN(level) || level < 1 || level > 99) { this._showToast(t('settings.admin.roles_level_invalid'), 'error'); return; }
   this.socket.emit('create-role', { name: name.trim(), level, color: '#aaaaaa' }, (res) => {
     if (res.error) { this._showToast(res.error, 'error'); return; }
-    this._showToast('Role created', 'success');
+    this._showToast(t('settings.admin.roles_created'), 'success');
     this._loadRoles(() => {
       this._renderChannelRolesRoleList();
       this._refreshChannelRolesDropdown();
@@ -2896,7 +2898,7 @@ async _createChannelRole() {
 _refreshChannelRolesDropdown() {
   const roleSel = document.getElementById('channel-roles-role-select');
   if (!roleSel) return;
-  roleSel.innerHTML = '<option value="">-- Select Role --</option>' +
+  roleSel.innerHTML = `<option value="">${t('settings.admin.roles_select_dropdown')}</option>` +
     this._allRoles.map(r =>
       `<option value="${r.id}">● ${this._escapeHtml(r.name)} — Lv.${r.level}</option>`
     ).join('');
@@ -2905,11 +2907,11 @@ _refreshChannelRolesDropdown() {
 _openAssignRoleModal(userId, username) {
   const modal = document.getElementById('assign-role-modal');
   modal.dataset.userId = userId;
-  document.getElementById('assign-role-user-label').textContent = `Assigning role to: ${username}`;
+  document.getElementById('assign-role-user-label').textContent = t('settings.admin.roles_assigning_to', { name: username });
 
   // Populate role select with color-coded level info
   const sel = document.getElementById('assign-role-select');
-  sel.innerHTML = '<option value="">-- Select Role --</option>' + this._allRoles.map(r =>
+  sel.innerHTML = `<option value="">${t('settings.admin.roles_select_dropdown')}</option>` + this._allRoles.map(r =>
     `<option value="${r.id}">● ${this._escapeHtml(r.name)} — Lv.${r.level}</option>`
   ).join('');
 
@@ -2951,9 +2953,9 @@ _openRoleAssignCenter(preSelectUserId = null) {
   this._racSelectedChannel = null; // null = server-wide, number = channel id
   this._racPendingChanges = {}; // key: `${userId}:${channelId||'server'}` → { roleId, level, permissions[] }
 
-  document.getElementById('rac-user-list').innerHTML = '<p class="rac-placeholder">Loading…</p>';
-  document.getElementById('rac-channel-list').innerHTML = '<p class="rac-placeholder">← Select a user</p>';
-  document.getElementById('rac-config-body').innerHTML = '<p class="rac-placeholder">← Select a channel</p>';
+  document.getElementById('rac-user-list').innerHTML = `<p class="rac-placeholder">${t('modals.common.loading')}</p>`;
+  document.getElementById('rac-channel-list').innerHTML = `<p class="rac-placeholder">${t('settings.admin.roles_select_user')}</p>`;
+  document.getElementById('rac-config-body').innerHTML = `<p class="rac-placeholder">${t('settings.admin.roles_select_channel')}</p>`;
   document.getElementById('rac-save-btn').disabled = true;
 
   // Show admin-only buttons
@@ -2981,7 +2983,7 @@ _renderRacUsers(filter = '') {
   );
 
   if (users.length === 0) {
-    list.innerHTML = '<p class="rac-placeholder">No users found</p>';
+    list.innerHTML = `<p class="rac-placeholder">${t('settings.admin.roles_no_users')}</p>`;
     return;
   }
 
@@ -2995,7 +2997,7 @@ _renderRacUsers(filter = '') {
     const activeClass = this._racSelectedUser === u.id ? ' active' : '';
     const roleNames = u.currentRoles
       .filter(r => !r.channel_id) // server-wide only for summary
-      .map(r => r.name).join(', ') || 'No role';
+      .map(r => r.name).join(', ') || t('settings.admin.roles_no_role');
     return `<div class="rac-user-item${activeClass}" data-uid="${u.id}">
       <div class="rac-user-avatar" style="background-color:${color};${shapeStyle}">${avatarInner}</div>
       <div class="rac-user-info">
@@ -3011,7 +3013,7 @@ _renderRacUsers(filter = '') {
       this._racSelectedChannel = null;
       this._renderRacUsers(document.getElementById('rac-user-search').value);
       this._renderRacChannels();
-      document.getElementById('rac-config-body').innerHTML = '<p class="rac-placeholder">← Select a channel</p>';
+      document.getElementById('rac-config-body').innerHTML = `<p class="rac-placeholder">${t('settings.admin.roles_select_channel')}</p>`;
     });
   });
 },
@@ -3019,7 +3021,7 @@ _renderRacUsers(filter = '') {
 _renderRacChannels() {
   const list = document.getElementById('rac-channel-list');
   if (!this._racData || !this._racSelectedUser) {
-    list.innerHTML = '<p class="rac-placeholder">← Select a user</p>';
+    list.innerHTML = `<p class="rac-placeholder">${t('settings.admin.roles_select_user')}</p>`;
     return;
   }
 
@@ -3035,7 +3037,7 @@ _renderRacChannels() {
     const key = `${userId}:${channelId || 'server'}`;
     if (this._racPendingChanges[key]) {
       const pc = this._racPendingChanges[key];
-      if (pc.action === 'revoke') return 'None ✎';
+      if (pc.action === 'revoke') return t('settings.admin.roles_revoked_badge');
       const pendingRole = this._racData.roles.find(r => r.id === pc.roleId);
       return pendingRole ? `${pendingRole.name} ✎` : '';
     }
@@ -3051,7 +3053,7 @@ _renderRacChannels() {
     const serverRole = getRoleName(null);
     html += `<div class="rac-channel-item rac-server-wide${serverActive}" data-channel="server">
       <span class="rac-channel-icon">🌐</span>
-      <span>Server-wide</span>
+      <span>${t('settings.admin.roles_server_wide')}</span>
       ${serverRole ? `<span class="rac-channel-current-role">${this._escapeHtml(serverRole)}</span>` : ''}
     </div>`;
   }
@@ -3088,7 +3090,7 @@ _renderRacChannels() {
   });
 
   if (!html) {
-    html = '<p class="rac-placeholder">No shared channels</p>';
+    html = `<p class="rac-placeholder">${t('settings.admin.roles_no_shared_channels')}</p>`;
   }
   list.innerHTML = html;
 
@@ -3125,7 +3127,7 @@ _renderRacChannels() {
 _renderRacConfig() {
   const body = document.getElementById('rac-config-body');
   if (!this._racData || !this._racSelectedUser || this._racSelectedChannel == null) {
-    body.innerHTML = '<p class="rac-placeholder">← Select a channel</p>';
+    body.innerHTML = `<p class="rac-placeholder">${t('settings.admin.roles_select_channel')}</p>`;
     return;
   }
 
@@ -3165,10 +3167,10 @@ _renderRacConfig() {
       ${this._escapeHtml(currentRole.name)} — Lv.${currentRole.level}
     </div>`;
   } else {
-    currentHtml = '<div class="rac-current-role" style="opacity:0.5">No role assigned</div>';
+    currentHtml = `<div class="rac-current-role" style="opacity:0.5">${t('settings.admin.roles_no_assigned')}</div>`;
   }
   if (pending) {
-    currentHtml += '<span class="rac-changed-badge">Modified</span>';
+    currentHtml += `<span class="rac-changed-badge">${t('settings.admin.roles_modified_badge')}</span>`;
   }
 
   // Determine which permissions the caller can grant
@@ -3227,12 +3229,12 @@ _renderRacConfig() {
 
   body.innerHTML = `
     <div class="rac-config-section">
-      <div class="rac-config-label">Current</div>
+      <div class="rac-config-label">${t('settings.admin.roles_current_label')}</div>
       ${currentHtml}
     </div>
 
     <div class="rac-config-section">
-      <div class="rac-config-label">Assign Role</div>
+      <div class="rac-config-label">${t('settings.admin.roles_assign_label')}</div>
       <div class="rac-config-row">
         <select class="rac-role-select" id="rac-role-dropdown">
           <option value="">-- No Role --</option>
@@ -3245,10 +3247,10 @@ _renderRacConfig() {
 
     ${selectedRoleId ? `
     <div class="rac-config-section">
-      <div class="rac-config-label">Level <span style="font-weight:400;text-transform:none;letter-spacing:0">(independent of preset, max ${maxLevel})</span></div>
+      <div class="rac-config-label">${t('settings.admin.roles_level_label')} <span style="font-weight:400;text-transform:none;letter-spacing:0">${t('settings.admin.roles_level_max_hint', { maxLevel })}</span></div>
       <div class="rac-config-row">
         <input type="number" class="rac-level-input" id="rac-level-input" min="1" max="${maxLevel}" value="${customLevel}" style="width:80px">
-        <span class="rac-level-hint" style="font-size:0.75rem;color:var(--text-muted)">Preset default: ${presetLevel}</span>
+        <span class="rac-level-hint" style="font-size:0.75rem;color:var(--text-muted)">${t('settings.admin.roles_preset_default', { level: presetLevel })}</span>
       </div>
     </div>
     ` : ''}
@@ -3257,13 +3259,13 @@ _renderRacConfig() {
     <div class="rac-config-section">
       <label class="rac-perm-item" style="padding:6px 0;">
         <input type="checkbox" id="rac-apply-subs"${applyToSubsChecked}>
-        <strong>Apply role to all sub-channels</strong>
+        <strong>${t('settings.admin.roles_apply_to_subs')}</strong>
       </label>
     </div>
     ` : ''}
 
     <div class="rac-config-section">
-      <div class="rac-config-label">Role Permissions <span style="font-weight:400;text-transform:none;letter-spacing:0">(toggle to customize)</span></div>
+      <div class="rac-config-label">${t('settings.admin.roles_perms_label')} <span style="font-weight:400;text-transform:none;letter-spacing:0">${t('settings.admin.roles_perms_customize_hint')}</span></div>
       <div class="rac-perms-grid" id="rac-perms-grid">
         ${allPerms.map(p => {
           const checked = customPerms.includes(p);
@@ -3439,9 +3441,9 @@ _racSaveChanges() {
 
   const onDone = () => {
     if (errors.length) {
-      this._showToast(`${errors.length} error(s): ${errors[0]}`, 'error');
+      this._showToast(t('settings.admin.roles_save_errors', { count: errors.length, error: errors[0] }), 'error');
     } else {
-      this._showToast(`${total} role change(s) saved`, 'success');
+      this._showToast(t(total === 1 ? 'settings.admin.roles_changes_saved_one' : 'settings.admin.roles_changes_saved_other', { count: total }), 'success');
       // Close modal after successful save
       document.getElementById('role-assign-center-modal').style.display = 'none';
     }
