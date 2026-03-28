@@ -645,9 +645,9 @@ _openOrganizeModal(parentCode, serverLevel) {
     this._organizeList = [...parents].sort((a, b) => (a.position || 0) - (b.position || 0));
     this._organizeSelected = null;
     this._organizeSelectedTag = null;
-    this._organizeTagSorts = JSON.parse(localStorage.getItem('haven_tag_sorts___server__') || '{}');
-    this._organizeCatOrder = JSON.parse(localStorage.getItem('haven_cat_order___server__') || '[]');
-    this._organizeCatSort = localStorage.getItem('haven_cat_sort___server__') || 'az';
+    this._organizeTagSorts = JSON.parse(localStorage.getItem('haven_tag_sorts___server__') || this.serverSettings?.channel_tag_sorts || '{}');
+    this._organizeCatOrder = JSON.parse(localStorage.getItem('haven_cat_order___server__') || this.serverSettings?.channel_cat_order || '[]');
+    this._organizeCatSort = localStorage.getItem('haven_cat_sort___server__') || this.serverSettings?.channel_cat_sort || 'az';
 
     document.getElementById('organize-modal-title').textContent = '📋 Organize Channels';
     document.getElementById('organize-modal-parent-name').textContent = 'Reorder channels and assign category tags';
@@ -863,6 +863,10 @@ _renderOrganizeList() {
       this._organizeTagSorts[tagKey] = sel.value;
       // Persist per-tag sorts so sidebar respects them
       localStorage.setItem(`haven_tag_sorts_${this._organizeParentCode}`, JSON.stringify(this._organizeTagSorts));
+      // Server-level: sync to server so all users see category-specific sorts
+      if (this._organizeServerLevel && (this.user?.isAdmin || this._hasPerm('manage_server'))) {
+        this.socket.emit('update-server-setting', { key: 'channel_tag_sorts', value: JSON.stringify(this._organizeTagSorts) });
+      }
       this._renderOrganizeList();
     });
   });
@@ -981,6 +985,11 @@ _moveCategoryInOrder(direction) {
   // Persist
   localStorage.setItem(`haven_cat_order_${this._organizeParentCode}`, JSON.stringify(allKeys));
   localStorage.setItem(`haven_cat_sort_${this._organizeParentCode}`, 'manual');
+  // Server-level: sync category order to server so all users see it
+  if (this._organizeServerLevel && (this.user?.isAdmin || this._hasPerm('manage_server'))) {
+    this.socket.emit('update-server-setting', { key: 'channel_cat_order', value: JSON.stringify(allKeys) });
+    this.socket.emit('update-server-setting', { key: 'channel_cat_sort', value: 'manual' });
+  }
 
   this._renderOrganizeList();
   if (this._organizeServerLevel) this._renderChannels();
@@ -1238,7 +1247,9 @@ _renderChannels() {
   // Sort parent channels — respect server-level sort mode & per-tag overrides
   const localSortOverride = localStorage.getItem('haven_server_sort_mode');
   const serverSortMode = localSortOverride || this.serverSettings?.channel_sort_mode || 'manual';
-  const serverTagOverrides = JSON.parse(localStorage.getItem('haven_tag_sorts___server__') || '{}');
+  // Per-tag overrides: prefer localStorage (admin's local state) then fall back to server settings
+  const localTagOverrides = localStorage.getItem('haven_tag_sorts___server__');
+  const serverTagOverrides = JSON.parse(localTagOverrides || this.serverSettings?.channel_tag_sorts || '{}');
   const parentHasTags = parentChannels.some(c => c.category);
 
   const serverSortByMode = (a, b, mode) => {
@@ -1250,8 +1261,11 @@ _renderChannels() {
   };
 
   // Load stored category order for server-level categories
-  const serverCatOrder = JSON.parse(localStorage.getItem('haven_cat_order___server__') || '[]');
-  const serverCatSort = localStorage.getItem('haven_cat_sort___server__') || 'az';
+  // Prefer localStorage (admin's local state) then fall back to server settings
+  const localCatOrder = localStorage.getItem('haven_cat_order___server__');
+  const serverCatOrder = JSON.parse(localCatOrder || this.serverSettings?.channel_cat_order || '[]');
+  const localCatSort = localStorage.getItem('haven_cat_sort___server__');
+  const serverCatSort = localCatSort || this.serverSettings?.channel_cat_sort || 'az';
 
   if (parentHasTags) {
     const tagGroup = (a, b) => {

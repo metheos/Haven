@@ -11072,6 +11072,31 @@ ul.chat-list { list-style-type: disc; }
   font-style: italic;
 }
 
+.donors-sort-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 10px 0 6px;
+}
+.donors-sort-btn {
+  padding: 5px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #444);
+  background: transparent;
+  color: var(--text-muted, #999);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.donors-sort-btn:hover {
+  background: var(--bg-hover, rgba(255,255,255,.06));
+}
+.donors-sort-btn.active {
+  background: var(--accent-color, #5865f2);
+  color: #fff;
+  border-color: transparent;
+}
+
 .donors-kofi-btn {
   display: inline-flex;
   align-items: center;

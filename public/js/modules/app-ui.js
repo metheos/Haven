@@ -451,6 +451,10 @@ _setupUI() {
     if (!this._organizeParentCode) return;
     this._organizeCatSort = e.target.value;
     localStorage.setItem(`haven_cat_sort_${this._organizeParentCode}`, e.target.value);
+    // Server-level: sync category sort to server so all users see it
+    if (this._organizeServerLevel && (this.user?.isAdmin || this._hasPerm('manage_server'))) {
+      this.socket.emit('update-server-setting', { key: 'channel_cat_sort', value: e.target.value });
+    }
     this._renderOrganizeList();
     if (this._organizeServerLevel) this._renderChannels();
   });

@@ -546,6 +546,15 @@ app.get('/api/donors', (req, res) => {
   try {
     const donorsPath = path.join(__dirname, 'donors.json');
     const data = JSON.parse(fs.readFileSync(donorsPath, 'utf-8'));
+    // Check for magnitude-sorted order file (gitignored, optional)
+    const orderPath = path.join(__dirname, 'donor-order.json');
+    if (fs.existsSync(orderPath)) {
+      try {
+        const ordered = JSON.parse(fs.readFileSync(orderPath, 'utf-8'));
+        data.featuredSponsors = ordered.sponsors || [];
+        data.featuredDonors = ordered.donors || [];
+      } catch {}
+    }
     res.json(data);
   } catch {
     res.json({ sponsors: [], donors: [] });
