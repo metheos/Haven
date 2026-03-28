@@ -162,11 +162,11 @@ _updateVoiceButtons(inVoice) {
     // Reset all mute/deafen buttons (sidebar + header)
     ['voice-mute-btn', 'voice-mute-btn-header'].forEach(id => {
       const b = document.getElementById(id);
-      if (b) { b.textContent = '🎙️'; b.title = 'Mute'; b.classList.remove('muted'); }
+      if (b) { b.textContent = '🎙️'; b.title = t('voice.mute'); b.classList.remove('muted'); }
     });
     ['voice-deafen-btn', 'voice-deafen-btn-header'].forEach(id => {
       const b = document.getElementById(id);
-      if (b) { b.textContent = '🔊'; b.title = 'Deafen'; b.classList.remove('muted'); }
+      if (b) { b.textContent = '🔊'; b.title = t('voice.deafen'); b.classList.remove('muted'); }
     });
     document.getElementById('screen-share-btn').textContent = '🖥️';
     document.getElementById('screen-share-btn').title = t('voice.screen_share');
@@ -2708,7 +2708,7 @@ _popInMusicPlayer() {
 
     // Restore popout button icon
     const popBtn = document.getElementById('music-popout-btn');
-    if (popBtn) { popBtn.textContent = '⧉'; popBtn.title = 'Pop out player'; }
+    if (popBtn) { popBtn.textContent = '⧉'; popBtn.title = t('media.music_popout'); }
   });
 },
 
@@ -2755,8 +2755,8 @@ _initPipDrag(pip, handle) {
     ind = document.createElement('button');
     ind.id = 'music-indicator';
     ind.className = 'music-indicator';
-    ind.textContent = '🎵 Music playing';
-    ind.title = 'Click to show music player';
+    ind.textContent = `🎵 ${t('voice.music_playing')}`;
+    ind.title = t('voice.music_show_player');
     ind.addEventListener('click', () => {
       // If PiP is active, pop back in first
       if (this._musicPip) {

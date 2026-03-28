@@ -258,7 +258,7 @@
       <!-- ─── Main Content ────────────────────────────── -->
       <main class="main">
         <header class="channel-header">
-          <button id="mobile-menu-btn" class="mobile-menu-btn" title="Menu" aria-label="Menu">
+          <button id="mobile-menu-btn" class="mobile-menu-btn" data-i18n-title="header.mobile_menu" data-i18n-aria-label="header.mobile_menu" title="Menu" aria-label="Menu">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
               <line x1="3" y1="6" x2="21" y2="6"/>
               <line x1="3" y1="12" x2="21" y2="12"/>
@@ -266,24 +266,24 @@
             </svg>
           </button>
           <div class="mobile-server-dropdown" id="mobile-server-dropdown">
-            <button class="mobile-server-btn" id="mobile-server-btn" title="Servers" aria-label="Servers">⬡</button>
+            <button class="mobile-server-btn" id="mobile-server-btn" data-i18n-title="header.mobile_servers" data-i18n-aria-label="header.mobile_servers" title="Servers" aria-label="Servers">⬡</button>
             <div class="mobile-server-menu" id="mobile-server-menu">
-              <div class="mobile-server-menu-header">Servers</div>
+              <div class="mobile-server-menu-header" data-i18n="header.mobile_servers">Servers</div>
               <div id="mobile-server-list"></div>
-              <button class="mobile-server-add" id="mobile-server-add-btn">+ Add Server</button>
+              <button class="mobile-server-add" id="mobile-server-add-btn" data-i18n="header.mobile_add_server">+ Add Server</button>
             </div>
           </div>
           <div class="channel-info">
             <h3 id="channel-header-name" data-i18n="header.select_channel">Select a channel</h3>
           </div>
           <div class="header-actions-box" id="header-actions-box" style="display:none">
-            <span class="channel-code-tag" id="channel-code-display" title="Channel code"></span>
+            <span class="channel-code-tag" id="channel-code-display" data-i18n-title="header.channel_code" title="Channel code"></span>
             <button id="copy-code-btn" class="icon-btn small" data-i18n-title="header.copy_code" title="Copy code">📋</button>
             <button id="channel-code-settings-btn" class="icon-btn small" data-i18n-title="header.channel_code_settings" title="Channel code settings">⚙️</button>
             <span class="header-actions-divider"></span>
             <button id="search-toggle-btn" class="icon-btn small" data-i18n-title="header.search_messages" title="Search messages (Ctrl+F)">🔍</button>
             <button id="pinned-toggle-btn" class="icon-btn small" data-i18n-title="header.pinned_messages" title="Pinned messages">📌</button>
-            <button id="move-select-btn" class="icon-btn small" title="Select messages to move" style="display:none">☰</button>
+            <button id="move-select-btn" class="icon-btn small" data-i18n-title="header.select_messages_to_move" title="Select messages to move" style="display:none">☰</button>
             <div class="e2e-menu-wrapper" style="display:none" id="e2e-menu-wrapper">
               <button id="e2e-menu-btn" class="icon-btn small" data-i18n-title="header.encryption_options" title="Encryption options">🔐</button>
               <div class="e2e-dropdown" id="e2e-dropdown" style="display:none">
@@ -404,12 +404,12 @@
                 <button id="music-popout-btn" class="icon-btn small" data-i18n-title="media.music_popout" title="Pop out player">⧉</button>
                 <div class="music-panel-copy">
                   <span id="music-panel-label">🎵 <span data-i18n="media.listening_together">Listening Together</span>
-                  <span id="music-up-next" class="music-up-next">Up next: Nothing queued</span>
+                  <span id="music-up-next" class="music-up-next" data-i18n="media.music_up_next_empty">Up next: Nothing queued</span>
                 </div>
               </div>
               <span id="music-activity-hint" class="music-activity-hint"></span>
               <div class="music-panel-controls">
-                <button id="music-queue-btn" class="icon-btn small" title="Queue">☰</button>
+                <button id="music-queue-btn" class="icon-btn small" data-i18n-title="media.music_queue" title="Queue">☰</button>
                 <button id="music-play-pause-btn" class="icon-btn small" data-i18n-title="media.music_play_pause" title="Play/Pause">⏸</button>
                 <button id="music-next-btn" class="icon-btn small" data-i18n-title="media.music_next" title="Next track" style="display:none">⏭</button>
                 <span id="music-time-current" class="music-time">0:00</span>
@@ -1152,15 +1152,15 @@
           </label>
           <small class="settings-hint" style="display:block;margin-bottom:6px" data-i18n="settings.sounds_section.auto_accept_streams_hint">Automatically open screen shares when someone starts streaming. Turn off to join manually.</small>
           <label class="toggle-row">
-            <span>Hide Voice Panel</span>
+            <span data-i18n="settings.sounds_section.hide_voice_panel">Hide Voice Panel</span>
             <input type="checkbox" id="hide-voice-panel">
           </label>
-          <small class="settings-hint" style="display:block;margin-bottom:6px">Hide the voice users panel on desktop. Voice users are still shown in channel indicators.</small>
+          <small class="settings-hint" style="display:block;margin-bottom:6px" data-i18n="settings.sounds_section.hide_voice_panel_hint">Hide the voice users panel on desktop. Voice users are still shown in channel indicators.</small>
           <label class="toggle-row">
-            <span>Sidebar Voice Controls</span>
+            <span data-i18n="settings.sounds_section.sidebar_voice_controls">Sidebar Voice Controls</span>
             <input type="checkbox" id="sidebar-voice-controls">
           </label>
-          <small class="settings-hint" style="display:block;margin-bottom:6px">Show mute/deafen buttons in the sidebar instead of the voice panel header.</small>
+          <small class="settings-hint" style="display:block;margin-bottom:6px" data-i18n="settings.sounds_section.sidebar_voice_controls_hint">Show mute/deafen buttons in the sidebar instead of the voice panel header.</small>
           <label class="volume-row">
             <span data-i18n="settings.sounds_section.volume">Volume</span>
             <input type="range" id="notif-volume" min="0" max="100" value="50" class="slider-sm">
@@ -2018,7 +2018,7 @@
         <button class="btn-sm" id="cancel-music-btn" data-i18n="modals.common.cancel">Cancel</button>
         <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
           <button class="btn-sm btn-accent" id="share-music-btn" data-i18n="modals.listen_together.share_btn">Share with Channel</button>
-          <button class="btn-sm btn-accent" id="share-music-playlist-btn" style="display:none">Share Playlist with Channel</button>
+          <button class="btn-sm btn-accent" id="share-music-playlist-btn" style="display:none" data-i18n="media.share_playlist">Share Playlist with Channel</button>
         </div>
       </div>
     </div>
@@ -2026,27 +2026,27 @@
 
   <div class="modal-overlay" id="music-queue-modal" style="display:none">
     <div class="modal modal-wide music-queue-modal">
-      <h3>📋 Playback Queue</h3>
-      <p class="modal-desc" id="music-queue-summary">No queued tracks</p>
+      <h3>📋 <span data-i18n="media.music_queue_title">Playback Queue</span></h3>
+      <p class="modal-desc" id="music-queue-summary" data-i18n="media.music_queue_empty_summary">No queued tracks</p>
       <div class="music-queue-table-wrap">
         <table class="music-queue-table">
           <thead>
             <tr>
               <th class="music-queue-col-handle"></th>
-              <th class="music-queue-col-pos">Pos.</th>
-              <th class="music-queue-col-requested-by">Requested By</th>
-              <th class="music-queue-col-title">Title</th>
+              <th class="music-queue-col-pos" data-i18n="media.music_queue_col_pos">Pos.</th>
+              <th class="music-queue-col-requested-by" data-i18n="media.music_queue_col_requested_by">Requested By</th>
+              <th class="music-queue-col-title" data-i18n="media.music_queue_col_title">Title</th>
               <th class="music-queue-col-actions"></th>
             </tr>
           </thead>
           <tbody id="music-queue-body">
-            <tr><td colspan="5" class="music-queue-empty">Queue is empty</td></tr>
+            <tr><td colspan="5" class="music-queue-empty" data-i18n="media.music_queue_is_empty">Queue is empty</td></tr>
           </tbody>
         </table>
       </div>
       <div class="modal-actions">
-        <button class="btn-sm btn-accent" id="shuffle-music-queue-btn" style="display:none">Shuffle Queue</button>
-        <button class="btn-sm" id="close-music-queue-btn">Close</button>
+        <button class="btn-sm btn-accent" id="shuffle-music-queue-btn" style="display:none" data-i18n="media.music_shuffle_queue">Shuffle Queue</button>
+        <button class="btn-sm" id="close-music-queue-btn" data-i18n="modals.common.close">Close</button>
       </div>
     </div>
   </div>
