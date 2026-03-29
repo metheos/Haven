@@ -11,6 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.8.6] — 2026-03-29
+
+### Fixed
+- **Heart/donate button position** — moved the ❤️ button to the right side of the sidebar bottom bar where it was in older versions, after the flex spacer alongside the voice controls.
+
+---
+
 ## [2.8.5] — 2026-03-29
 
 ### Fixed
