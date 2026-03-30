@@ -5,15 +5,12 @@
     "flag": "🇫🇷",
     "direction": "ltr"
   },
-
   "auth": {
     "tagline": "Chat privé, vos règles",
-
     "tabs": {
       "login": "Connexion",
       "register": "Inscription"
     },
-
     "login": {
       "username_label": "Nom d'utilisateur",
       "password_label": "Mot de passe",
@@ -23,7 +20,6 @@
       "admin_recover_hint": "Saisissez vos identifiants admin ci-dessus et cliquez sur Récupérer",
       "admin_recover_btn": "Récupérer l'accès admin"
     },
-
     "register": {
       "username_label": "Nom d'utilisateur",
       "username_hint": "3-20 caractères, lettres/chiffres/underscores",
@@ -32,7 +28,6 @@
       "confirm_label": "Confirmer le mot de passe",
       "submit": "Créer un compte"
     },
-
     "totp": {
       "instruction": "🔐 Entrez le code à 6 chiffres de votre application d'authentification",
       "code_label": "Code d'authentification",
@@ -41,7 +36,6 @@
       "use_authenticator": "Utiliser le code d'authentification à la place",
       "back": "← Retour à la connexion"
     },
-
     "recover": {
       "instruction": "🔑 Réinitialisez votre mot de passe avec un code de récupération",
       "warning": "⚠️ Cela va <strong>effacer définitivement vos clés de chiffrement</strong>. L'historique des messages chiffrés sera illisible.",
@@ -53,7 +47,6 @@
       "submit": "Réinitialiser le mot de passe",
       "back": "← Retour à la connexion"
     },
-
     "eula": {
       "age_confirm": "Je confirme avoir <strong>18 ans ou plus</strong> (ou l'âge de la majorité légale dans ma juridiction)",
       "tos_confirm": "J'ai lu et j'accepte les <a href=\"#\" id=\"eula-link\">Conditions d'utilisation &amp; Accord de décharge de responsabilité</a>",
@@ -61,7 +54,6 @@
       "decline": "Refuser",
       "accept": "J'accepte"
     },
-
     "errors": {
       "fill_all_fields": "Remplissez tous les champs",
       "all_fields_required": "Tous les champs sont obligatoires",
@@ -80,10 +72,8 @@
       "password_reset_success": "Mot de passe réinitialisé. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe."
     }
   },
-
   "app": {
     "brand": "HAVEN",
-
     "sidebar": {
       "servers": "Serveurs",
       "join_channel": "Rejoindre un salon",
@@ -102,7 +92,6 @@
       "manage_servers": "Gérer les serveurs",
       "this_server": "Ce serveur"
     },
-
     "theme": {
       "title": "Thème",
       "effect_overlay": "Effet visuel",
@@ -111,7 +100,6 @@
       "vibrancy": "Vibrance",
       "effect_speed": "Vitesse de l'effet"
     },
-
     "actions": {
       "logout": "Se déconnecter",
       "change_display_name": "Changer le pseudo",
@@ -123,7 +111,6 @@
       "drag_to_resize": "Glisser pour redimensionner",
       "settings": "Paramètres"
     },
-
     "messages": {
       "edited": "(modifié)",
       "edited_at": "Modifié le {{date}}",
@@ -136,14 +123,12 @@
       "placeholder": "Écrivez un message...",
       "placeholder_short": "Message..."
     },
-
     "input_bar": {
       "emoji_btn": "Emoji",
       "gif_btn": "Rechercher des GIFs",
       "gif_label": "GIF",
       "poll_btn": "Créer un sondage"
     },
-
     "profile": {
       "login_username": "Votre nom de connexion",
       "online": "En ligne",
@@ -155,7 +140,6 @@
       "custom_status_placeholder": "Statut personnalisé..."
     }
   },
-
   "toasts": {
     "roles_updated": "Vos rôles ont été mis à jour",
     "status_pending_reconnect": "Le statut sera mis à jour lors de la reconnexion",
@@ -205,17 +189,14 @@
     "no_music_playing": "Aucune musique en cours",
     "record_set": "{{user}} a établi un nouveau record sur {{game}} : {{score}} !"
   },
-
   "utils": {
     "today_at": "Aujourd'hui à {{time}}",
     "yesterday_at": "Hier à {{time}}"
   },
-
   "commands": {
     "play_usage": "Utilisation : /play <nom de la chanson> ou /play <url>",
     "gif_usage": "Utilisation : /gif <recherche>"
   },
-
   "msg_toolbar": {
     "react": "Réagir",
     "reply": "Répondre",
@@ -224,14 +205,12 @@
     "edit": "Modifier",
     "delete": "Supprimer"
   },
-
   "pinned_panel": {
     "count_one": "{{count}} message épinglé",
     "count_other": "{{count}} messages épinglés",
     "no_messages": "Aucun message épinglé",
     "pinned_by": "Épinglé par {{user}}"
   },
-
   "voice": {
     "join": "🎤 Rejoindre le vocal",
     "join_ctx": "Rejoindre le vocal",
@@ -271,7 +250,6 @@
     "shuffle_off": "Lecture aléatoire désactivée",
     "music_playing": "Musique en cours",
     "music_show_player": "Cliquer pour afficher le lecteur",
-
     "panel": {
       "camera": "Caméra",
       "soundboard": "Soundboard",
@@ -279,7 +257,6 @@
       "settings": "Paramètres vocaux"
     }
   },
-
   "channels": {
     "status_none": "Aucun",
     "dm_status": "MP : {{name}}",
@@ -342,7 +319,6 @@
     "unknown_user": "Inconnu",
     "more_options": "Plus d'options"
   },
-
   "channel": {
     "server_joined": "Code accepté — {{count}} salon(s) rejoint(s)",
     "errors": {
@@ -355,7 +331,6 @@
       "media_disabled": "Les envois de fichiers sont désactivés dans ce salon"
     }
   },
-
   "permissions": {
     "errors": {
       "no_create_channels": "Vous n'avez pas la permission de créer des salons",
@@ -396,18 +371,15 @@
     "manage_server": "Gérer le serveur",
     "delete_channel": "Supprimer des salons"
   },
-
   "slowmode": {
     "wait": "Mode lent — attendez {{seconds}}s avant d'envoyer un autre message",
     "too_many_requests": "Ralentissez — trop de requêtes",
     "muted_for": "Vous êtes en sourdine pendant encore {{minutes}} minute(s)"
   },
-
   "welcome": {
     "title": "Bienvenue sur Haven",
     "subtitle": "Rejoignez un salon avec un code de vos amis,\nou créez-en un si vous êtes administrateur."
   },
-
   "header": {
     "select_channel": "Sélectionnez un salon",
     "mobile_menu": "Menu",
@@ -435,11 +407,9 @@
     "message_placeholder_commands": "Écrivez un message... (/ pour les commandes)",
     "gif_search_placeholder": "Rechercher sur GIPHY...",
     "powered_by_giphy": "Propulsé par GIPHY",
-
     "search_results_one": "{{count}} résultat pour « {{query}} »",
     "search_results_other": "{{count}} résultats pour « {{query}} »",
     "search_no_results": "Aucun résultat trouvé",
-
     "messages": {
       "edited": "(modifié)",
       "edited_at": "Modifié le {{date}}",
@@ -452,7 +422,6 @@
       "message_unprotected": "Un message n'est plus protégé"
     }
   },
-
   "media": {
     "upload_file_title": "Téléverser un fichier",
     "send_title": "Envoyer",
@@ -465,7 +434,6 @@
     "minimize": "Réduire",
     "close": "Fermer",
     "listening_together": "Écoute en commun",
-
     "camera_layout": "Disposition des caméras",
     "change_layout": "Changer la disposition",
     "layout_auto_title": "Grille automatique",
@@ -519,7 +487,6 @@
     "uploads_disabled": "Les envois de médias sont désactivés dans ce salon",
     "file_too_large": "Fichier trop volumineux (max {{maxMb}} Mo)"
   },
-
   "right_sidebar": {
     "voice_title": "Vocal",
     "close_panel": "Fermer le panneau",
@@ -527,7 +494,6 @@
     "online_title": "En ligne",
     "select_channel": "Sélectionnez un salon"
   },
-
   "users": {
     "no_one_here": "Personne ici",
     "online_count": "En ligne — {{count}}",
@@ -585,7 +551,6 @@
       "deafen_hint": "Couper = ils ne vous entendent pas"
     }
   },
-
   "context": {
     "view_profile": "Voir le profil",
     "invite_to_channel": "Inviter dans un salon",
@@ -605,7 +570,6 @@
     "flash_install_result": "Jeux Flash : {{installed}} installés, {{already}} déjà présents, {{errors}} échecs",
     "flash_not_installed_label": "Non installé"
   },
-
   "voice_settings": {
     "audio_devices": "Périphériques audio",
     "input": "Entrée",
@@ -614,6 +578,8 @@
     "output": "Sortie",
     "default_speaker": "Haut-parleur par défaut",
     "speaker_fallback": "Haut-parleur {{n}}",
+    "camera": "Caméra",
+    "default_camera": "Caméra par défaut",
     "noise_reduction": "Réduction du bruit",
     "off": "Désactivé",
     "noise_gate": "Porte anti-bruit",
@@ -626,9 +592,9 @@
     "screen_share_quality": "Qualité du partage d'écran",
     "resolution": "Résolution",
     "resolution_source": "Source",
-    "frame_rate": "Fréquence d'images"
+    "frame_rate": "Fréquence d'images",
+    "camera_fallback": "Caméra {{n}}"
   },
-
   "status_bar": {
     "server": "Serveur",
     "voice": "Vocal",
@@ -640,7 +606,6 @@
     "online": "En ligne",
     "users_overlay_title": "Utilisateurs"
   },
-
   "settings": {
     "title": "Paramètres",
     "nav": {
@@ -676,7 +641,6 @@
       "label": "Langue",
       "hint": "Les changements s'appliquent immédiatement"
     },
-
     "layout_density": {
       "title": "Densité de disposition",
       "compact": "Compact",
@@ -730,7 +694,11 @@
       "hint": "Recevez des notifications même lorsque Haven est fermé"
     },
     "plugins_section": {
-      "no_plugins": "Aucun plugin trouvé. Déposez des fichiers <code>.plugin.js</code> dans le dossier <code>plugins/</code>."
+      "title": "Plugins & Thèmes",
+      "hint": "Déposez les fichiers <code>.plugin.js</code> dans le dossier <code>plugins/</code> et les fichiers <code>.theme.css</code> dans le dossier <code>themes/</code>, puis actualisez.",
+      "refresh_btn": "Actualiser",
+      "plugins_label": "Plugins",
+      "themes_label": "Thèmes"
     },
     "password_section": {
       "title": "Mot de passe",
@@ -798,16 +766,9 @@
       "deleting": "Suppression...",
       "password_placeholder": "Entrez votre mot de passe"
     },
-    "plugins_section": {
-      "title": "Plugins & Thèmes",
-      "hint": "Déposez les fichiers <code>.plugin.js</code> dans le dossier <code>plugins/</code> et les fichiers <code>.theme.css</code> dans le dossier <code>themes/</code>, puis actualisez.",
-      "refresh_btn": "Actualiser",
-      "plugins_label": "Plugins",
-      "themes_label": "Thèmes"
-    },
     "desktop_shortcuts_section": {
       "title": "Raccourcis bureau",
-      "desc": "Raccourcis clavier globaux — actifs même quand Haven est en arrière-plan. Cliquez sur une ligne pour rebind, ou \u00abEffacer\u00bb pour désactiver.",
+      "desc": "Raccourcis clavier globaux — actifs même quand Haven est en arrière-plan. Cliquez sur une ligne pour rebind, ou «Effacer» pour désactiver.",
       "mute_unmute": "Couper / Réactiver le micro",
       "deafen_undeafen": "Sourdine / Désactiver la sourdine",
       "ptt": "Appuyer pour parler",
@@ -886,7 +847,7 @@
       "no_bots": "Aucun bot configuré",
       "bots_select_hint": "Sélectionnez un bot à modifier ou créez-en un nouveau",
       "import_title": "Import Discord",
-      "import_btn": "Importer depuis Discord",
+      "import_btn": "Importer la sélection",
       "modmode_title": "Mode mod",
       "modmode_toggle_btn": "Activer/désactiver le mode mod",
       "modmode_reset_btn": "↺ Réinitialiser la disposition",
@@ -966,7 +927,6 @@
       "import_success_one": "1 salon importé avec succès avec {{messages}} messages.",
       "import_success_other": "{{count}} salons importés avec succès avec {{messages}} messages.",
       "import_failed_alert": "Échec de l'importation : {{error}}",
-      "import_btn": "Importer la sélection",
       "roles_no_custom": "Aucun rôle personnalisé",
       "roles_level_invalid": "Le niveau doit être entre 1 et 99",
       "roles_create_title": "Créer un rôle",
@@ -1033,7 +993,6 @@
       }
     }
   },
-
   "modals": {
     "common": {
       "cancel": "Annuler",
@@ -1046,7 +1005,6 @@
       "dismiss": "Ignorer",
       "ok": "OK"
     },
-
     "recovery_notice": {
       "title": "Codes de récupération de compte",
       "body": "Vous pouvez désormais générer des codes de récupération à usage unique dans <strong>Paramètres → 🔑 Récupération</strong>. Si vous oubliez votre mot de passe, ces codes vous permettent de le réinitialiser — sans intervention d'un admin.",
@@ -1054,7 +1012,6 @@
       "dsa": "Ne plus afficher",
       "go_btn": "Accéder aux paramètres de récupération"
     },
-
     "wizard": {
       "title": "Bienvenue sur Haven",
       "subtitle": "Configurons votre serveur. Cela ne prend qu'une minute.",
@@ -1285,12 +1242,10 @@
       "placeholder": "Entrez votre mot de passe",
       "unlock_btn": "Déverrouiller"
     },
-
     "e2e_verify": {
       "desc": "Comparez ce numéro de sécurité avec <strong>{{name}}</strong> via un autre canal (en personne, appel téléphonique, SMS, etc.). S'ils correspondent, votre conversation est chiffrée de bout en bout et personne ne l'intercepte.",
       "copy_btn": "Copier le code"
     },
-
     "e2e_reset": {
       "warning_irreversible": "<strong>Cette action est irréversible.</strong> La réinitialisation de vos clés de chiffrement va :",
       "li_new_keys": "Générer une toute nouvelle paire de clés",
@@ -1499,9 +1454,16 @@
       "restart_hint": "Redémarrez Discord, puis suivez les étapes ci-dessus.",
       "token_warning": "Votre token est comme un mot de passe. Haven l'utilise uniquement pour cette importation et ne le stocke jamais.",
       "connected_as": "Connecté en tant que"
+    },
+    "move_messages": {
+      "selected": "{{n}} sélectionné(s)",
+      "move_to": "Déplacer vers...",
+      "title": "Déplacer les messages",
+      "desc": "Sélectionner un salon de destination",
+      "move_one": "Déplacer {{n}} message vers :",
+      "move_many": "Déplacer {{n}} messages vers :"
     }
   },
-
   "context_menu": {
     "channel": {
       "mute": "Mettre en sourdine",
@@ -1525,7 +1487,6 @@
       "delete": "Supprimer la conversation"
     }
   },
-
   "channel_functions": {
     "voice": "Vocal",
     "voice_hint": "Activer ou désactiver le chat vocal dans ce salon",
@@ -1560,7 +1521,6 @@
     "afk_timeout": "Délai AFK",
     "afk_timeout_hint": "Minutes d'inactivité vocale avant d'être déplacé vers le salon AFK (0 = désactivé)"
   },
-
   "confirm": {
     "delete_channel": "Supprimer ce salon ?\nTous les messages seront définitivement perdus.",
     "delete_channel_sure": "Êtes-vous ABSOLUMENT sûr ?\nCette action est irréversible !",
@@ -1573,7 +1533,6 @@
     "rotate_channel_code": "Changer le code du salon maintenant ? Le code actuel deviendra invalide.",
     "remove_server": "Retirer \"{{name}}\" de votre liste de serveurs ?"
   },
-
   "servers": {
     "online": "En ligne",
     "offline": "Hors ligne",
@@ -1583,7 +1542,6 @@
     "edit": "Modifier le serveur",
     "remove": "Supprimer"
   },
-
   "gifs": {
     "searching": "Recherche en cours...",
     "no_results": "Aucun GIF trouvé",
@@ -1604,13 +1562,11 @@
       "unavailable_desc": "Un admin doit configurer la clé API GIPHY pour que la recherche GIF fonctionne."
     }
   },
-
   "reactions": {
     "search_placeholder": "Rechercher des emojis..."
   },
-
   "emoji": {
-    "search_placeholder": "Rechercher un emoji\u2026",
+    "search_placeholder": "Rechercher un emoji…",
     "no_results": "Aucun emoji trouvé",
     "all_emojis_title": "Tous les emojis",
     "customize_quick_title": "Personnaliser les réactions rapides",
@@ -1629,7 +1585,6 @@
       "custom": "Personnalisé"
     }
   },
-
   "common": {
     "copy": "Copier",
     "copied": "Copié",

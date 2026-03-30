@@ -5,15 +5,12 @@
     "flag": "🇬🇧",
     "direction": "ltr"
   },
-
   "auth": {
     "tagline": "Private chat, your rules",
-
     "tabs": {
       "login": "Login",
       "register": "Register"
     },
-
     "login": {
       "username_label": "Username",
       "password_label": "Password",
@@ -23,7 +20,6 @@
       "admin_recover_hint": "Enter your admin credentials above and click Recover",
       "admin_recover_btn": "Recover Admin Access"
     },
-
     "register": {
       "username_label": "Username",
       "username_hint": "3-20 characters, letters/numbers/underscores",
@@ -32,7 +28,6 @@
       "confirm_label": "Confirm Password",
       "submit": "Create Account"
     },
-
     "totp": {
       "instruction": "🔐 Enter the 6-digit code from your authenticator app",
       "code_label": "Authentication Code",
@@ -41,7 +36,6 @@
       "use_authenticator": "Use authenticator code instead",
       "back": "← Back to login"
     },
-
     "recover": {
       "instruction": "🔑 Reset password with a recovery code",
       "warning": "⚠️ This will <strong>permanently erase your encryption keys</strong>. All encrypted DM history will be unreadable.",
@@ -53,7 +47,6 @@
       "submit": "Reset Password",
       "back": "← Back to login"
     },
-
     "eula": {
       "age_confirm": "I confirm that I am <strong>18 years of age or older</strong> (or the age of legal majority in my jurisdiction)",
       "tos_confirm": "I have read and agree to the <a href=\"#\" id=\"eula-link\">Terms of Service &amp; Release of Liability Agreement</a>",
@@ -61,7 +54,6 @@
       "decline": "Decline",
       "accept": "I Accept"
     },
-
     "errors": {
       "fill_all_fields": "Fill in all fields",
       "all_fields_required": "All fields are required",
@@ -80,10 +72,8 @@
       "password_reset_success": "Password reset successfully. You can now log in with your new password."
     }
   },
-
   "app": {
     "brand": "HAVEN",
-
     "sidebar": {
       "servers": "Servers",
       "join_channel": "Join a Channel",
@@ -102,7 +92,6 @@
       "manage_servers": "Manage Servers",
       "this_server": "This Server"
     },
-
     "theme": {
       "title": "Theme",
       "effect_overlay": "Effect Overlay",
@@ -111,7 +100,6 @@
       "vibrancy": "Vibrancy",
       "effect_speed": "Effect Speed"
     },
-
     "actions": {
       "logout": "Logout",
       "change_display_name": "Change display name",
@@ -123,7 +111,6 @@
       "drag_to_resize": "Drag to resize",
       "settings": "Settings"
     },
-
     "messages": {
       "edited": "(edited)",
       "edited_at": "Edited at {{date}}",
@@ -136,14 +123,12 @@
       "placeholder": "Type a message...",
       "placeholder_short": "Message..."
     },
-
     "input_bar": {
       "emoji_btn": "Emoji",
       "gif_btn": "Search GIFs",
       "gif_label": "GIF",
       "poll_btn": "Create Poll"
     },
-
     "profile": {
       "login_username": "Your login username",
       "online": "Online",
@@ -155,7 +140,6 @@
       "custom_status_placeholder": "Custom status..."
     }
   },
-
   "toasts": {
     "roles_updated": "Your roles have been updated",
     "status_pending_reconnect": "Status will update when reconnected",
@@ -205,17 +189,14 @@
     "no_music_playing": "No music playing",
     "record_set": "{{user}} set a new {{game}} record: {{score}}!"
   },
-
   "utils": {
     "today_at": "Today at {{time}}",
     "yesterday_at": "Yesterday at {{time}}"
   },
-
   "commands": {
     "play_usage": "Usage: /play <song name> or /play <url>",
     "gif_usage": "Usage: /gif <search query>"
   },
-
   "msg_toolbar": {
     "react": "React",
     "reply": "Reply",
@@ -224,14 +205,12 @@
     "edit": "Edit",
     "delete": "Delete"
   },
-
   "pinned_panel": {
     "count_one": "{{count}} pinned message",
     "count_other": "{{count}} pinned messages",
     "no_messages": "No pinned messages",
     "pinned_by": "Pinned by {{user}}"
   },
-
   "voice": {
     "join": "🎤 Join Voice",
     "join_ctx": "Join Voice",
@@ -271,7 +250,6 @@
     "shuffle_off": "Shuffle off",
     "music_playing": "Music playing",
     "music_show_player": "Click to show music player",
-
     "panel": {
       "camera": "Camera",
       "soundboard": "Soundboard",
@@ -279,7 +257,6 @@
       "settings": "Voice Settings"
     }
   },
-
   "channels": {
     "status_none": "None",
     "dm_status": "DM: {{name}}",
@@ -342,7 +319,6 @@
     "unknown_user": "Unknown",
     "more_options": "More options"
   },
-
   "channel": {
     "server_joined": "Server code accepted — joined {{count}} channel(s)",
     "errors": {
@@ -355,7 +331,6 @@
       "media_disabled": "Media uploads are disabled in this channel"
     }
   },
-
   "permissions": {
     "errors": {
       "no_create_channels": "You don't have permission to create channels",
@@ -396,18 +371,15 @@
     "manage_server": "Manage Server",
     "delete_channel": "Delete Channels"
   },
-
   "slowmode": {
     "wait": "Slow mode — wait {{seconds}}s before sending another message",
     "too_many_requests": "Slow down — too many requests",
     "muted_for": "You are muted for {{minutes}} more minute(s)"
   },
-
   "welcome": {
     "title": "Welcome to Haven",
     "subtitle": "Join a channel with a code from your friends,\nor create one if you're the admin."
   },
-
   "header": {
     "select_channel": "Select a channel",
     "mobile_menu": "Menu",
@@ -435,11 +407,9 @@
     "message_placeholder_commands": "Type a message... (/ for commands)",
     "gif_search_placeholder": "Search GIPHY...",
     "powered_by_giphy": "Powered by GIPHY",
-
     "search_results_one": "{{count}} result for \"{{query}}\"",
     "search_results_other": "{{count}} results for \"{{query}}\"",
     "search_no_results": "No results found",
-
     "messages": {
       "edited": "(edited)",
       "edited_at": "Edited at {{date}}",
@@ -452,7 +422,6 @@
       "message_unprotected": "A message was unprotected"
     }
   },
-
   "media": {
     "upload_file_title": "Upload File",
     "send_title": "Send",
@@ -465,7 +434,6 @@
     "minimize": "Minimize",
     "close": "Close",
     "listening_together": "Listening Together",
-
     "camera_layout": "Camera layout",
     "change_layout": "Change layout",
     "layout_auto_title": "Auto grid",
@@ -519,7 +487,6 @@
     "uploads_disabled": "Media uploads are disabled in this channel",
     "file_too_large": "File too large (max {{maxMb}} MB)"
   },
-
   "right_sidebar": {
     "voice_title": "Voice",
     "close_panel": "Close panel",
@@ -527,7 +494,6 @@
     "online_title": "Online",
     "select_channel": "Select a channel"
   },
-
   "users": {
     "no_one_here": "No one here",
     "online_count": "Online — {{count}}",
@@ -585,7 +551,6 @@
       "deafen_hint": "Deafen = they can't hear you"
     }
   },
-
   "context": {
     "view_profile": "View Profile",
     "invite_to_channel": "Invite to Channel",
@@ -605,7 +570,6 @@
     "flash_install_result": "Flash games: {{installed}} installed, {{already}} already had, {{errors}} failed",
     "flash_not_installed_label": "Not installed"
   },
-
   "voice_settings": {
     "audio_devices": "Audio Devices",
     "input": "Input",
@@ -614,6 +578,8 @@
     "output": "Output",
     "default_speaker": "Default Speaker",
     "speaker_fallback": "Speaker {{n}}",
+    "camera": "Camera",
+    "default_camera": "Default Camera",
     "noise_reduction": "Noise Reduction",
     "off": "Off",
     "noise_gate": "Noise Gate",
@@ -626,9 +592,9 @@
     "screen_share_quality": "Screen Share Quality",
     "resolution": "Resolution",
     "resolution_source": "Source",
-    "frame_rate": "Frame Rate"
+    "frame_rate": "Frame Rate",
+    "camera_fallback": "Camera {{n}}"
   },
-
   "status_bar": {
     "server": "Server",
     "voice": "Voice",
@@ -640,7 +606,6 @@
     "online": "Online",
     "users_overlay_title": "Users"
   },
-
   "settings": {
     "title": "Settings",
     "nav": {
@@ -676,7 +641,6 @@
       "label": "Language",
       "hint": "Changes apply immediately"
     },
-
     "layout_density": {
       "title": "Layout Density",
       "compact": "Compact",
@@ -730,7 +694,11 @@
       "hint": "Receive notifications even when Haven is closed"
     },
     "plugins_section": {
-      "no_plugins": "No plugins found. Drop <code>.plugin.js</code> files into the <code>plugins/</code> folder."
+      "title": "Plugins & Themes",
+      "hint": "Drop <code>.plugin.js</code> files into the <code>plugins/</code> folder and <code>.theme.css</code> files into the <code>themes/</code> folder, then refresh.",
+      "refresh_btn": "Refresh",
+      "plugins_label": "Plugins",
+      "themes_label": "Themes"
     },
     "password_section": {
       "title": "Password",
@@ -798,16 +766,9 @@
       "deleting": "Deleting...",
       "password_placeholder": "Enter your password"
     },
-    "plugins_section": {
-      "title": "Plugins & Themes",
-      "hint": "Drop <code>.plugin.js</code> files into the <code>plugins/</code> folder and <code>.theme.css</code> files into the <code>themes/</code> folder, then refresh.",
-      "refresh_btn": "Refresh",
-      "plugins_label": "Plugins",
-      "themes_label": "Themes"
-    },
     "desktop_shortcuts_section": {
       "title": "Desktop Shortcuts",
-      "desc": "Global keyboard shortcuts — active even when Haven is in the background. Click a row to rebind, or \u201cClear\u201d to disable.",
+      "desc": "Global keyboard shortcuts — active even when Haven is in the background. Click a row to rebind, or “Clear” to disable.",
       "mute_unmute": "Mute / Unmute",
       "deafen_undeafen": "Deafen / Undeafen",
       "ptt": "Push-to-Talk",
@@ -886,7 +847,7 @@
       "no_bots": "No bots configured",
       "bots_select_hint": "Select a bot to edit, or create a new one",
       "import_title": "Discord Import",
-      "import_btn": "Import from Discord",
+      "import_btn": "Import Selected",
       "modmode_title": "Mod Mode",
       "modmode_toggle_btn": "Toggle Mod Mode",
       "modmode_reset_btn": "↺ Reset Layout",
@@ -966,7 +927,6 @@
       "import_success_one": "Successfully imported 1 channel with {{messages}} messages.",
       "import_success_other": "Successfully imported {{count}} channels with {{messages}} messages.",
       "import_failed_alert": "Import failed: {{error}}",
-      "import_btn": "Import Selected",
       "roles_no_custom": "No custom roles",
       "roles_level_invalid": "Level must be 1–99",
       "roles_create_title": "Create Role",
@@ -1033,7 +993,6 @@
       }
     }
   },
-
   "modals": {
     "common": {
       "cancel": "Cancel",
@@ -1046,7 +1005,6 @@
       "dismiss": "Dismiss",
       "ok": "OK"
     },
-
     "recovery_notice": {
       "title": "Account Recovery Codes",
       "body": "You can now generate one-time recovery codes in <strong>Settings → 🔑 Recovery</strong>. If you ever forget your password, these codes let you reset it — no admin needed.",
@@ -1284,12 +1242,10 @@
       "placeholder": "Enter your password",
       "unlock_btn": "Unlock"
     },
-
     "e2e_verify": {
       "desc": "Compare this safety number with <strong>{{name}}</strong> using another channel (in person, phone call, text, etc.). If they match, your conversation is end-to-end encrypted and no one is intercepting.",
       "copy_btn": "Copy Code"
     },
-
     "e2e_reset": {
       "warning_irreversible": "<strong>This action is irreversible.</strong> Resetting your encryption keys will:",
       "li_new_keys": "Generate a completely new key pair",
@@ -1498,9 +1454,16 @@
       "restart_hint": "Restart Discord, then follow the steps above.",
       "token_warning": "Your token is like a password. Haven uses it only for this import and never stores it.",
       "connected_as": "Connected as"
+    },
+    "move_messages": {
+      "selected": "{{n}} selected",
+      "move_to": "Move to...",
+      "title": "Move Messages",
+      "desc": "Select a destination channel",
+      "move_one": "Move {{n}} message to:",
+      "move_many": "Move {{n}} messages to:"
     }
   },
-
   "context_menu": {
     "channel": {
       "mute": "Mute Channel",
@@ -1524,7 +1487,6 @@
       "delete": "Delete DM"
     }
   },
-
   "channel_functions": {
     "voice": "Voice",
     "voice_hint": "Enable or disable voice chat in this channel",
@@ -1559,7 +1521,6 @@
     "afk_timeout": "AFK Timeout",
     "afk_timeout_hint": "Minutes of voice inactivity before moving to AFK sub (0 = disabled)"
   },
-
   "confirm": {
     "delete_channel": "Delete this channel?\nAll messages will be permanently lost.",
     "delete_channel_sure": "Are you ABSOLUTELY sure?\nThis action cannot be undone!",
@@ -1572,7 +1533,6 @@
     "rotate_channel_code": "Rotate the channel code now? Current code will become invalid.",
     "remove_server": "Remove \"{{name}}\" from your server list?"
   },
-
   "servers": {
     "online": "Online",
     "offline": "Offline",
@@ -1582,19 +1542,16 @@
     "edit": "Edit server",
     "remove": "Remove"
   },
-
   "common": {
     "copy": "Copy",
     "copied": "Copied",
     "uploading": "Uploading..."
   },
-
   "reactions": {
     "search_placeholder": "Search emojis..."
   },
-
   "emoji": {
-    "search_placeholder": "Search emoji\u2026",
+    "search_placeholder": "Search emoji…",
     "no_results": "No emoji found",
     "all_emojis_title": "All emojis",
     "customize_quick_title": "Customize Quick Reactions",
@@ -1613,7 +1570,6 @@
       "custom": "Custom"
     }
   },
-
   "gifs": {
     "searching": "Searching...",
     "no_results": "No GIFs found",

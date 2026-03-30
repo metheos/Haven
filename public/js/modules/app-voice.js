@@ -1029,9 +1029,9 @@ async _populateAudioDevices() {
 
   // Populate camera
   if (camSelect) {
-    camSelect.innerHTML = '<option value="">Default Camera</option>';
+    camSelect.innerHTML = `<option value="">${t('voice_settings.default_camera')}</option>`;
     for (const dev of cameras) {
-      const label = dev.label || `Camera ${cameras.indexOf(dev) + 1}`;
+      const label = dev.label || t('voice_settings.camera_fallback', { n: cameras.indexOf(dev) + 1 });
       const opt = document.createElement('option');
       opt.value = dev.deviceId;
       opt.textContent = label;

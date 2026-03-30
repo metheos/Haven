@@ -914,7 +914,7 @@ _updateMoveCount() {
   const countEl = document.getElementById('move-msg-count');
   const moveBtn = document.getElementById('move-msg-move-btn');
   const n = this._moveSelectedIds.size;
-  if (countEl) countEl.textContent = `${n} selected`;
+  if (countEl) countEl.textContent = t('modals.move_messages.selected', { n });
   if (moveBtn) moveBtn.disabled = n === 0;
 },
 
@@ -925,7 +925,8 @@ _showMoveChannelPicker() {
   const desc = document.getElementById('move-msg-desc');
   if (!list || !modal) return;
 
-  desc.textContent = `Move ${this._moveSelectedIds.size} message${this._moveSelectedIds.size === 1 ? '' : 's'} to:`;
+  const _n = this._moveSelectedIds.size;
+  desc.textContent = t(_n === 1 ? 'modals.move_messages.move_one' : 'modals.move_messages.move_many', { n: _n });
   list.innerHTML = '';
 
   const channels = (this.channels || []).filter(ch =>

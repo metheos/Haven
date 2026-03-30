@@ -539,9 +539,9 @@
             </select>
           </div>
           <div class="voice-settings-row">
-            <label class="voice-settings-label">Camera</label>
+            <label class="voice-settings-label" data-i18n="voice_settings.camera">Camera</label>
             <select id="voice-cam-device" class="voice-settings-select">
-              <option value="">Default Camera</option>
+              <option value="" data-i18n="voice_settings.default_camera">Default Camera</option>
             </select>
           </div>
           <div class="voice-settings-divider"></div>
@@ -662,18 +662,18 @@
   <!-- Move Messages Toolbar (floating above messages) -->
   <div id="move-msg-toolbar" class="move-msg-toolbar" style="display:none">
     <span id="move-msg-count">0 selected</span>
-    <button class="btn-sm btn-accent" id="move-msg-move-btn">Move to...</button>
-    <button class="btn-sm" id="move-msg-cancel-btn">Cancel</button>
+    <button class="btn-sm btn-accent" id="move-msg-move-btn" data-i18n="modals.move_messages.move_to">Move to...</button>
+    <button class="btn-sm" id="move-msg-cancel-btn" data-i18n="modals.common.cancel">Cancel</button>
   </div>
 
   <!-- Move Messages Channel Picker Modal -->
   <div class="modal-overlay" id="move-msg-modal" style="display:none">
     <div class="modal">
-      <h3>Move Messages</h3>
-      <p class="modal-desc" id="move-msg-desc">Select a destination channel</p>
+      <h3 data-i18n="modals.move_messages.title">Move Messages</h3>
+      <p class="modal-desc" id="move-msg-desc" data-i18n="modals.move_messages.desc">Select a destination channel</p>
       <div class="move-msg-channel-list" id="move-msg-channel-list"></div>
       <div class="modal-actions">
-        <button class="btn-sm" id="move-msg-modal-cancel">Cancel</button>
+        <button class="btn-sm" id="move-msg-modal-cancel" data-i18n="modals.common.cancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -2377,11 +2377,11 @@
       <input type="text" id="create-sub-name" class="input" maxlength="50" data-i18n-placeholder="modals.create_sub.name_placeholder" placeholder="sub-channel name..." style="width:100%">
       <label class="checkbox-row" style="margin:14px 0 8px;display:flex;align-items:center;gap:8px;cursor:pointer">
         <input type="checkbox" id="create-sub-private" style="width:16px;height:16px">
-        <span style="font-size:0.9rem">🔒 Private <span style="opacity:0.5;font-size:0.8rem">(invite-only, hidden from non-members)</span></span>
+        <span style="font-size:0.9rem">🔒 <span data-i18n="modals.create_sub.private_label">Private</span> <span style="opacity:0.5;font-size:0.8rem" data-i18n="modals.create_sub.private_hint">(invite-only, hidden from non-members)</span></span>
       </label>
       <label class="checkbox-row" style="margin:2px 0 8px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9rem">
         <input type="checkbox" id="create-sub-temporary" style="width:16px;height:16px">
-        <span>⏱️ Temporary <span style="opacity:0.5;font-size:0.8rem">(auto-delete)</span></span>
+        <span>⏱️ <span data-i18n="modals.create_sub.temporary_label">Temporary</span> <span style="opacity:0.5;font-size:0.8rem" data-i18n="modals.create_sub.temporary_hint">(auto-delete)</span></span>
       </label>
       <div id="sub-temp-duration-row" style="display:none;margin:0 0 8px;padding-left:24px">
         <div style="display:flex;gap:6px;align-items:center">

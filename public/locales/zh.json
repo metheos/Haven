@@ -5,15 +5,12 @@
     "flag": "🇨🇳",
     "direction": "ltr"
   },
-
   "auth": {
     "tagline": "私密聊天，由你做主",
-
     "tabs": {
       "login": "登录",
       "register": "注册"
     },
-
     "login": {
       "username_label": "用户名",
       "password_label": "密码",
@@ -23,7 +20,6 @@
       "admin_recover_hint": "在上方输入管理员凭据后点击恢复",
       "admin_recover_btn": "恢复管理员访问权限"
     },
-
     "register": {
       "username_label": "用户名",
       "username_hint": "3-20个字符，字母/数字/下划线",
@@ -32,7 +28,6 @@
       "confirm_label": "确认密码",
       "submit": "创建账户"
     },
-
     "totp": {
       "instruction": "🔐 请输入验证器应用中的6位验证码",
       "code_label": "验证码",
@@ -41,7 +36,6 @@
       "use_authenticator": "使用验证器验证码",
       "back": "← 返回登录"
     },
-
     "recover": {
       "instruction": "🔑 使用恢复码重置密码",
       "warning": "⚠️ 此操作将<strong>永久销毁您的加密密钥</strong>。所有加密私信记录将无法读取。",
@@ -53,7 +47,6 @@
       "submit": "重置密码",
       "back": "← 返回登录"
     },
-
     "eula": {
       "age_confirm": "我确认我已满<strong>18周岁</strong>（或我所在地区的法定成年年龄）",
       "tos_confirm": "我已阅读并同意<a href=\"#\" id=\"eula-link\">服务条款及免责协议</a>",
@@ -61,7 +54,6 @@
       "decline": "拒绝",
       "accept": "我接受"
     },
-
     "errors": {
       "fill_all_fields": "请填写所有字段",
       "all_fields_required": "所有字段均为必填",
@@ -80,10 +72,8 @@
       "password_reset_success": "密码重置成功。您现在可以使用新密码登录。"
     }
   },
-
   "app": {
     "brand": "HAVEN",
-
     "sidebar": {
       "servers": "服务器",
       "join_channel": "加入频道",
@@ -102,7 +92,6 @@
       "manage_servers": "管理服务器",
       "this_server": "本服务器"
     },
-
     "theme": {
       "title": "主题",
       "effect_overlay": "特效叠加",
@@ -111,7 +100,6 @@
       "vibrancy": "活力度",
       "effect_speed": "特效速度"
     },
-
     "actions": {
       "logout": "退出登录",
       "change_display_name": "修改显示名称",
@@ -123,7 +111,6 @@
       "drag_to_resize": "拖动以调整大小",
       "settings": "设置"
     },
-
     "messages": {
       "edited": "（已编辑）",
       "edited_at": "编辑于 {{date}}",
@@ -136,14 +123,12 @@
       "placeholder": "输入消息...",
       "placeholder_short": "消息..."
     },
-
     "input_bar": {
       "emoji_btn": "表情",
       "gif_btn": "搜索GIF",
       "gif_label": "GIF",
       "poll_btn": "发起投票"
     },
-
     "profile": {
       "login_username": "您的登录用户名",
       "online": "在线",
@@ -155,7 +140,6 @@
       "custom_status_placeholder": "自定义状态..."
     }
   },
-
   "toasts": {
     "roles_updated": "您的角色已更新",
     "status_pending_reconnect": "状态将在重新连接后更新",
@@ -205,17 +189,14 @@
     "no_music_playing": "当前没有音乐播放",
     "record_set": "{{user}} 创下了新的 {{game}} 记录：{{score}}！"
   },
-
   "utils": {
     "today_at": "今天 {{time}}",
     "yesterday_at": "昨天 {{time}}"
   },
-
   "commands": {
     "play_usage": "用法：/play <歌曲名> 或 /play <链接>",
     "gif_usage": "用法：/gif <搜索关键词>"
   },
-
   "msg_toolbar": {
     "react": "回应",
     "reply": "回复",
@@ -224,14 +205,12 @@
     "edit": "编辑",
     "delete": "删除"
   },
-
   "pinned_panel": {
     "count_one": "{{count}} 条置顶消息",
     "count_other": "{{count}} 条置顶消息",
     "no_messages": "没有置顶消息",
     "pinned_by": "由 {{user}} 置顶"
   },
-
   "voice": {
     "join": "🎤 加入语音",
     "join_ctx": "加入语音",
@@ -271,7 +250,6 @@
     "shuffle_off": "随机播放已关闭",
     "music_playing": "音乐播放中",
     "music_show_player": "点击显示音乐播放器",
-
     "panel": {
       "camera": "摄像头",
       "soundboard": "音效板",
@@ -279,7 +257,6 @@
       "settings": "语音设置"
     }
   },
-
   "channels": {
     "status_none": "无",
     "dm_status": "私信：{{name}}",
@@ -342,7 +319,6 @@
     "unknown_user": "未知用户",
     "more_options": "更多选项"
   },
-
   "channel": {
     "server_joined": "服务器码已接受 — 已加入 {{count}} 个频道",
     "errors": {
@@ -355,7 +331,6 @@
       "media_disabled": "此频道已禁用媒体上传"
     }
   },
-
   "permissions": {
     "errors": {
       "no_create_channels": "您没有创建频道的权限",
@@ -396,18 +371,15 @@
     "manage_server": "管理服务器",
     "delete_channel": "删除频道"
   },
-
   "slowmode": {
     "wait": "慢速模式 — 请等待 {{seconds}} 秒后再发送消息",
     "too_many_requests": "请求太频繁，请放慢速度",
     "muted_for": "您还有 {{minutes}} 分钟的禁言时间"
   },
-
   "welcome": {
     "title": "欢迎来到 Haven",
     "subtitle": "使用朋友给您的邀请码加入频道，\n或者如果您是管理员，可以创建一个。"
   },
-
   "header": {
     "select_channel": "选择频道",
     "mobile_menu": "菜单",
@@ -435,11 +407,9 @@
     "message_placeholder_commands": "输入消息...（/ 查看命令）",
     "gif_search_placeholder": "搜索 GIPHY...",
     "powered_by_giphy": "由 GIPHY 提供支持",
-
     "search_results_one": "\"{{query}}\" 找到 {{count}} 条结果",
     "search_results_other": "\"{{query}}\" 找到 {{count}} 条结果",
     "search_no_results": "未找到结果",
-
     "messages": {
       "edited": "（已编辑）",
       "edited_at": "编辑于 {{date}}",
@@ -452,7 +422,6 @@
       "message_unprotected": "一条消息已取消保护"
     }
   },
-
   "media": {
     "upload_file_title": "上传文件",
     "send_title": "发送",
@@ -465,7 +434,6 @@
     "minimize": "最小化",
     "close": "关闭",
     "listening_together": "一起听",
-
     "camera_layout": "摄像头布局",
     "change_layout": "更改布局",
     "layout_auto_title": "自动网格",
@@ -519,7 +487,6 @@
     "uploads_disabled": "此频道已禁用媒体上传",
     "file_too_large": "文件过大（最大 {{maxMb}} MB）"
   },
-
   "right_sidebar": {
     "voice_title": "语音",
     "close_panel": "关闭面板",
@@ -527,7 +494,6 @@
     "online_title": "在线",
     "select_channel": "选择频道"
   },
-
   "users": {
     "no_one_here": "这里没有人",
     "online_count": "在线 — {{count}}",
@@ -585,7 +551,6 @@
       "deafen_hint": "耳聋 = 他们听不到您"
     }
   },
-
   "context": {
     "view_profile": "查看资料",
     "invite_to_channel": "邀请加入频道",
@@ -605,7 +570,6 @@
     "flash_install_result": "Flash 游戏：{{installed}} 个已安装，{{already}} 个已存在，{{errors}} 个失败",
     "flash_not_installed_label": "未安装"
   },
-
   "voice_settings": {
     "audio_devices": "音频设备",
     "input": "输入",
@@ -614,6 +578,8 @@
     "output": "输出",
     "default_speaker": "默认扬声器",
     "speaker_fallback": "扬声器 {{n}}",
+    "camera": "摄像头",
+    "default_camera": "默认摄像头",
     "noise_reduction": "降噪",
     "off": "关闭",
     "noise_gate": "噪声门限",
@@ -626,9 +592,9 @@
     "screen_share_quality": "屏幕共享质量",
     "resolution": "分辨率",
     "resolution_source": "源",
-    "frame_rate": "帧率"
+    "frame_rate": "帧率",
+    "camera_fallback": "摄像头 {{n}}"
   },
-
   "status_bar": {
     "server": "服务器",
     "voice": "语音",
@@ -640,7 +606,6 @@
     "online": "在线",
     "users_overlay_title": "用户"
   },
-
   "settings": {
     "title": "设置",
     "nav": {
@@ -676,7 +641,6 @@
       "label": "语言",
       "hint": "更改立即生效"
     },
-
     "layout_density": {
       "title": "布局密度",
       "compact": "紧凑",
@@ -730,7 +694,11 @@
       "hint": "即使 Haven 关闭时也能收到通知"
     },
     "plugins_section": {
-      "no_plugins": "未找到插件。请将 <code>.plugin.js</code> 文件放入 <code>plugins/</code> 文件夹。"
+      "title": "插件与主题",
+      "hint": "将 <code>.plugin.js</code> 文件放入 <code>plugins/</code> 文件夹，将 <code>.theme.css</code> 文件放入 <code>themes/</code> 文件夹，然后刷新。",
+      "refresh_btn": "刷新",
+      "plugins_label": "插件",
+      "themes_label": "主题"
     },
     "password_section": {
       "title": "密码",
@@ -798,16 +766,9 @@
       "deleting": "删除中...",
       "password_placeholder": "输入您的密码"
     },
-    "plugins_section": {
-      "title": "插件与主题",
-      "hint": "将 <code>.plugin.js</code> 文件放入 <code>plugins/</code> 文件夹，将 <code>.theme.css</code> 文件放入 <code>themes/</code> 文件夹，然后刷新。",
-      "refresh_btn": "刷新",
-      "plugins_label": "插件",
-      "themes_label": "主题"
-    },
     "desktop_shortcuts_section": {
       "title": "桌面快捷键",
-      "desc": "全局键盘快捷键 — 即使 Haven 在后台运行也有效。点击某行重新绑定，或点击\u201c清除\u201d以禁用。",
+      "desc": "全局键盘快捷键 — 即使 Haven 在后台运行也有效。点击某行重新绑定，或点击“清除”以禁用。",
       "mute_unmute": "静音 / 取消静音",
       "deafen_undeafen": "耳聋 / 取消耳聋",
       "ptt": "按键通话",
@@ -886,7 +847,7 @@
       "no_bots": "未配置机器人",
       "bots_select_hint": "选择机器人以编辑，或创建新机器人",
       "import_title": "Discord 导入",
-      "import_btn": "从 Discord 导入",
+      "import_btn": "导入所选",
       "modmode_title": "管理模式",
       "modmode_toggle_btn": "切换管理模式",
       "modmode_reset_btn": "↺ 重置布局",
@@ -966,7 +927,6 @@
       "import_success_one": "成功导入1个频道，共 {{messages}} 条消息。",
       "import_success_other": "成功导入 {{count}} 个频道，共 {{messages}} 条消息。",
       "import_failed_alert": "导入失败：{{error}}",
-      "import_btn": "导入所选",
       "roles_no_custom": "没有自定义角色",
       "roles_level_invalid": "级别必须在1–99之间",
       "roles_create_title": "创建角色",
@@ -1033,7 +993,6 @@
       }
     }
   },
-
   "modals": {
     "common": {
       "cancel": "取消",
@@ -1046,7 +1005,6 @@
       "dismiss": "忽略",
       "ok": "确定"
     },
-
     "recovery_notice": {
       "title": "账户恢复码",
       "body": "您现在可以在<strong>设置 → 🔑 恢复</strong>中生成一次性恢复码。如果您忘记密码，这些恢复码可以让您重置密码 — 无需管理员协助。",
@@ -1284,12 +1242,10 @@
       "placeholder": "输入您的密码",
       "unlock_btn": "解锁"
     },
-
     "e2e_verify": {
       "desc": "通过另一个渠道（面对面、电话、短信等）与<strong>{{name}}</strong>比对此安全码。如果匹配，您的对话经过端对端加密且无人拦截。",
       "copy_btn": "复制码"
     },
-
     "e2e_reset": {
       "warning_irreversible": "<strong>此操作不可逆。</strong>重置加密密钥将：",
       "li_new_keys": "生成全新的密钥对",
@@ -1498,9 +1454,16 @@
       "restart_hint": "重启 Discord，然后按照上述步骤操作。",
       "token_warning": "您的 token 就像密码。Haven 仅将其用于此次导入，绝不存储。",
       "connected_as": "已连接为"
+    },
+    "move_messages": {
+      "selected": "已选 {{n}} 条",
+      "move_to": "移动到...",
+      "title": "移动消息",
+      "desc": "选择目标频道",
+      "move_one": "将 {{n}} 条消息移动到：",
+      "move_many": "将 {{n}} 条消息移动到："
     }
   },
-
   "context_menu": {
     "channel": {
       "mute": "静音频道",
@@ -1524,7 +1487,6 @@
       "delete": "删除私信"
     }
   },
-
   "channel_functions": {
     "voice": "语音",
     "voice_hint": "在此频道中启用或禁用语音聊天",
@@ -1559,7 +1521,6 @@
     "afk_timeout": "AFK 超时",
     "afk_timeout_hint": "移至 AFK 子频道前的语音不活跃分钟数（0 = 禁用）"
   },
-
   "confirm": {
     "delete_channel": "删除此频道？\n所有消息将永久丢失。",
     "delete_channel_sure": "您是否绝对确定？\n此操作无法撤销！",
@@ -1572,7 +1533,6 @@
     "rotate_channel_code": "立即轮换频道码？当前频道码将失效。",
     "remove_server": "从您的服务器列表中移除 \"{{name}}\"？"
   },
-
   "servers": {
     "online": "在线",
     "offline": "离线",
@@ -1582,17 +1542,14 @@
     "edit": "编辑服务器",
     "remove": "移除"
   },
-
   "common": {
     "copy": "复制",
     "copied": "已复制",
     "uploading": "上传中..."
   },
-
   "reactions": {
     "search_placeholder": "搜索表情..."
   },
-
   "emoji": {
     "search_placeholder": "搜索表情…",
     "no_results": "未找到表情",
@@ -1613,7 +1570,6 @@
       "custom": "自定义"
     }
   },
-
   "gifs": {
     "searching": "搜索中...",
     "no_results": "未找到GIF",

@@ -5,15 +5,12 @@
     "flag": "🇷🇺",
     "direction": "ltr"
   },
-
   "auth": {
     "tagline": "Приватный чат, твои правила",
-
     "tabs": {
       "login": "Войти",
       "register": "Регистрация"
     },
-
     "login": {
       "username_label": "Имя пользователя",
       "password_label": "Пароль",
@@ -23,7 +20,6 @@
       "admin_recover_hint": "Введите учётные данные администратора выше и нажмите Восстановить",
       "admin_recover_btn": "Восстановить доступ администратора"
     },
-
     "register": {
       "username_label": "Имя пользователя",
       "username_hint": "3–20 символов, буквы/цифры/подчёркивания",
@@ -32,7 +28,6 @@
       "confirm_label": "Подтвердите пароль",
       "submit": "Создать аккаунт"
     },
-
     "totp": {
       "instruction": "🔐 Введите 6-значный код из приложения аутентификации",
       "code_label": "Код аутентификации",
@@ -41,7 +36,6 @@
       "use_authenticator": "Использовать код аутентификатора",
       "back": "← Назад ко входу"
     },
-
     "recover": {
       "instruction": "🔑 Сброс пароля с помощью кода восстановления",
       "warning": "⚠️ Это действие <strong>навсегда удалит ваши ключи шифрования</strong>. Вся зашифрованная история личных сообщений станет нечитаемой.",
@@ -53,7 +47,6 @@
       "submit": "Сбросить пароль",
       "back": "← Назад ко входу"
     },
-
     "eula": {
       "age_confirm": "Я подтверждаю, что мне <strong>18 лет или больше</strong> (или я достиг совершеннолетия в моей стране)",
       "tos_confirm": "Я прочитал и согласен с <a href=\"#\" id=\"eula-link\">Условиями использования и Соглашением об ограничении ответственности</a>",
@@ -61,7 +54,6 @@
       "decline": "Отклонить",
       "accept": "Принимаю"
     },
-
     "errors": {
       "fill_all_fields": "Заполните все поля",
       "all_fields_required": "Все поля обязательны",
@@ -80,10 +72,8 @@
       "password_reset_success": "Пароль успешно сброшен. Теперь можно войти с новым паролем."
     }
   },
-
   "app": {
     "brand": "HAVEN",
-
     "sidebar": {
       "servers": "Серверы",
       "join_channel": "Присоединиться к каналу",
@@ -102,7 +92,6 @@
       "manage_servers": "Управление серверами",
       "this_server": "Этот сервер"
     },
-
     "theme": {
       "title": "Тема",
       "effect_overlay": "Оверлей эффектов",
@@ -111,7 +100,6 @@
       "vibrancy": "Интенсивность",
       "effect_speed": "Скорость эффекта"
     },
-
     "actions": {
       "logout": "Выйти",
       "change_display_name": "Изменить отображаемое имя",
@@ -123,7 +111,6 @@
       "drag_to_resize": "Потяните для изменения размера",
       "settings": "Настройки"
     },
-
     "messages": {
       "edited": "(изменено)",
       "edited_at": "Изменено {{date}}",
@@ -136,14 +123,12 @@
       "placeholder": "Напишите сообщение...",
       "placeholder_short": "Сообщение..."
     },
-
     "input_bar": {
       "emoji_btn": "Эмодзи",
       "gif_btn": "Поиск GIF",
       "gif_label": "GIF",
       "poll_btn": "Создать опрос"
     },
-
     "profile": {
       "login_username": "Ваше имя пользователя",
       "online": "В сети",
@@ -155,7 +140,6 @@
       "custom_status_placeholder": "Произвольный статус..."
     }
   },
-
   "toasts": {
     "roles_updated": "Ваши роли обновлены",
     "status_pending_reconnect": "Статус обновится после переподключения",
@@ -205,17 +189,14 @@
     "no_music_playing": "Музыка не воспроизводится",
     "record_set": "{{user}} установил новый рекорд в {{game}}: {{score}}!"
   },
-
   "utils": {
     "today_at": "Сегодня в {{time}}",
     "yesterday_at": "Вчера в {{time}}"
   },
-
   "commands": {
     "play_usage": "Использование: /play <название песни> или /play <url>",
     "gif_usage": "Использование: /gif <поисковый запрос>"
   },
-
   "msg_toolbar": {
     "react": "Реакция",
     "reply": "Ответить",
@@ -224,14 +205,12 @@
     "edit": "Изменить",
     "delete": "Удалить"
   },
-
   "pinned_panel": {
     "count_one": "{{count}} закреплённое сообщение",
     "count_other": "{{count}} закреплённых сообщений",
     "no_messages": "Нет закреплённых сообщений",
     "pinned_by": "Закреплено {{user}}"
   },
-
   "voice": {
     "join": "🎤 Войти в голосовой чат",
     "join_ctx": "Войти в голосовой чат",
@@ -271,7 +250,6 @@
     "shuffle_off": "Перемешивание выключено",
     "music_playing": "Музыка воспроизводится",
     "music_show_player": "Нажмите, чтобы открыть музыкальный плеер",
-
     "panel": {
       "camera": "Камера",
       "soundboard": "Саундборд",
@@ -279,7 +257,6 @@
       "settings": "Настройки голоса"
     }
   },
-
   "channels": {
     "status_none": "Нет",
     "dm_status": "ЛС: {{name}}",
@@ -342,7 +319,6 @@
     "unknown_user": "Неизвестный",
     "more_options": "Ещё параметры"
   },
-
   "channel": {
     "server_joined": "Код сервера принят — вы вошли в {{count}} канал(а/ов)",
     "errors": {
@@ -355,7 +331,6 @@
       "media_disabled": "Загрузка медиафайлов отключена в этом канале"
     }
   },
-
   "permissions": {
     "errors": {
       "no_create_channels": "У вас нет прав на создание каналов",
@@ -396,18 +371,15 @@
     "manage_server": "Управлять сервером",
     "delete_channel": "Удалять каналы"
   },
-
   "slowmode": {
     "wait": "Медленный режим — подождите {{seconds}}с перед отправкой следующего сообщения",
     "too_many_requests": "Помедленнее — слишком много запросов",
     "muted_for": "Вы замьючены ещё на {{minutes}} минут(у/ы)"
   },
-
   "welcome": {
     "title": "Добро пожаловать в Haven",
     "subtitle": "Присоединитесь к каналу с кодом от друзей\nили создайте его, если вы администратор."
   },
-
   "header": {
     "select_channel": "Выберите канал",
     "mobile_menu": "Меню",
@@ -435,11 +407,9 @@
     "message_placeholder_commands": "Напишите сообщение... (/ для команд)",
     "gif_search_placeholder": "Поиск в GIPHY...",
     "powered_by_giphy": "Работает на GIPHY",
-
     "search_results_one": "{{count}} результат для «{{query}}»",
     "search_results_other": "{{count}} результатов для «{{query}}»",
     "search_no_results": "Результаты не найдены",
-
     "messages": {
       "edited": "(изменено)",
       "edited_at": "Изменено {{date}}",
@@ -452,7 +422,6 @@
       "message_unprotected": "Сообщение больше не защищено"
     }
   },
-
   "media": {
     "upload_file_title": "Загрузить файл",
     "send_title": "Отправить",
@@ -465,7 +434,6 @@
     "minimize": "Свернуть",
     "close": "Закрыть",
     "listening_together": "Слушаем вместе",
-
     "camera_layout": "Расположение камер",
     "change_layout": "Изменить расположение",
     "layout_auto_title": "Автоматическая сетка",
@@ -519,7 +487,6 @@
     "uploads_disabled": "Загрузка медиафайлов отключена в этом канале",
     "file_too_large": "Файл слишком большой (макс. {{maxMb}} МБ)"
   },
-
   "right_sidebar": {
     "voice_title": "Голос",
     "close_panel": "Закрыть панель",
@@ -527,7 +494,6 @@
     "online_title": "В сети",
     "select_channel": "Выберите канал"
   },
-
   "users": {
     "no_one_here": "Здесь никого нет",
     "online_count": "В сети — {{count}}",
@@ -585,7 +551,6 @@
       "deafen_hint": "Заглушить = они не могут слышать вас"
     }
   },
-
   "context": {
     "view_profile": "Просмотр профиля",
     "invite_to_channel": "Пригласить в канал",
@@ -605,7 +570,6 @@
     "flash_install_result": "Flash-игры: {{installed}} установлено, {{already}} уже были, {{errors}} ошибок",
     "flash_not_installed_label": "Не установлено"
   },
-
   "voice_settings": {
     "audio_devices": "Аудиоустройства",
     "input": "Вход",
@@ -614,6 +578,8 @@
     "output": "Выход",
     "default_speaker": "Динамик по умолчанию",
     "speaker_fallback": "Динамик {{n}}",
+    "camera": "Камера",
+    "default_camera": "Камера по умолчанию",
     "noise_reduction": "Шумоподавление",
     "off": "Выкл.",
     "noise_gate": "Шумовой затвор",
@@ -626,9 +592,9 @@
     "screen_share_quality": "Качество демонстрации экрана",
     "resolution": "Разрешение",
     "resolution_source": "Источник",
-    "frame_rate": "Частота кадров"
+    "frame_rate": "Частота кадров",
+    "camera_fallback": "Камера {{n}}"
   },
-
   "status_bar": {
     "server": "Сервер",
     "voice": "Голос",
@@ -640,7 +606,6 @@
     "online": "В сети",
     "users_overlay_title": "Пользователи"
   },
-
   "settings": {
     "title": "Настройки",
     "nav": {
@@ -676,7 +641,6 @@
       "label": "Язык",
       "hint": "Изменения применяются немедленно"
     },
-
     "layout_density": {
       "title": "Плотность макета",
       "compact": "Компактный",
@@ -731,7 +695,11 @@
       "hint": "Получайте уведомления, даже когда Haven закрыт"
     },
     "plugins_section": {
-      "no_plugins": "Плагины не найдены. Поместите файлы <code>.plugin.js</code> в папку <code>plugins/</code>."
+      "title": "Плагины и темы",
+      "hint": "Поместите файлы <code>.plugin.js</code> в папку <code>plugins/</code> и файлы <code>.theme.css</code> в папку <code>themes/</code>, затем обновите страницу.",
+      "refresh_btn": "Обновить",
+      "plugins_label": "Плагины",
+      "themes_label": "Темы"
     },
     "password_section": {
       "title": "Пароль",
@@ -799,16 +767,9 @@
       "deleting": "Удаление...",
       "password_placeholder": "Введите пароль"
     },
-    "plugins_section": {
-      "title": "Плагины и темы",
-      "hint": "Поместите файлы <code>.plugin.js</code> в папку <code>plugins/</code> и файлы <code>.theme.css</code> в папку <code>themes/</code>, затем обновите страницу.",
-      "refresh_btn": "Обновить",
-      "plugins_label": "Плагины",
-      "themes_label": "Темы"
-    },
     "desktop_shortcuts_section": {
       "title": "Горячие клавиши",
-      "desc": "Глобальные горячие клавиши — работают даже когда Haven в фоне. Нажмите на строку для переназначения или \u00abОчистить\u00bb для отключения.",
+      "desc": "Глобальные горячие клавиши — работают даже когда Haven в фоне. Нажмите на строку для переназначения или «Очистить» для отключения.",
       "mute_unmute": "Вкл./Выкл. микрофон",
       "deafen_undeafen": "Вкл./Выкл. звук",
       "ptt": "Кнопка разговора",
@@ -887,7 +848,7 @@
       "no_bots": "Боты не настроены",
       "bots_select_hint": "Выберите бота для редактирования или создайте нового",
       "import_title": "Импорт из Discord",
-      "import_btn": "Импортировать из Discord",
+      "import_btn": "Импортировать выбранные",
       "modmode_title": "Режим модератора",
       "modmode_toggle_btn": "Переключить режим модератора",
       "modmode_reset_btn": "↺ Сбросить макет",
@@ -967,7 +928,6 @@
       "import_success_one": "1 канал успешно импортирован с {{messages}} сообщениями.",
       "import_success_other": "{{count}} каналов успешно импортировано с {{messages}} сообщениями.",
       "import_failed_alert": "Ошибка импорта: {{error}}",
-      "import_btn": "Импортировать выбранные",
       "roles_no_custom": "Нет пользовательских ролей",
       "roles_level_invalid": "Уровень должен быть от 1 до 99",
       "roles_create_title": "Создать роль",
@@ -1034,7 +994,6 @@
       }
     }
   },
-
   "modals": {
     "common": {
       "cancel": "Отмена",
@@ -1047,7 +1006,6 @@
       "dismiss": "Закрыть",
       "ok": "ОК"
     },
-
     "recovery_notice": {
       "title": "Коды восстановления аккаунта",
       "body": "Теперь вы можете создать одноразовые коды восстановления в разделе <strong>Настройки → 🔑 Восстановление</strong>. Если вы забудете пароль, эти коды позволят сбросить его без помощи администратора.",
@@ -1285,12 +1243,10 @@
       "placeholder": "Введите пароль",
       "unlock_btn": "Разблокировать"
     },
-
     "e2e_verify": {
       "desc": "Сравните этот номер безопасности с <strong>{{name}}</strong> через другой канал (лично, звонок, SMS и т.д.). Если они совпадают, ваш разговор зашифрован и никто не перехватывает сообщения.",
       "copy_btn": "Копировать код"
     },
-
     "e2e_reset": {
       "warning_irreversible": "<strong>Это действие необратимо.</strong> Сброс ключей шифрования:",
       "li_new_keys": "Создаст совершенно новую пару ключей",
@@ -1499,9 +1455,16 @@
       "restart_hint": "Перезапустите Discord, затем следуйте шагам выше.",
       "token_warning": "Ваш токен — как пароль. Haven использует его только для этого импорта и никогда не сохраняет.",
       "connected_as": "Подключён как"
+    },
+    "move_messages": {
+      "selected": "{{n}} выбрано",
+      "move_to": "Переместить в...",
+      "title": "Переместить сообщения",
+      "desc": "Выберите канал назначения",
+      "move_one": "Переместить {{n}} сообщение в:",
+      "move_many": "Переместить {{n}} сообщений в:"
     }
   },
-
   "context_menu": {
     "channel": {
       "mute": "Замьютить канал",
@@ -1525,7 +1488,6 @@
       "delete": "Удалить ЛС"
     }
   },
-
   "channel_functions": {
     "voice": "Голос",
     "voice_hint": "Включить или отключить голосовой чат в этом канале",
@@ -1560,7 +1522,6 @@
     "afk_timeout": "Таймаут AFK",
     "afk_timeout_hint": "Минуты голосовой неактивности перед перемещением в AFK-подканал (0 = отключено)"
   },
-
   "confirm": {
     "delete_channel": "Удалить этот канал?\nВсе сообщения будут безвозвратно удалены.",
     "delete_channel_sure": "Вы АБСОЛЮТНО уверены?\nЭто действие необратимо!",
@@ -1573,7 +1534,6 @@
     "rotate_channel_code": "Обновить код канала сейчас? Текущий код станет недействительным.",
     "remove_server": "Удалить «{{name}}» из списка серверов?"
   },
-
   "servers": {
     "online": "В сети",
     "offline": "Не в сети",
@@ -1583,19 +1543,16 @@
     "edit": "Редактировать сервер",
     "remove": "Удалить"
   },
-
   "common": {
     "copy": "Копировать",
     "copied": "Скопировано",
     "uploading": "Загрузка..."
   },
-
   "reactions": {
     "search_placeholder": "Поиск эмодзи..."
   },
-
   "emoji": {
-    "search_placeholder": "Поиск эмодзи\u2026",
+    "search_placeholder": "Поиск эмодзи…",
     "no_results": "Эмодзи не найдены",
     "all_emojis_title": "Все эмодзи",
     "customize_quick_title": "Настройка быстрых реакций",
@@ -1614,7 +1571,6 @@
       "custom": "Пользовательские"
     }
   },
-
   "gifs": {
     "searching": "Поиск...",
     "no_results": "GIF не найдены",

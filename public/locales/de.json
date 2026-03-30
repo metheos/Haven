@@ -5,15 +5,12 @@
     "flag": "🇩🇪",
     "direction": "ltr"
   },
-
   "auth": {
     "tagline": "Privater Chat, deine Regeln",
-
     "tabs": {
       "login": "Anmelden",
       "register": "Registrieren"
     },
-
     "login": {
       "username_label": "Benutzername",
       "password_label": "Passwort",
@@ -23,7 +20,6 @@
       "admin_recover_hint": "Gib oben deine Admin-Zugangsdaten ein und klicke auf Wiederherstellen",
       "admin_recover_btn": "Admin-Zugang wiederherstellen"
     },
-
     "register": {
       "username_label": "Benutzername",
       "username_hint": "3–20 Zeichen, Buchstaben/Zahlen/Unterstriche",
@@ -32,7 +28,6 @@
       "confirm_label": "Passwort bestätigen",
       "submit": "Konto erstellen"
     },
-
     "totp": {
       "instruction": "🔐 Gib den 6-stelligen Code aus deiner Authenticator-App ein",
       "code_label": "Authentifizierungscode",
@@ -41,7 +36,6 @@
       "use_authenticator": "Authenticator-Code verwenden",
       "back": "← Zurück zur Anmeldung"
     },
-
     "recover": {
       "instruction": "🔑 Passwort mit Wiederherstellungscode zurücksetzen",
       "warning": "⚠️ Dadurch werden deine <strong>Verschlüsselungsschlüssel dauerhaft gelöscht</strong>. Der gesamte verschlüsselte DM-Verlauf wird unlesbar.",
@@ -53,7 +47,6 @@
       "submit": "Passwort zurücksetzen",
       "back": "← Zurück zur Anmeldung"
     },
-
     "eula": {
       "age_confirm": "Ich bestätige, dass ich <strong>18 Jahre oder älter</strong> bin (oder das gesetzliche Volljährigkeitsalter in meiner Region erreicht habe)",
       "tos_confirm": "Ich habe die <a href=\"#\" id=\"eula-link\">Nutzungsbedingungen &amp; Haftungsausschlussvereinbarung</a> gelesen und stimme diesen zu",
@@ -61,7 +54,6 @@
       "decline": "Ablehnen",
       "accept": "Ich akzeptiere"
     },
-
     "errors": {
       "fill_all_fields": "Alle Felder ausfüllen",
       "all_fields_required": "Alle Felder sind erforderlich",
@@ -80,10 +72,8 @@
       "password_reset_success": "Passwort erfolgreich zurückgesetzt. Du kannst dich jetzt mit deinem neuen Passwort anmelden."
     }
   },
-
   "app": {
     "brand": "HAVEN",
-
     "sidebar": {
       "servers": "Server",
       "join_channel": "Einem Kanal beitreten",
@@ -102,7 +92,6 @@
       "manage_servers": "Server verwalten",
       "this_server": "Dieser Server"
     },
-
     "theme": {
       "title": "Theme",
       "effect_overlay": "Effekt-Overlay",
@@ -111,7 +100,6 @@
       "vibrancy": "Intensität",
       "effect_speed": "Effektgeschwindigkeit"
     },
-
     "actions": {
       "logout": "Abmelden",
       "change_display_name": "Anzeigename ändern",
@@ -123,7 +111,6 @@
       "drag_to_resize": "Ziehen zum Skalieren",
       "settings": "Einstellungen"
     },
-
     "messages": {
       "edited": "(bearbeitet)",
       "edited_at": "Bearbeitet um {{date}}",
@@ -136,14 +123,12 @@
       "placeholder": "Nachricht eingeben...",
       "placeholder_short": "Nachricht..."
     },
-
     "input_bar": {
       "emoji_btn": "Emoji",
       "gif_btn": "GIFs suchen",
       "gif_label": "GIF",
       "poll_btn": "Umfrage erstellen"
     },
-
     "profile": {
       "login_username": "Dein Anmelde-Benutzername",
       "online": "Online",
@@ -155,11 +140,10 @@
       "custom_status_placeholder": "Benutzerdefinierter Status..."
     }
   },
-
   "toasts": {
     "roles_updated": "Deine Rollen wurden aktualisiert",
     "status_pending_reconnect": "Status wird nach Wiederverbindung aktualisiert",
-    "channel_created": "Kanal \u201e#{{name}}\u201c erstellt!\nCode: {{code}}",
+    "channel_created": "Kanal „#{{name}}“ erstellt!\nCode: {{code}}",
     "channel_deleted": "Kanal wurde gelöscht",
     "channel_code_rotated": "Kanalcode für #{{name}} rotiert",
     "a_moderator": "ein Moderator",
@@ -171,15 +155,15 @@
     "muted": "Du wurdest für {{duration}} Min. stummgeschaltet",
     "muted_reason": "Du wurdest für {{duration}} Min. stummgeschaltet: {{reason}}",
     "bio_updated": "Bio aktualisiert",
-    "display_name_changed": "Anzeigename geändert zu \u201e{{name}}\u201c",
+    "display_name_changed": "Anzeigename geändert zu „{{name}}“",
     "channel_code_copied": "Kanalcode kopiert!",
     "channel_muted": "Kanal stummgeschaltet",
     "channel_unmuted": "Kanal Stummschaltung aufgehoben",
     "left_channel": "#{{name}} verlassen",
     "server_code_copied": "Servercode kopiert!",
-    "server_added": "\u201e{{name}}\u201c hinzugefügt",
-    "server_updated": "\u201e{{name}}\u201c aktualisiert",
-    "server_removed_named": "\u201e{{name}}\u201c entfernt",
+    "server_added": "„{{name}}“ hinzugefügt",
+    "server_updated": "„{{name}}“ aktualisiert",
+    "server_removed_named": "„{{name}}“ entfernt",
     "server_removed": "Server entfernt",
     "server_already_in_list": "Server bereits in deiner Liste",
     "name_address_required": "Name und Adresse sind beide erforderlich",
@@ -200,22 +184,19 @@
     "paste_music_link": "Bitte einen Musik-Link einfügen",
     "unsupported_music_link": "Nicht unterstützter Link — Spotify, YouTube oder SoundCloud versuchen",
     "no_more_results": "Keine weiteren Ergebnisse",
-    "no_results_for": "Keine Ergebnisse für \u201e{{query}}\u201c",
+    "no_results_for": "Keine Ergebnisse für „{{query}}“",
     "loading_more": "Mehr laden…",
     "no_music_playing": "Keine Musik spielt",
     "record_set": "{{user}} hat einen neuen {{game}}-Rekord aufgestellt: {{score}}!"
   },
-
   "utils": {
     "today_at": "Heute um {{time}}",
     "yesterday_at": "Gestern um {{time}}"
   },
-
   "commands": {
     "play_usage": "Verwendung: /play <Songname> oder /play <URL>",
     "gif_usage": "Verwendung: /gif <Suchbegriff>"
   },
-
   "msg_toolbar": {
     "react": "Reagieren",
     "reply": "Antworten",
@@ -224,14 +205,12 @@
     "edit": "Bearbeiten",
     "delete": "Löschen"
   },
-
   "pinned_panel": {
     "count_one": "{{count}} angeheftete Nachricht",
     "count_other": "{{count}} angeheftete Nachrichten",
     "no_messages": "Keine angehefteten Nachrichten",
     "pinned_by": "Angeheftet von {{user}}"
   },
-
   "voice": {
     "join": "🎤 Sprachchat beitreten",
     "join_ctx": "Sprachchat beitreten",
@@ -271,7 +250,6 @@
     "shuffle_off": "Zufallswiedergabe aus",
     "music_playing": "Musik spielt",
     "music_show_player": "Klicken, um den Musik-Player anzuzeigen",
-
     "panel": {
       "camera": "Kamera",
       "soundboard": "Soundboard",
@@ -279,7 +257,6 @@
       "settings": "Spracheinstellungen"
     }
   },
-
   "channels": {
     "status_none": "Keine",
     "dm_status": "DM: {{name}}",
@@ -302,12 +279,12 @@
     "subscribed_to": "{{name}} abonniert",
     "unsubscribed_from": "{{name}} Abonnement beendet",
     "move_channel": "Kanal verschieben",
-    "move_channel_desc": "Neues übergeordnetes Element für \u201e{{name}}\u201c auswählen",
+    "move_channel_desc": "Neues übergeordnetes Element für „{{name}}“ auswählen",
     "promote_to_top_level": "Zum Hauptkanal befördern",
     "sub_ch_count": "({{count}} Unterkan.)",
     "no_valid_parents": "Keine gültigen übergeordneten Kanäle verfügbar",
-    "confirm_promote": "\u201e{{name}}\u201c zum Hauptkanal befördern?",
-    "confirm_move": "\u201e{{name}}\u201c unter \u201e{{parent}}\u201c verschieben?",
+    "confirm_promote": "„{{name}}“ zum Hauptkanal befördern?",
+    "confirm_move": "„{{name}}“ unter „{{parent}}“ verschieben?",
     "organize_channels": "Kanäle organisieren",
     "organize_sub_channels": "Unterkanäle organisieren",
     "organize_desc": "Kanäle neu anordnen und Kategorie-Tags zuweisen",
@@ -342,7 +319,6 @@
     "unknown_user": "Unbekannt",
     "more_options": "Weitere Optionen"
   },
-
   "channel": {
     "server_joined": "Servercode akzeptiert — {{count}} Kanal/Kanälen beigetreten",
     "errors": {
@@ -355,7 +331,6 @@
       "media_disabled": "Medien-Uploads sind in diesem Kanal deaktiviert"
     }
   },
-
   "permissions": {
     "errors": {
       "no_create_channels": "Du hast keine Berechtigung, Kanäle zu erstellen",
@@ -396,18 +371,15 @@
     "manage_server": "Server verwalten",
     "delete_channel": "Kanäle löschen"
   },
-
   "slowmode": {
     "wait": "Langsam-Modus — {{seconds}}s warten, bevor eine weitere Nachricht gesendet wird",
     "too_many_requests": "Langsamer — zu viele Anfragen",
     "muted_for": "Du bist noch {{minutes}} Minute(n) lang stummgeschaltet"
   },
-
   "welcome": {
     "title": "Willkommen bei Haven",
     "subtitle": "Tritt einem Kanal mit einem Code deiner Freunde bei,\noder erstelle einen, wenn du der Admin bist."
   },
-
   "header": {
     "select_channel": "Kanal auswählen",
     "mobile_menu": "Menü",
@@ -435,11 +407,9 @@
     "message_placeholder_commands": "Nachricht eingeben... (/ für Befehle)",
     "gif_search_placeholder": "GIPHY durchsuchen...",
     "powered_by_giphy": "Powered by GIPHY",
-
-    "search_results_one": "{{count}} Ergebnis für \u201e{{query}}\u201c",
-    "search_results_other": "{{count}} Ergebnisse für \u201e{{query}}\u201c",
+    "search_results_one": "{{count}} Ergebnis für „{{query}}“",
+    "search_results_other": "{{count}} Ergebnisse für „{{query}}“",
     "search_no_results": "Keine Ergebnisse gefunden",
-
     "messages": {
       "edited": "(bearbeitet)",
       "edited_at": "Bearbeitet um {{date}}",
@@ -452,7 +422,6 @@
       "message_unprotected": "Eine Nachricht ist nicht mehr geschützt"
     }
   },
-
   "media": {
     "upload_file_title": "Datei hochladen",
     "send_title": "Senden",
@@ -465,7 +434,6 @@
     "minimize": "Minimieren",
     "close": "Schließen",
     "listening_together": "Gemeinsam hören",
-
     "camera_layout": "Kamera-Layout",
     "change_layout": "Layout ändern",
     "layout_auto_title": "Automatisches Raster",
@@ -519,7 +487,6 @@
     "uploads_disabled": "Medien-Uploads sind in diesem Kanal deaktiviert",
     "file_too_large": "Datei zu groß (max. {{maxMb}} MB)"
   },
-
   "right_sidebar": {
     "voice_title": "Sprachchat",
     "close_panel": "Panel schließen",
@@ -527,7 +494,6 @@
     "online_title": "Online",
     "select_channel": "Kanal auswählen"
   },
-
   "users": {
     "no_one_here": "Niemand hier",
     "online_count": "Online — {{count}}",
@@ -554,7 +520,7 @@
     "can_hear_again": "{{name}} kann dich wieder hören",
     "cannot_hear": "{{name}} kann dich nicht mehr hören",
     "nickname_cleared": "Spitzname gelöscht",
-    "nickname_set": "Spitzname auf \u201e{{name}}\u201c gesetzt",
+    "nickname_set": "Spitzname auf „{{name}}“ gesetzt",
     "typing": "{{name}} tippt...",
     "set_nickname_title": "Spitzname festlegen",
     "nickname_hint": "Nur du siehst diesen Spitznamen für {{name}}.",
@@ -585,7 +551,6 @@
       "deafen_hint": "Taubschalten = er kann dich nicht hören"
     }
   },
-
   "context": {
     "view_profile": "Profil anzeigen",
     "invite_to_channel": "In Kanal einladen",
@@ -605,7 +570,6 @@
     "flash_install_result": "Flash-Spiele: {{installed}} installiert, {{already}} bereits vorhanden, {{errors}} fehlgeschlagen",
     "flash_not_installed_label": "Nicht installiert"
   },
-
   "voice_settings": {
     "audio_devices": "Audiogeräte",
     "input": "Eingabe",
@@ -614,6 +578,8 @@
     "output": "Ausgabe",
     "default_speaker": "Standardlautsprecher",
     "speaker_fallback": "Lautsprecher {{n}}",
+    "camera": "Kamera",
+    "default_camera": "Standardkamera",
     "noise_reduction": "Rauschunterdrückung",
     "off": "Aus",
     "noise_gate": "Noise Gate",
@@ -626,9 +592,9 @@
     "screen_share_quality": "Bildschirmteil-Qualität",
     "resolution": "Auflösung",
     "resolution_source": "Quelle",
-    "frame_rate": "Bildrate"
+    "frame_rate": "Bildrate",
+    "camera_fallback": "Kamera {{n}}"
   },
-
   "status_bar": {
     "server": "Server",
     "voice": "Sprachchat",
@@ -640,7 +606,6 @@
     "online": "Online",
     "users_overlay_title": "Nutzer"
   },
-
   "settings": {
     "title": "Einstellungen",
     "nav": {
@@ -676,7 +641,6 @@
       "label": "Sprache",
       "hint": "Änderungen werden sofort übernommen"
     },
-
     "layout_density": {
       "title": "Layout-Dichte",
       "compact": "Kompakt",
@@ -730,7 +694,11 @@
       "hint": "Benachrichtigungen erhalten, auch wenn Haven geschlossen ist"
     },
     "plugins_section": {
-      "no_plugins": "Keine Plugins gefunden. <code>.plugin.js</code>-Dateien in den <code>plugins/</code>-Ordner ablegen."
+      "title": "Plugins & Themes",
+      "hint": "<code>.plugin.js</code>-Dateien in den <code>plugins/</code>-Ordner und <code>.theme.css</code>-Dateien in den <code>themes/</code>-Ordner ablegen, dann aktualisieren.",
+      "refresh_btn": "Aktualisieren",
+      "plugins_label": "Plugins",
+      "themes_label": "Themes"
     },
     "password_section": {
       "title": "Passwort",
@@ -798,16 +766,9 @@
       "deleting": "Wird gelöscht...",
       "password_placeholder": "Passwort eingeben"
     },
-    "plugins_section": {
-      "title": "Plugins & Themes",
-      "hint": "<code>.plugin.js</code>-Dateien in den <code>plugins/</code>-Ordner und <code>.theme.css</code>-Dateien in den <code>themes/</code>-Ordner ablegen, dann aktualisieren.",
-      "refresh_btn": "Aktualisieren",
-      "plugins_label": "Plugins",
-      "themes_label": "Themes"
-    },
     "desktop_shortcuts_section": {
       "title": "Desktop-Tastenkürzel",
-      "desc": "Globale Tastenkürzel — auch aktiv, wenn Haven im Hintergrund läuft. Klicke auf eine Zeile zum Neu-Belegen oder \u201eL\u00f6schen\u201c zum Deaktivieren.",
+      "desc": "Globale Tastenkürzel — auch aktiv, wenn Haven im Hintergrund läuft. Klicke auf eine Zeile zum Neu-Belegen oder „Löschen“ zum Deaktivieren.",
       "mute_unmute": "Stummschalten / Aufheben",
       "deafen_undeafen": "Taubschalten / Aufheben",
       "ptt": "Sprechtaste",
@@ -886,7 +847,7 @@
       "no_bots": "Keine Bots konfiguriert",
       "bots_select_hint": "Einen Bot zum Bearbeiten auswählen oder einen neuen erstellen",
       "import_title": "Discord-Import",
-      "import_btn": "Von Discord importieren",
+      "import_btn": "Ausgewählte importieren",
       "modmode_title": "Mod-Modus",
       "modmode_toggle_btn": "Mod-Modus umschalten",
       "modmode_reset_btn": "↺ Layout zurücksetzen",
@@ -895,7 +856,7 @@
       "login_title_hint": "Benutzerdefinierter Titel auf dem Anmeldebildschirm unter dem HAVEN-Logo.",
       "server_icon_hint": "Serversymbol (quadratisch, max. 2 MB)",
       "default_theme_hint": "Neue Nutzer sehen dieses Theme beim ersten Besuch. Sie können ihr eigenes wählen.",
-      "update_banner_hint": "Wenn aktiviert, wird das Banner \u201eUpdate verfügbar\u201c nur Admins angezeigt",
+      "update_banner_hint": "Wenn aktiviert, wird das Banner „Update verfügbar“ nur Admins angezeigt",
       "whitelist_hint": "Wenn aktiviert, können sich nur vorab genehmigte Benutzernamen registrieren",
       "invite_hint": "Ein einziger Code, der Personen zu jedem Kanal & Unterkanal auf dem Server hinzufügt",
       "copy_code_title": "Code kopieren",
@@ -966,7 +927,6 @@
       "import_success_one": "1 Kanal mit {{messages}} Nachrichten erfolgreich importiert.",
       "import_success_other": "{{count}} Kanäle mit {{messages}} Nachrichten erfolgreich importiert.",
       "import_failed_alert": "Import fehlgeschlagen: {{error}}",
-      "import_btn": "Ausgewählte importieren",
       "roles_no_custom": "Keine benutzerdefinierten Rollen",
       "roles_level_invalid": "Ebene muss 1–99 sein",
       "roles_create_title": "Rolle erstellen",
@@ -988,7 +948,7 @@
       "roles_reapplied_other": "Zugang für {{count}} Nutzer erneut angewendet",
       "roles_saving": "Wird gespeichert...",
       "roles_save": "Speichern",
-      "roles_delete_confirm": "Rolle \u201e{{name}}\u201c löschen? Nutzer mit dieser Rolle verlieren sie.",
+      "roles_delete_confirm": "Rolle „{{name}}“ löschen? Nutzer mit dieser Rolle verlieren sie.",
       "roles_no_channels": "Keine Kanäle gefunden",
       "roles_grant": "Gewähren",
       "roles_revoke": "Entziehen",
@@ -1033,7 +993,6 @@
       }
     }
   },
-
   "modals": {
     "common": {
       "cancel": "Abbrechen",
@@ -1046,7 +1005,6 @@
       "dismiss": "Schließen",
       "ok": "OK"
     },
-
     "recovery_notice": {
       "title": "Kontowiederherstellungscodes",
       "body": "Du kannst jetzt Einmal-Wiederherstellungscodes unter <strong>Einstellungen → 🔑 Wiederherstellung</strong> generieren. Falls du dein Passwort vergisst, kannst du es damit zurücksetzen — ohne Admin-Hilfe.",
@@ -1086,7 +1044,7 @@
       "check_port_skipped": "Port-Prüfung übersprungen",
       "how_friends_join": "So treten Freunde bei:",
       "step_browser": "Sie öffnen {{url}} in ihrem Browser",
-      "step_cert": "Klicken auf \u201eErweitert\u201c → \u201eWeiter zu\u201c bei der Zertifikatswarnung",
+      "step_cert": "Klicken auf „Erweitert“ → „Weiter zu“ bei der Zertifikatswarnung",
       "step_register": "Benutzername und Passwort registrieren",
       "step_code": "Den Kanal-Einladungscode eingeben, den du teilst",
       "tip": "<strong>Tipp:</strong> Du kannst jederzeit über das ⚙️-Symbol in der Seitenleiste auf die Einstellungen zugreifen. Dieser Assistent wird nicht mehr angezeigt.",
@@ -1284,12 +1242,10 @@
       "placeholder": "Passwort eingeben",
       "unlock_btn": "Entsperren"
     },
-
     "e2e_verify": {
       "desc": "Vergleiche diese Sicherheitsnummer mit <strong>{{name}}</strong> über einen anderen Kanal (persönlich, Anruf, SMS usw.). Wenn sie übereinstimmen, ist dein Gespräch Ende-zu-Ende-verschlüsselt und niemand liest mit.",
       "copy_btn": "Code kopieren"
     },
-
     "e2e_reset": {
       "warning_irreversible": "<strong>Diese Aktion ist nicht rückgängig zu machen.</strong> Das Zurücksetzen deiner Verschlüsselungsschlüssel wird:",
       "li_new_keys": "Ein komplett neues Schlüsselpaar generieren",
@@ -1498,9 +1454,16 @@
       "restart_hint": "Starte Discord neu und folge dann den obigen Schritten.",
       "token_warning": "Dein Token ist wie ein Passwort. Haven verwendet es nur für diesen Import und speichert es nie.",
       "connected_as": "Verbunden als"
+    },
+    "move_messages": {
+      "selected": "{{n}} ausgewählt",
+      "move_to": "Verschieben nach...",
+      "title": "Nachrichten verschieben",
+      "desc": "Zielkanal auswählen",
+      "move_one": "{{n}} Nachricht verschieben nach:",
+      "move_many": "{{n}} Nachrichten verschieben nach:"
     }
   },
-
   "context_menu": {
     "channel": {
       "mute": "Kanal stummschalten",
@@ -1524,7 +1487,6 @@
       "delete": "DM löschen"
     }
   },
-
   "channel_functions": {
     "voice": "Sprachchat",
     "voice_hint": "Sprachchat in diesem Kanal aktivieren oder deaktivieren",
@@ -1559,20 +1521,18 @@
     "afk_timeout": "AFK-Timeout",
     "afk_timeout_hint": "Minuten Sprachinaktivität vor dem Verschieben in den AFK-Kanal (0 = deaktiviert)"
   },
-
   "confirm": {
     "delete_channel": "Diesen Kanal löschen?\nAlle Nachrichten werden dauerhaft verloren gehen.",
     "delete_channel_sure": "Bist du dir ABSOLUT sicher?\nDiese Aktion kann nicht rückgängig gemacht werden!",
-    "leave_channel": "Kanal \u201e{{name}}\u201c verlassen?\nDu benötigst den Kanalcode, um wieder beizutreten.",
-    "promote_channel": "\u201e{{name}}\u201c zum Hauptkanal befördern?",
+    "leave_channel": "Kanal „{{name}}“ verlassen?\nDu benötigst den Kanalcode, um wieder beizutreten.",
+    "promote_channel": "„{{name}}“ zum Hauptkanal befördern?",
     "delete_message": "Diese Nachricht löschen?",
     "delete_user": "Bist du dir SICHER, dass du {{username}} löschen möchtest? Dies kann nicht rückgängig gemacht werden.",
     "delete_account": "Bist du dir ABSOLUT sicher? Dein Konto wird für immer gelöscht.",
     "clear_invite_code": "Den Server-Einladungscode löschen? Wer den alten Code hat, kann ihn nicht mehr verwenden.",
     "rotate_channel_code": "Den Kanalcode jetzt rotieren? Der aktuelle Code wird ungültig.",
-    "remove_server": "\u201e{{name}}\u201c aus deiner Serverliste entfernen?"
+    "remove_server": "„{{name}}“ aus deiner Serverliste entfernen?"
   },
-
   "servers": {
     "online": "Online",
     "offline": "Offline",
@@ -1582,19 +1542,16 @@
     "edit": "Server bearbeiten",
     "remove": "Entfernen"
   },
-
   "common": {
     "copy": "Kopieren",
     "copied": "Kopiert",
     "uploading": "Wird hochgeladen..."
   },
-
   "reactions": {
     "search_placeholder": "Emojis suchen..."
   },
-
   "emoji": {
-    "search_placeholder": "Emoji suchen\u2026",
+    "search_placeholder": "Emoji suchen…",
     "no_results": "Kein Emoji gefunden",
     "all_emojis_title": "Alle Emojis",
     "customize_quick_title": "Schnellreaktionen anpassen",
@@ -1613,7 +1570,6 @@
       "custom": "Benutzerdefiniert"
     }
   },
-
   "gifs": {
     "searching": "Suche läuft...",
     "no_results": "Keine GIFs gefunden",
@@ -1624,7 +1580,7 @@
       "step_1": "Gehe zu <a href=\"https://developers.giphy.com/\" target=\"_blank\" rel=\"noopener\">developers.giphy.com</a>",
       "step_2": "Konto erstellen (oder anmelden)",
       "step_3": "Klicke auf <b>App erstellen</b> → wähle <b>API</b>",
-      "step_4": "Beliebigen Namen vergeben (z.B. \u201eHaven Chat\u201c)",
+      "step_4": "Beliebigen Namen vergeben (z.B. „Haven Chat“)",
       "step_5": "API-Schlüssel kopieren und unten einfügen",
       "key_placeholder": "GIPHY API-Schlüssel einfügen…",
       "save_btn": "Speichern",
