@@ -57,7 +57,7 @@ const I18n = (() => {
     }
     let str = String(val);
     for (const [k, v] of Object.entries(params)) {
-      str = str.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v);
+      str = str.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v));
     }
     return str;
   }
@@ -110,6 +110,7 @@ const I18n = (() => {
 
   // ── Change locale at runtime (e.g. from a language picker) ───────────
   async function setLocale(locale) {
+    if (!SUPPORTED.includes(locale)) locale = DEFAULT;
     await load(locale);
     applyDOM();
     // Re-run any page-specific setup that renders dynamic content

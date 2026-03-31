@@ -187,12 +187,51 @@ Or manually: `npm install && node server.js`
 | **E2E Encryption** | ECDH P-256 + AES-256-GCM encrypted DMs — private keys never leave the browser |
 | **Discord Import** | Import your entire Discord server history — channels, threads, forums, reactions, pins, avatars — directly from Amni-Haven's UI or via file upload |
 | **Game** | Shippy Container — Drew's shipment got hung up. Server-wide leaderboard. |
+| **Translations** | 6 languages out of the box (English, French, German, Spanish, Russian, Chinese). Community-contributed. |
 
 
 <img width="1917" height="911" alt="Screenshot 2026-02-16 013038" src="https://github.com/user-attachments/assets/79b62980-0822-4e9d-b346-c5a93de95862" />
 
 
 ---
+
+## 🌐 Translations (i18n)
+
+Amni-Haven supports multiple languages. Users can switch languages from **Settings → Language** or the login page. The choice is saved per-browser.
+
+| Language | Code | Status |
+|----------|------|--------|
+| English | `en` | ✅ Complete (reference) |
+| Français | `fr` | 🟡 AI-generated, needs review |
+| Deutsch | `de` | 🟡 AI-generated, needs review |
+| Español | `es` | 🟡 AI-generated, needs review |
+| Русский | `ru` | 🟡 AI-generated, needs review |
+| 中文 | `zh` | 🟡 AI-generated, needs review |
+
+### ⚠️ Translation Quality
+
+Non-English translations were initially generated with AI assistance and **have not been fully reviewed by native speakers**. They may contain awkward phrasing, incorrect terminology, or outright errors. If you speak one of these languages, corrections are hugely appreciated.
+
+### Contributing a Translation
+
+**Improve an existing language:**
+1. Open `public/locales/{code}.json` (e.g. `fr.json`)
+2. Fix any incorrect or awkward translations
+3. Submit a PR
+
+**Add a new language:**
+1. Copy `public/locales/en.json` to `public/locales/{code}.json`
+2. Translate all values (keep the keys unchanged)
+3. Fill in the `_meta` block with your language name and flag
+4. Add the code to the `SUPPORTED` array in `public/js/i18n.js`
+5. Add a `<option>` to both language selectors in `public/index.html` and `public/app.html`
+6. Submit a PR
+
+### Maintenance Reality
+
+Translations are a community effort. As new features are added to Amni-Haven, new English strings appear, and other languages will fall behind until someone updates them. **Missing keys gracefully fall back to the English text**, so nothing breaks — you'll just see some English mixed in until someone contributes the translation.
+
+If you'd like to "own" a language and keep it current, reach out via an issue. Long-term language maintainers are welcome and appreciated.
 
 ## Letting Friends Connect Over the Internet
 

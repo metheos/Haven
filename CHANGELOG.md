@@ -11,6 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.8.7] — 2026-03-30
+
+### Changed
+- **Updated donor & sponsor lists** — added HoppyGamers, corrected sponsor/donor categorization, fixed chronological ordering.
+
+---
+
 ## [2.8.6] — 2026-03-29
 
 ### Fixed

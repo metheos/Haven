@@ -109,6 +109,7 @@
       "sub_channel_subscriptions": "Abonnements aux sous-salons",
       "organize_dms": "Organiser les messages privés",
       "drag_to_resize": "Glisser pour redimensionner",
+      "toggle_members_panel": "Afficher/masquer le panneau des membres",
       "settings": "Paramètres"
     },
     "messages": {

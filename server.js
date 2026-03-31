@@ -104,9 +104,9 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'", "https://www.youtube.com", "https://w.soundcloud.com", "https://unpkg.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],  // inline styles + Google Fonts
-      imgSrc: ["'self'", "data:", "blob:", "https:"],  // https: for link preview OG images + GIPHY
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],  // link preview OG images + GIPHY (http: for local/self-hosted services)
       connectSrc: ["'self'", "ws:", "wss:", "https:"],  // Socket.IO + cross-origin health checks
-      mediaSrc: ["'self'", "blob:", "data:"],  // WebRTC audio + notification sounds
+      mediaSrc: ["'self'", "blob:", "data:", "https:", "http:"],  // WebRTC audio + notification sounds + link preview video embeds
       fontSrc: ["'self'", "https://fonts.gstatic.com"],  // Google Fonts CDN
       workerSrc: ["'self'", "blob:", "https://unpkg.com"],  // service worker + Ruffle WebAssembly workers
       objectSrc: ["'none'"],
@@ -1236,23 +1236,27 @@ function isPrivateHostname(hostname) {
 }
 
 // Validate a URL is safe to fetch (not internal/private) — checks hostname + DNS
+// Set ALLOW_PRIVATE_PREVIEWS=true in .env to allow link previews for local/private services
+const allowPrivatePreviews = (process.env.ALLOW_PRIVATE_PREVIEWS || '').toLowerCase() === 'true';
 async function validateUrlSafe(urlStr) {
   const parsed = new URL(urlStr);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error('Only http/https URLs allowed');
   }
-  if (isPrivateHostname(parsed.hostname)) {
-    throw new Error('Private addresses not allowed');
-  }
-  // SSRF layer 2: DNS resolution check (defeats DNS rebinding)
-  try {
-    const addresses = await dnsResolve(parsed.hostname);
-    if (addresses.some(isPrivateIP)) {
+  if (!allowPrivatePreviews) {
+    if (isPrivateHostname(parsed.hostname)) {
       throw new Error('Private addresses not allowed');
     }
-  } catch (err) {
-    if (err.message === 'Private addresses not allowed') throw err;
-    // DNS resolution failed — could be IPv6-only or non-existent; allow fetch to fail naturally
+    // SSRF layer 2: DNS resolution check (defeats DNS rebinding)
+    try {
+      const addresses = await dnsResolve(parsed.hostname);
+      if (addresses.some(isPrivateIP)) {
+        throw new Error('Private addresses not allowed');
+      }
+    } catch (err) {
+      if (err.message === 'Private addresses not allowed') throw err;
+      // DNS resolution failed — could be IPv6-only or non-existent; allow fetch to fail naturally
+    }
   }
   return parsed;
 }

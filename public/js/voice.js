@@ -1553,14 +1553,18 @@ class VoiceManager {
     const ATTACK = 0.015;    // Gate opens fast (seconds, ~15ms)
     const RELEASE = 0.12;    // Gate closes gently (seconds, ~120ms)
     const HOLD_MS = 250;     // Keep gate open 250ms after level drops below threshold
+    const OPEN_CONFIRM = 1;  // Require signal above threshold for this many extra polls
+                             // before opening (filters transient clicks/taps, ~20ms at 20ms poll)
     let gateOpen = false;
     let holdTimeout = null;
+    let aboveCount = 0;      // consecutive polls above threshold
 
     this._noiseGateInterval = setInterval(() => {
       if (this.noiseSensitivity === 0) {
         gain.gain.value = 1;
         this.currentMicLevel = 0;
         gateOpen = false;
+        aboveCount = 0;
         if (holdTimeout) { clearTimeout(holdTimeout); holdTimeout = null; }
         return;
       }
@@ -1575,19 +1579,23 @@ class VoiceManager {
       this.currentMicLevel = Math.min(100, (avg / 50) * 100);
 
       if (avg > threshold) {
-        // Signal is above threshold — open gate immediately, cancel any pending close
+        // Signal is above threshold — confirm it sustains before opening
+        aboveCount++;
         if (holdTimeout) { clearTimeout(holdTimeout); holdTimeout = null; }
-        if (!gateOpen) {
+        if (!gateOpen && aboveCount > OPEN_CONFIRM) {
           gain.gain.setTargetAtTime(1, this.audioCtx.currentTime, ATTACK);
           gateOpen = true;
         }
-      } else if (gateOpen && !holdTimeout) {
-        // Signal dropped below threshold — start hold timer before closing
-        holdTimeout = setTimeout(() => {
-          gain.gain.setTargetAtTime(0, this.audioCtx.currentTime, RELEASE);
-          gateOpen = false;
-          holdTimeout = null;
-        }, HOLD_MS);
+      } else {
+        aboveCount = 0;
+        if (gateOpen && !holdTimeout) {
+          // Signal dropped below threshold — start hold timer before closing
+          holdTimeout = setTimeout(() => {
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime, RELEASE);
+            gateOpen = false;
+            holdTimeout = null;
+          }, HOLD_MS);
+        }
       }
     }, 20);
   }
@@ -1693,6 +1701,11 @@ class VoiceManager {
           if (!wasTalking) {
             wasTalking = true;
             if (this.onTalkingChange) this.onTalkingChange('self', true);
+          }
+          // Notify server of voice activity for AFK tracking (throttled to once per 30s)
+          if (this.socket && this.inVoice && (!this._lastVoiceSpeakPing || Date.now() - this._lastVoiceSpeakPing > 30000)) {
+            this._lastVoiceSpeakPing = Date.now();
+            this.socket.emit('voice-activity');
           }
         } else if (wasTalking && !holdTimer) {
           holdTimer = setTimeout(() => {
