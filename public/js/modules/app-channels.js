@@ -689,6 +689,9 @@ _openOrganizeModal(parentCode, serverLevel) {
     document.getElementById('organize-tag-input').value = '';
     const backBtn = document.getElementById('organize-back-btn');
     if (backBtn) backBtn.style.display = 'none';
+    // Hide admin-only controls (move/tag) for non-admin users at server level
+    const canManage = this.user?.isAdmin || this._hasPerm('manage_server') || this._hasPerm('create_channel');
+    document.querySelector('.organize-controls')?.style.setProperty('display', canManage ? '' : 'none');
     this._renderOrganizeList();
     document.getElementById('organize-modal').style.display = 'flex';
     return;
@@ -725,6 +728,8 @@ _openOrganizeModal(parentCode, serverLevel) {
     backBtn.parentNode.replaceChild(newBtn, backBtn);
     newBtn.addEventListener('click', () => this._openOrganizeModal(null, true));
   }
+  // Sub-channel organize: always show controls (already permission-gated by context menu)
+  document.querySelector('.organize-controls')?.style.setProperty('display', '');
   this._renderOrganizeList();
   document.getElementById('organize-modal').style.display = 'flex';
 },
@@ -1837,7 +1842,7 @@ _renderChannels() {
 _updateBadge(code) {
   const el = document.querySelector(`.channel-item[data-code="${code}"]`);
   if (el) {
-    let badge = el.querySelector('.channel-badge');
+    let badge = el.querySelector('.channel-badge:not(.channel-badge-bubble)');
     const count = this.unreadCounts[code] || 0;
 
     if (count > 0) {

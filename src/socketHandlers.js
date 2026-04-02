@@ -1058,6 +1058,7 @@ function setupSocketHandlers(io, db) {
 
     // Push authoritative user info to the client on every connect/reconnect
     // so stale localStorage is always corrected
+    // Note: stale 'away' status is already reset to 'online' in the auth middleware
     socket.emit('session-info', {
       id: socket.user.id,
       username: socket.user.username,
@@ -3015,9 +3016,24 @@ function setupSocketHandlers(io, db) {
       broadcastVoiceUsers(code);
     });
 
-    // Voice activity ping — client reports user is active (for AFK tracking)
+    // Voice activity ping — client reports user is active (for AFK tracking + presence)
     socket.on('voice-activity', () => {
       touchVoiceActivity(socket.user.id);
+      // Also reset 'away' → 'online' if the idle timer had fired before
+      // the client's resetIdle/goOnline could catch it (e.g. tab hidden + voice)
+      if (socket.user.status === 'away') {
+        try {
+          db.prepare('UPDATE users SET status = ? WHERE id = ?').run('online', socket.user.id);
+          socket.user.status = 'online';
+          for (const [code, users] of channelUsers) {
+            if (users.has(socket.user.id)) {
+              users.get(socket.user.id).status = 'online';
+              emitOnlineUsers(code);
+            }
+          }
+          socket.emit('status-updated', { status: 'online', statusText: socket.user.statusText || '' });
+        } catch { /* ignore */ }
+      }
     });
 
     socket.on('voice-deafen-state', (data) => {

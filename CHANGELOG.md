@@ -11,6 +11,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.8.9] — 2026-04-01
+
+### Fixed
+- **Channel organize button now visible to all users** — the 📋 organize button was incorrectly gated behind admin-only. Any user can now open the organize modal to set their own personal channel sort preference. Admin-only controls (move up/down, tags) are hidden for non-admin users at the server level.
+- **Collapsed parent badge no longer clears on click** — clicking a collapsed parent channel (whose badge shows aggregated unread counts from hidden sub-channels) no longer wipes the bubble badge. The badge only goes away once you expand and read the actual sub-channels. (#151)
+- **Presence stays green while in voice** — the idle timer no longer fires "away" while you're connected to a voice channel. Whether you're talking or just listening, your presence stays online. The server's AFK auto-move system still handles truly inactive voice users separately.
+- **Voice activity pings now also reset away presence** — if the idle timer had already fired before you started talking, speaking into your mic now immediately resets your status back to online for other users.
+
+---
+
 ## [2.8.8] — 2026-03-31
 
 ### Fixed

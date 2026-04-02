@@ -1470,6 +1470,15 @@ _setupIdleDetection() {
   let idleEmitPending = false;
 
   const goIdle = () => {
+    // Don't auto-away if user is connected to voice — they're actively
+    // participating even if they're just listening. The AFK voice auto-move
+    // handles truly idle voice users separately on the server.
+    if (this.voice?.inVoice) {
+      // Reschedule the check instead of going idle
+      clearTimeout(this.idleTimer);
+      this.idleTimer = setTimeout(goIdle, IDLE_TIMEOUT);
+      return;
+    }
     if (this.userStatus === 'online' && !this._manualStatusOverride) {
       this.userStatus = 'away';  // optimistic local update (server confirms via status-updated)
       this._updateStatusPickerUI();

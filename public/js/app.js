@@ -219,10 +219,8 @@ class HavenApp {
     if (this.user.isAdmin || this._hasPerm('manage_roles') || this._hasPerm('manage_server')) {
       document.getElementById('admin-mod-panel').style.display = 'block';
     }
-    if (this.user.isAdmin) {
-      const organizeBtn = document.getElementById('organize-channels-btn');
-      if (organizeBtn) organizeBtn.style.display = '';
-    }
+    const organizeBtn = document.getElementById('organize-channels-btn');
+    if (organizeBtn) organizeBtn.style.display = '';
 
     document.getElementById('mod-mode-settings-toggle')?.addEventListener('click', () => this.modMode?.toggle());
   }
