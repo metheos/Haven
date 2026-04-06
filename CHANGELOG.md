@@ -11,6 +11,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.9.3] — 2026-04-05
+
+### Changed
+- **Android app popup updated for full release** — the in-app Android promotion has been refreshed to reflect that Amni-Haven Android is now a full release on Google Play (no longer a closed beta). The popup links directly to the Play Store listing. Existing users who dismissed the old beta popup will see the new announcement once.
+- **Fixed Desktop app naming in README** — the Desktop app is "Haven Desktop", not "Amni-Haven Desktop". Corrected all references. Only the Android app carries the Amni branding (built by Amnibro).
+- **Updated donor lists** — added c0urier (sponsor + donor) and deNully (donor).
+
+---
+
 ## [2.9.2] — 2026-04-05
 
 ### Fixed

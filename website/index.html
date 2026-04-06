@@ -1356,12 +1356,12 @@
       </div>
 
       <div class="download-card fade-in">
-        <h2>&#x2B21; Haven Server &mdash; v2.9.2</h2>
+        <h2>&#x2B21; Haven Server &mdash; v2.9.3</h2>
         <p class="download-version">Latest stable release &middot; Windows, macOS &amp; Linux &middot; ~5 MB</p>
 
         <div class="download-btn-group">
-          <a href="https://github.com/ancsemi/Haven/archive/refs/tags/v2.9.2.zip" class="btn btn-primary download-main">
-            <span class="icon">&#x2B07;</span> Download v2.9.2 (.zip)
+          <a href="https://github.com/ancsemi/Haven/archive/refs/tags/v2.9.3.zip" class="btn btn-primary download-main">
+            <span class="icon">&#x2B07;</span> Download v2.9.3 (.zip)
           </a>
           <div class="download-alt-links">
             <a href="https://github.com/ancsemi/Haven" target="_blank">&#9965; View on GitHub</a>
@@ -1378,7 +1378,11 @@
           <div class="version-list">
             <div class="version-list-inner">
               <div class="version-item">
-                <div><span class="v-name">v2.9.2</span><span class="v-tag latest">Latest</span></div>
+                <div><span class="v-name">v2.9.3</span><span class="v-tag latest">Latest</span></div>
+                <a href="https://github.com/ancsemi/Haven/archive/refs/tags/v2.9.3.zip">Download &rarr;</a>
+              </div>
+              <div class="version-item">
+                <div><span class="v-name">v2.9.2</span> &mdash; Per-app audio CSP fix</div>
                 <a href="https://github.com/ancsemi/Haven/archive/refs/tags/v2.9.2.zip">Download &rarr;</a>
               </div>
               <div class="version-item">
@@ -1685,31 +1689,20 @@
         </p>
       </div>
 
-      <!-- Android App Beta Card -->
+      <!-- Android App Card -->
       <div class="download-card fade-in" style="margin-top: 32px; border-color: rgba(61, 220, 132, 0.25);">
         <div style="position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #3ddc84, #2bb55e, #82aaff); box-shadow: 0 0 12px rgba(61, 220, 132, 0.3);"></div>
-        <h2>📱 Haven Android <span class="closed-beta-badge-inline">CLOSED BETA</span></h2>
-        <p class="download-version">Closed beta &middot; Android &middot; Google Play</p>
+        <h2>📱 Amni-Haven Android <span class="closed-beta-badge-inline" style="background: #3ddc84; color: #1a1a2e;">RELEASED</span></h2>
+        <p class="download-version">Available now &middot; Android &middot; Google Play</p>
 
-        <div class="android-beta-email-form">
-          <p style="font-size: 0.95rem; color: var(--text-muted); margin: 0;">Enter your email to sign up for the closed beta:</p>
-          <input type="email" id="download-android-beta-email" placeholder="your@email.com" maxlength="120">
-          <button class="btn-android" onclick="(function(){
-            var e=document.getElementById('download-android-beta-email');
-            var v=e.value.trim();
-            if(!v||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){e.style.borderColor='#f04747';e.focus();return;}
-            var s=encodeURIComponent('Haven Android Beta - Opt-in Request');
-            var b=encodeURIComponent('Hi Amnibro,\n\nI\'d like to opt-in to the Haven Android closed beta on Google Play.\n\nMy email: '+v+'\n\nThanks!');
-            window.open('mailto:amnibro7@gmail.com?subject='+s+'&body='+b,'_blank');
-            e.value='';e.style.borderColor='';
-            alert('Your email client should open with a pre-filled message. Just hit Send!');
-          })()">🚀 Sign Up for Beta</button>
+        <div style="margin-top:20px;text-align:center">
+          <a href="https://play.google.com/store/apps/details?id=com.havenapp.mobile&gl=US" target="_blank" rel="noopener" style="display:inline-block">
+            <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" style="height:60px">
+          </a>
         </div>
 
-
-
         <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 16px; font-style: italic;">
-          Built with ❤️ by <strong>Amnibro</strong> &mdash; thank you for your incredible work building the Haven Android app from the ground up.
+          Built with ❤️ by <strong>Amnibro</strong> &mdash; thank you for your incredible work building the Amni-Haven Android app from the ground up.
         </p>
       </div>
 

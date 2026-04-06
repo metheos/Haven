@@ -2,7 +2,7 @@
 
 > **Your server. Your rules. No cloud. No accounts with Big Tech. No one reading your messages.**
 
-![Version](https://img.shields.io/badge/version-2.8.2-blue)
+![Version](https://img.shields.io/badge/version-2.9.3-blue)
 ![License](https://img.shields.io/badge/license-MIT--NC-green)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
@@ -13,11 +13,11 @@ Amni-Haven is a self-hosted Discord alternative. Run it on your machine. Invite 
 
 ---
 
-## 🖥️ NEW — Amni-Haven Desktop (Beta)
+## 🖥️ NEW — Haven Desktop (Beta)
 
-> **Want a native desktop experience?** Amni-Haven Desktop is a standalone app that connects to any Amni-Haven server — with features that go beyond the browser.
+> **Want a native desktop experience?** Haven Desktop is a standalone app that connects to any Haven server — with features that go beyond the browser.
 
-**[Amni-Haven Desktop](https://github.com/ancsemi/Haven-Desktop)** is now available as a public beta. Download the installer and connect to your server in seconds.
+**[Haven Desktop](https://github.com/ancsemi/Haven-Desktop)** is now available as a public beta. Download the installer and connect to your server in seconds.
 
 - **Per-Application Audio** — share audio from a single app during screen share, just like Discord. Powered by native WASAPI (Windows) and PulseAudio (Linux) hooks.
 - **Audio Device Switching** — change your mic and speaker mid-call without leaving voice chat
@@ -27,29 +27,27 @@ Amni-Haven is a self-hosted Discord alternative. Run it on your machine. Invite 
 
 > **⚠️ This is a beta release.** Bugs are expected. Your feedback is what makes it better — please [open an issue](https://github.com/ancsemi/Haven-Desktop/issues) if something breaks or feels off.
 >
-> **You still need an Amni-Haven server.** The desktop app is a client — it connects to an Amni-Haven server. Download and run [Amni-Haven](https://github.com/ancsemi/Haven) first if you haven't already.
+> **You still need a Haven server.** The desktop app is a client — it connects to a Haven server. Download and run [Haven](https://github.com/ancsemi/Haven) first if you haven't already.
 
-📥 **[Download Amni-Haven Desktop →](https://github.com/ancsemi/Haven-Desktop/releases/latest)**
+📥 **[Download Haven Desktop →](https://github.com/ancsemi/Haven-Desktop/releases/latest)**
 
 ---
 
-## 📱 NEW — Amni-Haven Android (Closed Beta)
+## 📱 Amni-Haven Android — Now on Google Play!
 
-> **Want Amni-Haven on your phone?** Amni-Haven Android is a native Android app built from the ground up, now in closed beta on Google Play.
+> **Want Haven on your phone?** Amni-Haven Android is a native Android app built from the ground up by Amnibro, now available on Google Play.
 
 **Amni-Haven Android** features full chat and voice support, push notifications, and a true mobile-native experience.
 
-- **Native Android** — built from scratch specifically for Amni-Haven, not a web wrapper
+- **Native Android** — built from scratch specifically for Haven, not a web wrapper
 - **Push Notifications** — real-time notifications via Google Play services
 - **Full Chat & Voice** — all the features you love, in your pocket
 
-> **🚀 Want to join the beta?** Visit **[amni-scient.com/amni-haven.html](https://amni-scient.com/amni-haven.html)** to request access to the closed beta.
->
-> **You still need an Amni-Haven server.** The Android app is a client — it connects to an Amni-Haven server. Download and run [Amni-Haven](https://github.com/ancsemi/Haven) first if you haven't already.
+> **You still need a Haven server.** The Android app is a client — it connects to a Haven server. Download and run [Haven](https://github.com/ancsemi/Haven) first if you haven't already.
 
 *Built with ❤️ by **Amnibro** — huge thanks for his incredible work building the Amni-Haven Android app from the ground up.*
 
-📲 **[Request Android Beta Access →](https://amni-scient.com/amni-haven.html)**
+📲 **[Get it on Google Play →](https://play.google.com/store/apps/details?id=com.havenapp.mobile&gl=US)**
 
 ---
 
@@ -180,7 +178,7 @@ Or manually: `npm install && node server.js`
 | **Slash Commands** | `/shrug`, `/tableflip`, `/roll 2d20`, `/flip`, `/me`, `/spoiler`, `/tts`, and more — type `/` to see them all |
 | **Search** | Search messages in any channel with Ctrl+F |
 | **Themes** | 20+ themes with stackable visual effects: CRT, Matrix Rain, Cyberpunk Text Scramble, Snowfall, Campfire Embers, and more — configurable intensity/frequency sliders |
-| **Multi-Server** | Add friends' Amni-Haven servers to your sidebar with live online/offline status |
+| **Multi-Server** | Add friends' Haven servers to your sidebar with live online/offline status |
 | **Notifications** | 5 notification sounds, per-channel volume controls |
 | **Moderation** | Admin: kick, mute (timed), ban, delete users, delete channels, auto-cleanup. Role system with granular permissions. |
 | **Security** | Bcrypt passwords, JWT auth, HTTPS/SSL, rate limiting, CSP headers, input validation |
@@ -466,7 +464,7 @@ Planned features — roughly in priority order:
 | **Multi-factor authentication** | 📋 Planned | U2F/FIDO key and TOTP support, with optional admin MFA requirement |
 | **Session invalidation on password change** | 📋 Planned | All active sessions are forcibly logged out when a user changes their password |
 | **Recovery-key password reset** | 📋 Planned | Generate a 24-word recovery phrase from settings — used to reset your password without losing E2E DM history. Existing users get a one-time prompt to generate theirs. No admin involvement, no email required. |
-| **Android App** | 🟢 Closed Beta! | [Request Beta Access](https://amni-scient.com/amni-haven.html) |
+| **Android App** | ✅ Released! | [Get it on Google Play](https://play.google.com/store/apps/details?id=com.havenapp.mobile&gl=US) |
 | **Desktop App** | ✅ Beta! | https://github.com/ancsemi/Haven-Desktop |
 
 > Want something else? Open an issue — PRs are always welcome.

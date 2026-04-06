@@ -406,7 +406,7 @@
     "update_text": "Update v{{version}}",
     "update_title": "Haven v{{remote}} is available (you have v{{local}}). Click to view.",
     "get_desktop_app": "Get the Desktop App",
-    "android_beta": "Android Beta",
+    "android_beta": "Android App",
     "results": "Results",
     "pinned_count": "Pinned Messages",
     "uploading": "Uploading...",
@@ -1264,18 +1264,18 @@
       "confirm_btn": "Reset My Keys"
     },
     "android_beta": {
-      "title": "Haven Android App",
-      "badge": "CLOSED BETA",
-      "subtitle": "A native Android app for Haven, built from the ground up!",
+      "title": "Amni-Haven Android",
+      "badge": "NOW AVAILABLE",
+      "subtitle": "A native Android app for Haven, built from the ground up by Amnibro!",
       "feature_native": "Native Android experience",
-      "feature_push": "Push notifications",
+      "feature_push": "Push notifications via Google Play",
       "feature_chat": "Full chat & voice support",
       "feature_built": "Built from the ground up for Haven",
-      "note": "Request access to the closed beta on Google Play:",
-      "request_btn": "Request Beta Access",
+      "note": "Available now on Google Play:",
+      "request_btn": "Get it on Google Play",
       "later_btn": "Maybe later",
       "dont_show": "Don't show this again",
-      "credit": "Built with ❤️ by <strong>Amnibro</strong> — thank you for your incredible work on the Haven Android app!"
+      "credit": "Built with ❤️ by <strong>Amnibro</strong> — thank you for your incredible work on the Amni-Haven Android app!"
     },
     "desktop_promo": {
       "title": "Haven Desktop App",
