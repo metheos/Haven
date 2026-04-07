@@ -11,6 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.9.5] — 2026-04-07
+
+### Changed
+- **License changed to AGPL-3.0** — Haven is now licensed under the GNU Affero General Public License v3, a widely recognized open-source license. This replaces the previous custom MIT-NC license. The AGPL ensures that anyone who forks and deploys Haven as a network service must release their source code under the same license, protecting the project from commercial exploitation while being a proper OSI-approved open-source license. Self-hosting, forking, and contributing remain fully encouraged. (#5227, #70)
+
+---
+
 ## [2.9.4] — 2026-04-05
 
 ### Added

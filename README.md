@@ -166,7 +166,7 @@ Or manually: `npm install && node server.js`
 | **Your data** | Stored by Discord Inc. | Never leaves your server |
 | **Cost** | Nitro upsells, boosts | Free forever |
 | **Telemetry** | Analytics, tracking | Zero telemetry |
-| **Source code** | Closed | Open (MIT-NC) |
+| **Source code** | Closed | Open (AGPL-3.0) |
 
 ---
 
@@ -485,7 +485,7 @@ Planned features — roughly in priority order:
 
 ## License
 
-MIT-NC — free to use, modify, and share. **Not for resale.** See [LICENSE](LICENSE).
+AGPL-3.0 — free to use, modify, and share. Any modified version you deploy as a network service must release its source code. See [LICENSE](LICENSE).
 
 Original project: [github.com/ancsemi/Haven](https://github.com/ancsemi/Haven)
 

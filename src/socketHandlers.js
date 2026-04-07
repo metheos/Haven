@@ -3784,8 +3784,8 @@ function setupSocketHandlers(io, db) {
       if (!member) return;
 
       const pins = db.prepare(`
-        SELECT m.id, m.content, m.created_at, m.edited_at,
-               COALESCE(u.display_name, u.username, '[Deleted User]') as username, u.id as user_id,
+        SELECT m.id, m.content, m.created_at, m.edited_at, m.is_webhook, m.webhook_username, m.webhook_avatar,
+               COALESCE(m.webhook_username, u.display_name, u.username, '[Deleted User]') as username, u.id as user_id,
                pm.pinned_at, COALESCE(pb.display_name, pb.username, '[Deleted User]') as pinned_by
         FROM pinned_messages pm
         JOIN messages m ON pm.message_id = m.id
@@ -3795,11 +3795,14 @@ function setupSocketHandlers(io, db) {
         ORDER BY pm.pinned_at DESC
       `).all(channel.id);
 
-      // Normalize UTC timestamps
+      // Normalize UTC timestamps + enrich webhook/bot pins
       pins.forEach(p => {
         p.created_at = utcStamp(p.created_at);
         p.edited_at = utcStamp(p.edited_at);
         p.pinned_at = utcStamp(p.pinned_at);
+        if (p.is_webhook) {
+          p.username = `[BOT] ${p.webhook_username || 'Bot'}`;
+        }
       });
 
       socket.emit('pinned-messages', { channelCode: code, pins });
