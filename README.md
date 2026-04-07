@@ -1,4 +1,4 @@
-# ⬡ AMNI-HAVEN — Private Chat That Lives On Your Machine
+# ⬡ HAVEN — Private Chat That Lives On Your Machine
 
 > **Your server. Your rules. No cloud. No accounts with Big Tech. No one reading your messages.**
 
@@ -7,7 +7,7 @@
 ![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 
-Amni-Haven is a self-hosted Discord alternative. Run it on your machine. Invite friends with a code. No cloud. No email signup. No tracking. Free forever.
+Haven is a self-hosted Discord alternative. Run it on your machine. Invite friends with a code. No cloud. No email signup. No tracking. Free forever.
 
 <img width="1917" height="948" alt="Screenshot 2026-02-14 102013" src="https://github.com/user-attachments/assets/0c85ca6c-f811-43db-a26b-9b66c418830e" />
 
@@ -65,9 +65,9 @@ After signing up, enter this channel code to join: **`da0b9be7`**
 
 ## NEW in v2.0.0 — Import Your Discord History
 
-> **Leaving Discord?** Amni-Haven can import your entire server's message history — directly from the app. No external tools, no command-line exports, no hassle.
+> **Leaving Discord?** Haven can import your entire server's message history — directly from the app. No external tools, no command-line exports, no hassle.
 
-Open **Settings → Import** and connect with your Discord token. Amni-Haven pulls every channel, thread, forum post, announcement, reaction, pin, attachment, and avatar — then lets you map them to Amni-Haven channels. Your community's history comes with you.
+Open **Settings → Import** and connect with your Discord token. Haven pulls every channel, thread, forum post, announcement, reaction, pin, attachment, and avatar — then lets you map them to Haven channels. Your community's history comes with you.
 
 - **Direct Connect** — paste your Discord token, pick a server, select channels & threads, import
 - **File Upload** — or upload a DiscordChatExporter JSON/ZIP if you prefer
@@ -107,7 +107,7 @@ docker compose up -d
 
 Open `https://localhost:3000` → Register with username `admin` → Create a channel → Share the code with friends. Done.
 
-> Certificate warning is normal — click **Advanced → Proceed**. Amni-Haven uses a self-signed cert for encryption.
+> Certificate warning is normal — click **Advanced → Proceed**. Haven uses a self-signed cert for encryption.
 
 **Updating** — if using the pre-built image (default):
 ```bash
@@ -159,7 +159,7 @@ Or manually: `npm install && node server.js`
 
 ## Why Not Discord?
 
-| | Discord | Amni-Haven |
+| | Discord | Haven |
 |---|---------|-------|
 | **Hosting** | Their cloud | Your machine |
 | **Account** | Email + phone required | No email, no verification |
@@ -195,7 +195,7 @@ Or manually: `npm install && node server.js`
 | **Moderation** | Admin: kick, mute (timed), ban, delete users, delete channels, auto-cleanup. Role system with granular permissions. |
 | **Security** | Bcrypt passwords, JWT auth, HTTPS/SSL, rate limiting, CSP headers, input validation |
 | **E2E Encryption** | ECDH P-256 + AES-256-GCM encrypted DMs — private keys never leave the browser |
-| **Discord Import** | Import your entire Discord server history — channels, threads, forums, reactions, pins, avatars — directly from Amni-Haven's UI or via file upload |
+| **Discord Import** | Import your entire Discord server history — channels, threads, forums, reactions, pins, avatars — directly from Haven's UI or via file upload |
 | **Game** | Shippy Container — Drew's shipment got hung up. Server-wide leaderboard. |
 | **Translations** | 6 languages out of the box (English, French, German, Spanish, Russian, Chinese). Community-contributed. |
 
@@ -207,7 +207,7 @@ Or manually: `npm install && node server.js`
 
 ## 🌐 Translations (i18n)
 
-Amni-Haven supports multiple languages. Users can switch languages from **Settings → Language** or the login page. The choice is saved per-browser.
+Haven supports multiple languages. Users can switch languages from **Settings → Language** or the login page. The choice is saved per-browser.
 
 | Language | Code | Status |
 |----------|------|--------|
@@ -239,7 +239,7 @@ Non-English translations were initially generated with AI assistance and **have 
 
 ### Maintenance Reality
 
-Translations are a community effort. As new features are added to Amni-Haven, new English strings appear, and other languages will fall behind until someone updates them. **Missing keys gracefully fall back to the English text**, so nothing breaks — you'll just see some English mixed in until someone contributes the translation.
+Translations are a community effort. As new features are added to Haven, new English strings appear, and other languages will fall behind until someone updates them. **Missing keys gracefully fall back to the English text**, so nothing breaks — you'll just see some English mixed in until someone contributes the translation.
 
 If you'd like to "own" a language and keep it current, reach out via an issue. Long-term language maintainers are welcome and appreciated.
 
@@ -264,7 +264,7 @@ Go to [whatismyip.com](https://whatismyip.com). That's the address your friends 
 
 Open PowerShell as Administrator and run:
 ```powershell
-New-NetFirewallRule -DisplayName "Amni-Haven Chat" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "Haven Chat" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow
 ```
 
 ### Step 4 — Share With Friends
@@ -280,7 +280,7 @@ Tell them to click **Advanced** → **Proceed** on the certificate warning. It's
 
 ## Configuration
 
-Amni-Haven creates a `.env` config file automatically on first launch — you don't need to create or rename anything. It lives in your **data directory**:
+Haven creates a `.env` config file automatically on first launch — you don't need to create or rename anything. It lives in your **data directory**:
 
 | OS | Data Directory |
 |----|---------------|
@@ -326,7 +326,7 @@ Type `/` in the message box to see the full list. Here are some highlights:
 
 25 themes, switchable from the sidebar:
 
-**Amni-Haven** · **Discord** · **Matrix** · **Tron** · **HALO** · **Lord of the Rings** · **Cyberpunk** · **Nord** · **Dracula** · **Bloodborne** · **Ice** · **Abyss**
+**Haven** · **Discord** · **Matrix** · **Tron** · **HALO** · **Lord of the Rings** · **Cyberpunk** · **Nord** · **Dracula** · **Bloodborne** · **Ice** · **Abyss**
 
 Your theme choice persists across sessions.
 
@@ -383,11 +383,11 @@ Access admin controls in the **Settings** panel (⚙️ gear icon in the sidebar
 
 ### HTTPS / SSL Details
 
-Amni-Haven **automatically generates self-signed SSL certificates** on first launch — but only if **OpenSSL** is installed on your system.
+Haven **automatically generates self-signed SSL certificates** on first launch — but only if **OpenSSL** is installed on your system.
 
 **How to tell which mode you're in:** Look at the startup banner in the terminal window. If the URL shows `http://` — you're on HTTP. If it shows `https://` — you're on HTTPS.
 
-**If Amni-Haven falls back to HTTP** (no OpenSSL, or cert generation failed):
+**If Haven falls back to HTTP** (no OpenSSL, or cert generation failed):
 - Everything works fine for local use — just use `http://localhost:3000`
 - Voice chat will only work on localhost, not for remote friends
 - To enable HTTPS:
@@ -432,7 +432,7 @@ Copy the entire folder somewhere safe to back up everything. The Haven code dire
 
 ## GIF Search — GIPHY API Setup
 
-Amni-Haven has a built-in GIF picker powered by **GIPHY**. To enable it you need a free API key.
+Haven has a built-in GIF picker powered by **GIPHY**. To enable it you need a free API key.
 
 ### 1. Create a GIPHY Developer Account
 
@@ -443,12 +443,12 @@ Amni-Haven has a built-in GIF picker powered by **GIPHY**. To enable it you need
 
 1. Click **Create an App**
 2. Choose **API** (not SDK)
-3. Give it any name (e.g. "Amni-Haven Chat") and a short description
+3. Give it any name (e.g. "Haven Chat") and a short description
 4. Copy the **API Key** shown on the next page
 
-### 3. Add the Key in Amni-Haven
+### 3. Add the Key in Haven
 
-1. Log into Amni-Haven as your **admin** account
+1. Log into Haven as your **admin** account
 2. Click the **GIF button** (🎞️) in the message input area
 3. You'll see a setup prompt — paste your API key and save
 4. The key is stored server-side in the database — only admins can see or change it
@@ -492,5 +492,5 @@ Original project: [github.com/ancsemi/Haven](https://github.com/ancsemi/Haven)
 ---
 
 <p align="center">
-  <b>⬡ Amni-Haven</b> — Because your conversations are yours.
+  <b>⬡ Haven</b> — Because your conversations are yours.
 </p>
