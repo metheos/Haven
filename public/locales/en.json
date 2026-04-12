@@ -377,7 +377,8 @@
     "transfer_admin": "Transfer Admin",
     "manage_roles": "Manage Roles",
     "manage_server": "Manage Server",
-    "delete_channel": "Delete Channels"
+    "delete_channel": "Delete Channels",
+    "read_only_override": "Read-Only Override"
   },
   "slowmode": {
     "wait": "Slow mode — wait {{seconds}}s before sending another message",

@@ -536,6 +536,12 @@ _createMessageEl(msg, prevMsg) {
     ? `<span class="user-role-badge msg-role-badge" style="color:${this._safeColor(onlineUser.role.color, 'var(--text-muted)')}">${this._escapeHtml(onlineUser.role.name)}</span>`
     : '';
 
+  // Role color display mode: colored-name uses role color for the author name
+  const roleDisplayMode = localStorage.getItem('haven-role-display') || 'colored-name';
+  const authorColor = (roleDisplayMode === 'colored-name' && onlineUser && onlineUser.role && onlineUser.role.color)
+    ? this._safeColor(onlineUser.role.color, color)
+    : color;
+
   const botBadge = msg.imported_from === 'discord'
     ? '<span class="discord-badge">DISCORD</span>'
     : msg.is_webhook ? '<span class="bot-badge">BOT</span>' : '';
@@ -557,7 +563,7 @@ _createMessageEl(msg, prevMsg) {
       ${avatarHtml}
       <div class="message-body">
         <div class="message-header">
-          <span class="message-author" style="color:${color}"${this._nicknames[msg.user_id] ? ` title="${this._escapeHtml(msg.username)}"` : ''}>${this._escapeHtml(this._getNickname(msg.user_id, msg.username))}</span>
+          <span class="message-author" style="color:${authorColor}"${this._nicknames[msg.user_id] ? ` title="${this._escapeHtml(msg.username)}"` : ''}>${this._escapeHtml(this._getNickname(msg.user_id, msg.username))}</span>
           ${botBadge}
           ${msgRoleBadge}
           <span class="message-time">${this._formatTime(msg.created_at)}</span>
@@ -645,6 +651,16 @@ _appendSystemMessage(text) {
   const wasAtBottom = this._coupledToBottom;
   const el = document.createElement('div');
   el.className = 'system-message';
+  el.textContent = text;
+  container.appendChild(el);
+  if (wasAtBottom) this._scrollToBottom(true);
+},
+
+_appendWelcomeMessage(text) {
+  const container = document.getElementById('messages');
+  const wasAtBottom = this._coupledToBottom;
+  const el = document.createElement('div');
+  el.className = 'welcome-message';
   el.textContent = text;
   container.appendChild(el);
   if (wasAtBottom) this._scrollToBottom(true);

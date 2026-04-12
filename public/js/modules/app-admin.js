@@ -5,7 +5,7 @@ const ALL_PERMS = [
   'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
   'create_channel', 'create_temp_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
   'view_all_members', 'view_channel_members', 'manage_emojis', 'manage_soundboard', 'manage_music_queue', 'promote_user', 'transfer_admin',
-  'manage_roles', 'manage_server', 'delete_channel'
+  'manage_roles', 'manage_server', 'delete_channel', 'read_only_override'
 ];
 //Similarly flavored solution to perm labels
 const PERM_LABELS = {
@@ -39,7 +39,8 @@ const PERM_LABELS = {
   get transfer_admin() { return t('permissions.transfer_admin'); },
   get manage_roles() { return t('permissions.manage_roles'); },
   get manage_server() { return t('permissions.manage_server'); },
-  get delete_channel() { return t('permissions.delete_channel'); }
+  get delete_channel() { return t('permissions.delete_channel'); },
+  get read_only_override() { return t('permissions.read_only_override'); }
 };
 
 export default {
@@ -318,6 +319,10 @@ _applyServerSettings() {
     if (titleInput && this.serverSettings.server_title !== undefined) {
       titleInput.value = this.serverSettings.server_title || '';
     }
+    const welcomeInput = document.getElementById('welcome-message-input');
+    if (welcomeInput) {
+      welcomeInput.value = this.serverSettings.welcome_message || '';
+    }
     const cleanupEnabled = document.getElementById('cleanup-enabled');
     if (cleanupEnabled) {
       cleanupEnabled.checked = this.serverSettings.cleanup_enabled === 'true';
@@ -442,6 +447,7 @@ _snapshotAdminSettings() {
   this._adminSnapshot = {
     server_name: this.serverSettings.server_name || 'HAVEN',
     server_title: this.serverSettings.server_title || '',
+    welcome_message: this.serverSettings.welcome_message || '',
     member_visibility: this.serverSettings.member_visibility || 'online',
     cleanup_enabled: this.serverSettings.cleanup_enabled || 'false',
     cleanup_max_age_days: this.serverSettings.cleanup_max_age_days || '0',
@@ -480,6 +486,12 @@ _saveAdminSettings() {
   const title = document.getElementById('server-title-input')?.value.trim() || '';
   if (title !== (snap.server_title || '')) {
     this.socket.emit('update-server-setting', { key: 'server_title', value: title });
+    changed = true;
+  }
+
+  const welcomeMsg = document.getElementById('welcome-message-input')?.value.trim() || '';
+  if (welcomeMsg !== (snap.welcome_message || '')) {
+    this.socket.emit('update-server-setting', { key: 'welcome_message', value: welcomeMsg });
     changed = true;
   }
 

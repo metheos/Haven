@@ -1571,6 +1571,31 @@ _applyImageMode(mode) {
   document.body.classList.toggle('image-mode-full', mode === 'full');
 },
 
+// ── Role Display Picker ──
+
+_setupRoleDisplayPicker() {
+  const picker = document.getElementById('role-display-picker');
+  if (!picker) return;
+
+  const saved = localStorage.getItem('haven-role-display') || 'colored-name';
+  document.documentElement.dataset.roleDisplay = saved;
+  picker.querySelectorAll('[data-roledisplay]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.roledisplay === saved);
+  });
+
+  picker.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-roledisplay]');
+    if (!btn) return;
+    const mode = btn.dataset.roledisplay;
+    document.documentElement.dataset.roleDisplay = mode;
+    localStorage.setItem('haven-role-display', mode);
+    picker.querySelectorAll('[data-roledisplay]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Re-render member list to reflect the change
+    if (this._updateUsers) this._updateUsers();
+  });
+},
+
 // ── Image Lightbox ──
 
 _setupLightbox() {

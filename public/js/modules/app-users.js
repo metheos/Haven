@@ -173,9 +173,16 @@ _renderUserItem(u, scoreLookup) {
   const avatarHtml = `<div class="user-avatar-wrapper">${avatarImg}<span class="user-status-dot${statusClass ? ' ' + statusClass : ''}"></span></div>`;
 
   // Role: color dot to the left of name + tooltip on hover
+  // Role display mode
+  const roleDisplayMode = localStorage.getItem('haven-role-display') || 'colored-name';
   const roleColor = u.role ? this._safeColor(u.role.color, 'var(--text-muted)') : '';
-  const roleDot = u.role
+  const roleDot = (roleDisplayMode === 'dot' && u.role)
     ? `<span class="user-role-dot" style="background:${roleColor}" title="${this._escapeHtml(u.role.name)}"></span>`
+    : '';
+
+  // In colored-name mode, apply role color to the username
+  const nameStyle = (roleDisplayMode === 'colored-name' && u.role && roleColor)
+    ? ` style="color:${roleColor}"`
     : '';
 
   // Keep the old badge for message area (msg-role-badge) but hide in sidebar
@@ -207,7 +214,7 @@ _renderUserItem(u, scoreLookup) {
     <div class="user-item${onlineClass}" data-user-id="${u.id}">
       ${avatarHtml}
       ${roleDot}
-      <span class="user-item-name"${this._nicknames[u.id] ? ` title="${this._escapeHtml(u.username)}"` : ''}>${this._escapeHtml(this._getNickname(u.id, u.username))}</span>
+      <span class="user-item-name"${nameStyle}${this._nicknames[u.id] ? ` title="${this._escapeHtml(u.username)}"` : ''}>${this._escapeHtml(this._getNickname(u.id, u.username))}</span>
       ${roleBadge}
       ${statusTextHtml}
       ${scoreBadge}

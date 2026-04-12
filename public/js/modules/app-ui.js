@@ -275,6 +275,10 @@ _setupUI() {
       const newVal = ch && ch.media_enabled === 0 ? 1 : 0;
       optimistic({ media_enabled: newVal });
       this.socket.emit('toggle-channel-permission', { code, permission: 'media' });
+    } else if (fn === 'read-only') {
+      const newVal = ch && ch.read_only ? 0 : 1;
+      optimistic({ read_only: newVal });
+      this.socket.emit('toggle-channel-permission', { code, permission: 'read_only' });
     } else if (fn === 'slow-mode') {
       const badge = row.querySelector('.cfn-badge');
       if (!badge || badge.tagName === 'INPUT') return;
@@ -1420,6 +1424,14 @@ _setupUI() {
     const fileName = link.getAttribute('download') || 'this file';
     const ext = fileName.split('.').pop().toLowerCase();
     this._showRiskyDownloadWarning(fileName, ext, link.href);
+  });
+
+  // Masked markdown link warning — show URL confirmation before navigating
+  document.getElementById('messages').addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-masked-link]');
+    if (!link) return;
+    e.preventDefault();
+    this._showExternalLinkWarning(link.textContent, link.href);
   });
 
   // Reply banner click — scroll to the original message

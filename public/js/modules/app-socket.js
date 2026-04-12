@@ -277,6 +277,18 @@ _setupSocketListeners() {
     // (covers cases where initial push arrived before DOM was ready)
     this.socket.emit('get-voice-counts');
 
+    // Re-evaluate input area visibility for the current channel (read-only, text/media toggles may have changed)
+    if (this.currentChannel) {
+      const curCh = this.channels.find(c => c.code === this.currentChannel);
+      if (curCh) {
+        const msgInputArea = document.getElementById('message-input-area');
+        const _textOff = curCh.text_enabled === 0;
+        const _mediaOff = curCh.media_enabled === 0;
+        const _isReadOnly = curCh.read_only === 1 && !this.user?.isAdmin && !this._hasPerm('read_only_override');
+        if (msgInputArea) msgInputArea.style.display = (_isReadOnly || (_textOff && _mediaOff)) ? 'none' : '';
+      }
+    }
+
     // If the channel code rotated while we were disconnected, re-enter with the
     // new code so messages, reactions, and presence start working again.
     if (rotatedChannelId !== null) {
@@ -586,6 +598,12 @@ _setupSocketListeners() {
     if (data.channelCode === this.currentChannel) {
       this._appendSystemMessage(t('header.messages.user_joined', { name: this._getNickname(data.user.id, data.user.username) }));
       this.notifications.play('join');
+      // Show configurable welcome message if set
+      const welcomeTemplate = this.serverSettings?.welcome_message;
+      if (welcomeTemplate) {
+        const welcomeText = welcomeTemplate.replace(/\{user\}/gi, this._getNickname(data.user.id, data.user.username));
+        this._appendWelcomeMessage(welcomeText);
+      }
     }
   });
 
@@ -971,8 +989,12 @@ _setupSocketListeners() {
     }
   });
 
-  this.socket.on('pinned-messages', (data) => {
+  this.socket.on('pinned-messages', async (data) => {
     if (data.channelCode === this.currentChannel) {
+      // Decrypt E2E-encrypted pinned messages in DMs before rendering
+      if (data.pins && data.pins.length) {
+        await this._decryptMessages(data.pins, data.channelCode);
+      }
       this._renderPinnedPanel(data.pins);
     }
   });

@@ -148,7 +148,7 @@ _formatContent(str) {
     try { new URL(url); } catch { return full; }
     const safeUrl = url.replace(/['"<>]/g, '');
     const idx = mdLinks.length;
-    mdLinks.push(`<a href="${safeUrl}" target="_blank" rel="noopener noreferrer nofollow">${text}</a>`);
+    mdLinks.push(`<a href="${safeUrl}" target="_blank" rel="noopener noreferrer nofollow" title="${safeUrl}" data-masked-link="true">${text}</a>`);
     return `\x00MDLINK_${idx}\x00`;
   });
 
@@ -381,6 +381,36 @@ _showRecoveryNotice() {
 },
 
 /** Warn users before downloading potentially harmful file types */
+_showExternalLinkWarning(displayText, url) {
+  document.querySelector('.risky-download-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'risky-download-overlay';
+  overlay.innerHTML = `
+    <div class="risky-download-modal">
+      <div class="risky-download-icon">🔗</div>
+      <h3 style="color:var(--text-primary,#dbdee1)">External Link</h3>
+      <p>You're about to visit:</p>
+      <p style="background:var(--bg-tertiary,#232428);padding:8px 12px;border-radius:6px;font-size:13px;word-break:break-all;color:var(--accent,#5865f2)">${this._escapeHtml(url)}</p>
+      <p class="risky-download-desc">Make sure you trust this link before continuing.</p>
+      <div class="risky-download-actions">
+        <button class="risky-download-cancel">Cancel</button>
+        <button class="risky-download-confirm" style="background:var(--accent,#5865f2)">Open Link</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('.risky-download-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector('.risky-download-confirm').addEventListener('click', () => {
+    overlay.remove();
+    window.open(url, '_blank', 'noopener,noreferrer');
+  });
+},
+
 _showRiskyDownloadWarning(fileName, ext, url) {
   // Remove any existing warning overlay
   document.querySelector('.risky-download-overlay')?.remove();

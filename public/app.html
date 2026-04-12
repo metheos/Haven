@@ -1135,6 +1135,22 @@
         </div>
       </div>
 
+      <!-- Role Color Display -->
+      <div class="settings-section" id="section-role-display" style="border-top: 1px solid var(--border-light); padding-top: 16px; margin-top: 8px;">
+        <h5 class="settings-section-title">🎨 Role Display</h5>
+        <div class="density-picker" id="role-display-picker">
+          <button type="button" class="density-btn active" data-roledisplay="colored-name" title="Color the username with the role color">
+            <span class="density-icon" style="color:#5865f2;font-weight:bold">A</span>
+            <span class="density-label">Colored Name</span>
+          </button>
+          <button type="button" class="density-btn" data-roledisplay="dot" title="Show a colored dot next to the name (legacy)">
+            <span class="density-icon">●</span>
+            <span class="density-label">Dot</span>
+          </button>
+        </div>
+        <small class="settings-hint" style="margin-top:4px;display:block">How role colors are shown next to usernames in chat and the member list.</small>
+      </div>
+
       <!-- Image Display Mode -->
       <div class="settings-section" id="section-density" style="border-top: 1px solid var(--border-light); padding-top: 16px; margin-top: 8px;">
         <h5 class="settings-section-title">🖼️ <span data-i18n="settings.image_display.title">Image Display</span></h5>
@@ -1439,6 +1455,11 @@
             </select>
           </label>
           <small class="settings-hint" style="margin-top:2px;display:block" data-i18n="settings.admin.default_theme_hint">New users see this theme on first visit. They can still pick their own.</small>
+          <label class="select-row" style="margin-top:12px">
+            <span>Welcome Message</span>
+            <input type="text" id="welcome-message-input" maxlength="500" class="settings-text-input" style="max-width:280px" placeholder="e.g. Welcome {user}!">
+          </label>
+          <small class="settings-hint" style="margin-top:2px;display:block">Shown when a new user joins a channel. Use <code>{user}</code> for the username. Leave blank to disable.</small>
         </div>
 
         <div class="admin-settings" id="section-members" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
@@ -2117,6 +2138,10 @@
       <div class="cfn-row" data-fn="media" data-i18n-title="channel_functions.media_hint" title="Allow image, video, and file uploads in this channel">
         <span class="cfn-label">🖼️ <span data-i18n="channel_functions.media">Media</span></span>
         <span class="cfn-badge cfn-on" data-i18n="channel_functions.on">ON</span>
+      </div>
+      <div class="cfn-row" data-fn="read-only" data-i18n-title="channel_functions.read_only_hint" title="Make this channel read-only — only users with the Read-Only Override permission can post">
+        <span class="cfn-label">🔒 <span data-i18n="channel_functions.read_only">Read Only</span></span>
+        <span class="cfn-badge cfn-off" data-i18n="channel_functions.off">OFF</span>
       </div>
       <div class="cfn-divider"></div>
       <div class="cfn-row" data-fn="slow-mode" data-i18n-title="channel_functions.slow_mode_hint" title="Require a cooldown between messages (0 = off)">

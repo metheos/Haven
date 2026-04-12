@@ -11,6 +11,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.9.8] — 2026-04-11
+
+### Added
+- **Read-only channels** — admins can now mark any text channel as read-only. Members without the new `Read-Only Override` role permission can still read and react, but the message input is hidden. Useful for announcement-style channels. (#5231)
+- **`Read-Only Override` role permission** — grants specific roles the ability to post in read-only channels.
+- **Server-relayed mic illumination** — the speaking indicator now reflects what the server actually received rather than local mic detection. If your audio isn't making it to the server, the indicator won't light up, giving a more accurate picture of what others are hearing.
+
+### Changed
+- **Role permission row highlight** — checking a permission in the role editor now lights up that entire row with an accent background, making it easier to see which permissions are enabled at a glance.
+
+---
+
 ## [2.9.7] — 2026-04-09
 
 ### Changed

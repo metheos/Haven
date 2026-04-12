@@ -179,6 +179,14 @@ class VoiceManager {
       }
     });
 
+    // Server relays speaking state from any voice user (including self)
+    this.socket.on('voice-speaking', (data) => {
+      if (data && data.userId != null) {
+        const uid = data.userId === this.localUserId ? 'self' : data.userId;
+        if (this.onTalkingChange) this.onTalkingChange(uid, !!data.speaking);
+      }
+    });
+
     // Someone left voice
     this.socket.on('voice-user-left', (data) => {
       if (this.onVoiceLeave && data && data.user) {
@@ -1686,7 +1694,7 @@ class VoiceManager {
           if (wasTalking) {
             wasTalking = false;
             if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-            if (this.onTalkingChange) this.onTalkingChange('self', false);
+            if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
           }
           return;
         }
@@ -1700,7 +1708,7 @@ class VoiceManager {
           if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
           if (!wasTalking) {
             wasTalking = true;
-            if (this.onTalkingChange) this.onTalkingChange('self', true);
+            if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: true });
           }
           // Notify server of voice activity for AFK tracking (throttled to once per 15s)
           if (this.socket && this.inVoice && (!this._lastVoiceSpeakPing || Date.now() - this._lastVoiceSpeakPing > 15000)) {
@@ -1711,7 +1719,7 @@ class VoiceManager {
           holdTimer = setTimeout(() => {
             wasTalking = false;
             holdTimer = null;
-            if (this.onTalkingChange) this.onTalkingChange('self', false);
+            if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
           }, HOLD_MS);
         }
       }, 60);
@@ -1723,6 +1731,7 @@ class VoiceManager {
       clearInterval(this._localTalkInterval);
       this._localTalkInterval = null;
       this._localTalkAnalyser = null;
+      if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
       if (this.onTalkingChange) this.onTalkingChange('self', false);
     }
   }

@@ -4170,6 +4170,19 @@ select.cfn-select.cfn-input {
   text-align: center;
 }
 
+.welcome-message {
+  padding: 10px 16px;
+  margin: 8px auto;
+  max-width: 480px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent, #5865f2);
+  text-align: center;
+  background: var(--bg-secondary, #2b2d31);
+  border: 1px solid var(--border-light, #3a3c42);
+  border-radius: 8px;
+}
+
 .typing-indicator {
   padding: 0 20px;
   height: 20px;
@@ -10950,6 +10963,15 @@ ul.chat-list { list-style-type: disc; }
 }
 .role-detail-form .toggle-row {
   font-size: 13px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm, 4px);
+  transition: background 0.15s;
+}
+.role-detail-form .toggle-row:hover {
+  background: rgba(255,255,255,0.04);
+}
+.role-detail-form .toggle-row:has(input[type="checkbox"]:checked) {
+  background: color-mix(in srgb, var(--accent, #6b4fdb) 12%, transparent);
 }
 
 /* ── Role preview in admin settings ──────────────────── */
@@ -12914,8 +12936,17 @@ ul.chat-list { list-style-type: disc; }
   align-items: center;
   gap: 6px;
   font-size: 0.8rem;
-  padding: 3px 0;
+  padding: 3px 6px;
   color: var(--text-secondary, #ccc);
+  border-radius: var(--radius-sm, 4px);
+  transition: background 0.15s;
+}
+.rac-perm-item:hover {
+  background: rgba(255,255,255,0.04);
+}
+.rac-perm-item.checked,
+.rac-perm-item:has(input[type="checkbox"]:checked) {
+  background: color-mix(in srgb, var(--accent, #6b4fdb) 12%, transparent);
 }
 .rac-perm-item input[type="checkbox"] {
   accent-color: var(--accent, #6b4fdb);

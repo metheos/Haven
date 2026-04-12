@@ -176,6 +176,7 @@ class HavenApp {
     this._setupFontSizePicker();
     this._setupEmojiSizePicker();
     this._setupImageModePicker();
+    this._setupRoleDisplayPicker();
     this._setupLightbox();
     this._setupOnlineOverlay();
     this._setupModalExpand();

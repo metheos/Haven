@@ -759,6 +759,13 @@ function initDatabase() {
     db.exec("ALTER TABLE channels ADD COLUMN afk_timeout_minutes INTEGER DEFAULT 0");
   }
 
+  // ── Migration: read-only channel column ─────────────────
+  try {
+    db.prepare("SELECT read_only FROM channels LIMIT 0").get();
+  } catch {
+    db.exec("ALTER TABLE channels ADD COLUMN read_only INTEGER DEFAULT 0");
+  }
+
   // ── Migration: grant use_tts to all auto-assign roles (default ON) ──
   try {
     const autoAssignRoles = db.prepare('SELECT id FROM roles WHERE auto_assign = 1').all();

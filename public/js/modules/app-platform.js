@@ -267,6 +267,9 @@ _initAndroidBetaBanner() {
 
 async _setupDesktopShortcuts() {
   if (!window.havenDesktop?.shortcuts) return;
+  // Guard against duplicate listener attachment (called each time the nav item is clicked)
+  if (this._desktopShortcutsReady) return;
+  this._desktopShortcutsReady = true;
 
   const keyMap = {
     ' ': 'Space', 'ArrowUp': 'Up', 'ArrowDown': 'Down',
@@ -300,12 +303,18 @@ async _setupDesktopShortcuts() {
         recordBtn.classList.remove('recording');
         recordBtn.textContent = 'Record';
         keyEl.classList.remove('recording-label');
+        // Re-register shortcuts after cancelling recording
+        window.havenDesktop.shortcuts.setConfig({}).catch(() => {});
         return;
       }
       recordBtn.classList.add('recording');
       recordBtn.textContent = 'Press key…';
       keyEl.classList.add('recording-label');
       keyEl.textContent = '…';
+
+      // Temporarily clear the shortcut being recorded so its global hotkey
+      // doesn't swallow the keystroke before the BrowserView sees it
+      window.havenDesktop.shortcuts.setConfig({ [action]: '' }).catch(() => {});
 
       const onKeyDown = async (e) => {
         e.preventDefault();
@@ -328,8 +337,11 @@ async _setupDesktopShortcuts() {
 
         try {
           await window.havenDesktop.shortcuts.setConfig({ [action]: accel });
+          config[action] = accel;
           keyEl.textContent = formatAccel(accel);
         } catch (err) {
+          // Restore previous shortcut
+          await window.havenDesktop.shortcuts.setConfig({ [action]: config[action] || '' }).catch(() => {});
           keyEl.textContent = formatAccel(config[action] || '');
           this._showToast?.('Failed to register shortcut — it may already be in use.', 'error');
         }
@@ -341,6 +353,7 @@ async _setupDesktopShortcuts() {
     clearBtn.addEventListener('click', async () => {
       try {
         await window.havenDesktop.shortcuts.setConfig({ [action]: '' });
+        config[action] = '';
         keyEl.textContent = '—';
       } catch (err) {}
     });

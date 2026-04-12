@@ -63,6 +63,8 @@ async switchChannel(code) {
   }
   document.getElementById('search-toggle-btn').style.display = '';
   document.getElementById('pinned-toggle-btn').style.display = '';
+  // Auto-close pinned panel on channel switch so stale pins don't linger
+  document.getElementById('pinned-panel').style.display = 'none';
 
   // Show "Select messages" button for admins/mods on non-DM channels
   const moveSelectBtn = document.getElementById('move-select-btn');
@@ -80,7 +82,9 @@ async switchChannel(code) {
   const msgInputArea = document.getElementById('message-input-area');
   const _textOff = channel && channel.text_enabled === 0;
   const _mediaOff = channel && channel.media_enabled === 0;
-  if (msgInputArea) msgInputArea.style.display = (_textOff && _mediaOff) ? 'none' : '';
+  // Read-only: hide input unless user is admin or has read_only_override permission
+  const _isReadOnly = channel && channel.read_only === 1 && !this.user?.isAdmin && !this._hasPerm('read_only_override');
+  if (msgInputArea) msgInputArea.style.display = (_isReadOnly || (_textOff && _mediaOff)) ? 'none' : '';
   // Text-only elements
   const _msgInput = document.getElementById('message-input');
   const _sendBtn = document.getElementById('send-btn');
@@ -337,6 +341,9 @@ _updateChannelFunctionsPanel(ch) {
   this._setCfnBadge('streams', ch.streams_enabled !== 0, ch.streams_enabled !== 0 ? 'ON' : 'OFF');
   this._setCfnBadge('music', ch.music_enabled !== 0, ch.music_enabled !== 0 ? 'ON' : 'OFF');
   this._setCfnBadge('media', ch.media_enabled !== 0, ch.media_enabled !== 0 ? 'ON' : 'OFF');
+  // Read-only toggle
+  const isReadOnly = ch.read_only === 1;
+  this._setCfnBadge('read-only', isReadOnly, isReadOnly ? 'ON' : 'OFF');
   const interval = ch.slow_mode_interval || 0;
   this._setCfnBadge('slow-mode', interval > 0, interval > 0 ? `${interval}s` : 'OFF');
   this._setCfnBadge('cleanup-exempt', ch.cleanup_exempt === 1, ch.cleanup_exempt === 1 ? 'ON' : 'OFF');

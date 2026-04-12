@@ -344,7 +344,7 @@ const VALID_ROLE_PERMS = [
   'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
   'create_channel', 'create_temp_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
   'view_all_members', 'view_channel_members', 'manage_emojis', 'manage_soundboard', 'manage_music_queue',
-  'promote_user', 'transfer_admin', 'manage_roles', 'manage_server', 'delete_channel'
+  'promote_user', 'transfer_admin', 'manage_roles', 'manage_server', 'delete_channel', 'read_only_override'
 ];
 
 function setupSocketHandlers(io, db) {
@@ -1186,7 +1186,7 @@ function setupSocketHandlers(io, db) {
                  c.parent_channel_id, c.position, c.is_private, c.expires_at, c.is_temp_voice,
                  c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
                  c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type, c.voice_enabled, c.text_enabled, c.voice_bitrate,
-                 c.afk_sub_code, c.afk_timeout_minutes
+                 c.afk_sub_code, c.afk_timeout_minutes, c.read_only
           FROM channels c
           WHERE c.is_dm = 0
           UNION
@@ -1195,7 +1195,7 @@ function setupSocketHandlers(io, db) {
                  c.parent_channel_id, c.position, c.is_private, c.expires_at, c.is_temp_voice,
                  c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
                  c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type, c.voice_enabled, c.text_enabled, c.voice_bitrate,
-                 c.afk_sub_code, c.afk_timeout_minutes
+                 c.afk_sub_code, c.afk_timeout_minutes, c.read_only
           FROM channels c
           JOIN channel_members cm ON c.id = cm.channel_id
           WHERE cm.user_id = ? AND c.is_dm = 1
@@ -1213,7 +1213,7 @@ function setupSocketHandlers(io, db) {
                  c.parent_channel_id, c.position, c.is_private, c.expires_at, c.is_temp_voice,
                  c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
                  c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type, c.voice_enabled, c.text_enabled, c.voice_bitrate,
-                 c.afk_sub_code, c.afk_timeout_minutes
+                 c.afk_sub_code, c.afk_timeout_minutes, c.read_only
           FROM channels c
           JOIN channel_members cm ON c.id = cm.channel_id
           WHERE cm.user_id = ?
@@ -1944,13 +1944,18 @@ function setupSocketHandlers(io, db) {
         return socket.emit('error-msg', `You are muted for ${remaining} more minute${remaining !== 1 ? 's' : ''}`);
       }
 
-      const channel = db.prepare('SELECT id, name, slow_mode_interval, text_enabled, voice_enabled, media_enabled FROM channels WHERE code = ?').get(code);
+      const channel = db.prepare('SELECT id, name, slow_mode_interval, text_enabled, voice_enabled, media_enabled, read_only FROM channels WHERE code = ?').get(code);
       if (!channel) return socket.emit('error-msg', 'Channel not found — try switching channels and back');
 
       const member = db.prepare(
         'SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?'
       ).get(channel.id, socket.user.id);
       if (!member) return socket.emit('error-msg', 'Not a member of this channel');
+
+      // Block all messages in read-only channels unless user has override permission
+      if (channel.read_only === 1 && !socket.user.isAdmin && !userHasPermission(socket.user.id, 'read_only_override', channel.id)) {
+        return socket.emit('error-msg', 'This channel is read-only');
+      }
 
       // Block text messages when text is disabled (allow media uploads if media is enabled)
       if (channel.text_enabled === 0) {
@@ -3165,6 +3170,21 @@ function setupSocketHandlers(io, db) {
       broadcastVoiceUsers(code);
     });
 
+    // Voice speaking state — relay to all voice channel members
+    socket.on('voice-speaking', (data) => {
+      if (!data || typeof data !== 'object') return;
+      // Find which voice channel this user is in
+      for (const [code, room] of voiceUsers) {
+        if (room.has(socket.user.id)) {
+          io.to(`voice:${code}`).emit('voice-speaking', {
+            userId: socket.user.id,
+            speaking: !!data.speaking
+          });
+          break;
+        }
+      }
+    });
+
     // Voice activity ping — client reports user is active (for AFK tracking + presence)
     socket.on('voice-activity', () => {
       touchVoiceActivity(socket.user.id);
@@ -4022,11 +4042,7 @@ function setupSocketHandlers(io, db) {
       const targetUser = db.prepare('SELECT id, username, display_name, COALESCE(display_name, username) as displayName FROM users WHERE id = ?').get(data.userId);
       if (!targetUser) return socket.emit('error-msg', 'User not found');
 
-      // Record the deletion for audit trail (before purging the user row)
       const reason = typeof data.reason === 'string' ? data.reason.trim().slice(0, 500) : '';
-      db.prepare('INSERT INTO deleted_users (username, display_name, reason, deleted_by) VALUES (?, ?, ?, ?)').run(
-        targetUser.username, targetUser.display_name, reason, socket.user.id
-      );
 
       // Disconnect the user if online
       for (const [, s] of io.sockets.sockets) {
@@ -4050,7 +4066,8 @@ function setupSocketHandlers(io, db) {
         }
       }
 
-      // Purge all user data in a transaction
+      // Purge all user data in a transaction (audit trail is inside so it
+      // rolls back if any step fails — prevents phantom deleted_users entries)
       const purge = db.transaction((uid) => {
         db.prepare('DELETE FROM reactions WHERE user_id = ?').run(uid);
         db.prepare('DELETE FROM mutes WHERE user_id = ?').run(uid);
@@ -4065,6 +4082,16 @@ function setupSocketHandlers(io, db) {
         db.prepare('DELETE FROM high_scores WHERE user_id = ?').run(uid);
         db.prepare('DELETE FROM eula_acceptances WHERE user_id = ?').run(uid);
         db.prepare('DELETE FROM user_preferences WHERE user_id = ?').run(uid);
+        // Nullify non-cascading FK references that would block DELETE FROM users
+        db.prepare('UPDATE channels SET created_by = NULL WHERE created_by = ?').run(uid);
+        db.prepare('UPDATE uploads SET uploaded_by = NULL WHERE uploaded_by = ?').run(uid);
+        db.prepare('UPDATE channel_emojis SET uploaded_by = NULL WHERE uploaded_by = ?').run(uid);
+        db.prepare('UPDATE bans SET banned_by = ? WHERE banned_by = ?').run(socket.user.id, uid);
+        db.prepare('UPDATE mutes SET muted_by = ? WHERE muted_by = ?').run(socket.user.id, uid);
+        db.prepare('UPDATE user_roles SET granted_by = NULL WHERE granted_by = ?').run(uid);
+        db.prepare('UPDATE webhook_configs SET created_by = NULL WHERE created_by = ?').run(uid);
+        db.prepare('UPDATE whitelist SET added_by = NULL WHERE added_by = ?').run(uid);
+        db.prepare('UPDATE deleted_users SET deleted_by = NULL WHERE deleted_by = ?').run(uid);
         if (data.scrubMessages) {
           // Actually delete messages (skip archived/protected ones)
           db.prepare('DELETE FROM pinned_messages WHERE message_id IN (SELECT id FROM messages WHERE user_id = ? AND is_archived = 0)').run(uid);
@@ -4076,6 +4103,10 @@ function setupSocketHandlers(io, db) {
           db.prepare('UPDATE messages SET user_id = NULL WHERE user_id = ?').run(uid);
         }
         db.prepare('DELETE FROM users WHERE id = ?').run(uid);
+        // Record audit trail inside the transaction so it rolls back on failure
+        db.prepare('INSERT INTO deleted_users (username, display_name, reason, deleted_by) VALUES (?, ?, ?, ?)').run(
+          targetUser.username, targetUser.display_name, reason, socket.user.id
+        );
       });
 
       try {
@@ -4161,6 +4192,17 @@ function setupSocketHandlers(io, db) {
         db.prepare('DELETE FROM user_preferences WHERE user_id = ?').run(uid);
         db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(uid);
         db.prepare('DELETE FROM fcm_tokens WHERE user_id = ?').run(uid);
+        // Nullify non-cascading FK references that would block DELETE FROM users
+        db.prepare('UPDATE channels SET created_by = NULL WHERE created_by = ?').run(uid);
+        db.prepare('UPDATE uploads SET uploaded_by = NULL WHERE uploaded_by = ?').run(uid);
+        db.prepare('UPDATE channel_emojis SET uploaded_by = NULL WHERE uploaded_by = ?').run(uid);
+        db.prepare('UPDATE bans SET banned_by = NULL WHERE banned_by = ?').run(uid);
+        db.prepare('UPDATE mutes SET muted_by = NULL WHERE muted_by = ?').run(uid);
+        db.prepare('UPDATE user_roles SET granted_by = NULL WHERE granted_by = ?').run(uid);
+        db.prepare('UPDATE webhook_configs SET created_by = NULL WHERE created_by = ?').run(uid);
+        db.prepare('UPDATE whitelist SET added_by = NULL WHERE added_by = ?').run(uid);
+        db.prepare('UPDATE deleted_users SET deleted_by = NULL WHERE deleted_by = ?').run(uid);
+        db.prepare('UPDATE pinned_messages SET pinned_by = NULL WHERE pinned_by = ?').run(uid);
 
         if (scrubMessages) {
           // Delete all non-archived messages
@@ -4442,7 +4484,7 @@ function setupSocketHandlers(io, db) {
       const key = typeof data.key === 'string' ? data.key.trim() : '';
       const value = typeof data.value === 'string' ? data.value.trim() : '';
 
-      const allowedKeys = ['member_visibility', 'cleanup_enabled', 'cleanup_max_age_days', 'cleanup_max_size_mb', 'giphy_api_key', 'server_name', 'server_title', 'server_icon', 'permission_thresholds', 'tunnel_enabled', 'tunnel_provider', 'server_code', 'max_upload_mb', 'max_poll_options', 'max_sound_kb', 'max_emoji_kb', 'setup_wizard_complete', 'update_banner_admin_only', 'default_theme', 'channel_sort_mode', 'channel_cat_order', 'channel_cat_sort', 'channel_tag_sorts', 'custom_tos'];
+      const allowedKeys = ['member_visibility', 'cleanup_enabled', 'cleanup_max_age_days', 'cleanup_max_size_mb', 'giphy_api_key', 'server_name', 'server_title', 'server_icon', 'permission_thresholds', 'tunnel_enabled', 'tunnel_provider', 'server_code', 'max_upload_mb', 'max_poll_options', 'max_sound_kb', 'max_emoji_kb', 'setup_wizard_complete', 'update_banner_admin_only', 'default_theme', 'channel_sort_mode', 'channel_cat_order', 'channel_cat_sort', 'channel_tag_sorts', 'custom_tos', 'welcome_message'];
       if (!allowedKeys.includes(key)) return;
 
       if (key === 'member_visibility' && !['all', 'online', 'none'].includes(value)) return;
@@ -4507,6 +4549,9 @@ function setupSocketHandlers(io, db) {
       }
       if (key === 'custom_tos') {
         if (value.length > 50000) return;
+      }
+      if (key === 'welcome_message') {
+        if (value.length > 500) return;
       }
       if (key === 'server_code') {
         // Server code is managed via generate/rotate events, not directly
@@ -6878,13 +6923,13 @@ function setupSocketHandlers(io, db) {
       if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
 
       const permission = typeof data.permission === 'string' ? data.permission.trim() : '';
-      const validPerms = ['streams', 'music', 'media', 'voice', 'text'];
+      const validPerms = ['streams', 'music', 'media', 'voice', 'text', 'read_only'];
       if (!validPerms.includes(permission)) return socket.emit('error-msg', 'Invalid permission');
 
       const channel = db.prepare('SELECT * FROM channels WHERE code = ? AND is_dm = 0').get(code);
       if (!channel) return socket.emit('error-msg', 'Channel not found');
 
-      const colMap = { streams: 'streams_enabled', music: 'music_enabled', media: 'media_enabled', voice: 'voice_enabled', text: 'text_enabled' };
+      const colMap = { streams: 'streams_enabled', music: 'music_enabled', media: 'media_enabled', voice: 'voice_enabled', text: 'text_enabled', read_only: 'read_only' };
       const colName = colMap[permission];
       const current = channel[colName];
       const newVal = current ? 0 : 1;
@@ -6902,7 +6947,7 @@ function setupSocketHandlers(io, db) {
           db.prepare('UPDATE channels SET streams_enabled = 0, music_enabled = 0 WHERE id = ?').run(channel.id);
         }
 
-        const labelMap = { streams: 'Screen sharing', music: 'Music sharing', media: 'Media uploads', voice: 'Voice chat', text: 'Text chat' };
+        const labelMap = { streams: 'Screen sharing', music: 'Music sharing', media: 'Media uploads', voice: 'Voice chat', text: 'Text chat', read_only: 'Read-only mode' };
         const label = labelMap[permission];
         const state = newVal ? 'enabled' : 'disabled';
 

@@ -2240,6 +2240,34 @@ const io = new Server(server, {
 
 // Initialize
 const db = initDatabase();
+
+// ── Admin password reset (one-time, from .env) ───────────
+// Set ADMIN_RESET_PASSWORD in .env, restart, and it resets the admin's password.
+// The variable is removed from .env automatically after use.
+if (process.env.ADMIN_RESET_PASSWORD) {
+  const bcryptSync = require('bcryptjs');
+  const adminName = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
+  const adminUser = db.prepare('SELECT id, username FROM users WHERE LOWER(username) = ?').get(adminName);
+  if (adminUser) {
+    const newHash = bcryptSync.hashSync(process.env.ADMIN_RESET_PASSWORD, 12);
+    const newPwv = (db.prepare('SELECT password_version FROM users WHERE id = ?').get(adminUser.id)?.password_version || 1) + 1;
+    db.prepare('UPDATE users SET password_hash = ?, password_version = ?, is_admin = 1 WHERE id = ?').run(newHash, newPwv, adminUser.id);
+    db.prepare('DELETE FROM bans WHERE user_id = ?').run(adminUser.id);
+    db.prepare('DELETE FROM mutes WHERE user_id = ?').run(adminUser.id);
+    console.log(`🔑 Admin password reset for "${adminUser.username}" via ADMIN_RESET_PASSWORD`);
+    // Remove the variable from .env so it doesn't re-run on next restart
+    try {
+      let envContent = fs.readFileSync(ENV_PATH, 'utf-8');
+      envContent = envContent.replace(/^ADMIN_RESET_PASSWORD=.*$/m, '').replace(/\n{3,}/g, '\n\n');
+      fs.writeFileSync(ENV_PATH, envContent);
+      console.log('   Removed ADMIN_RESET_PASSWORD from .env (one-time use)');
+    } catch {}
+  } else {
+    console.warn(`⚠️  ADMIN_RESET_PASSWORD set but no user "${adminName}" found — skipping`);
+  }
+  delete process.env.ADMIN_RESET_PASSWORD;
+}
+
 initFcm(DATA_DIR);
 app.set('io', io);   // expose to auth routes (session invalidation on password change)
 setupSocketHandlers(io, db);
@@ -2410,22 +2438,75 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const protocol = useSSL ? 'https' : 'http';
 
+// ── Crash log helper ─────────────────────────────────────
+// Write crash events to a file so they survive even when stdout
+// is not captured (common on systemd-less Pi setups, screen
+// sessions that were closed, etc.).
+const CRASH_LOG = path.join(DATA_DIR, 'crash.log');
+
+function logCrash(label, detail) {
+  const ts = new Date().toISOString();
+  const mem = process.memoryUsage();
+  const line = `[${ts}] ${label}: ${detail instanceof Error ? detail.stack : detail}\n` +
+               `  RSS=${Math.round(mem.rss / 1048576)}MB Heap=${Math.round(mem.heapUsed / 1048576)}/${Math.round(mem.heapTotal / 1048576)}MB\n`;
+  console.error(`⚠️  ${label}:`, detail);
+  try { fs.appendFileSync(CRASH_LOG, line); } catch { /* disk full / read-only */ }
+}
+
 // ── Global crash prevention ──────────────────────────────
 // Prevent the entire server from dying due to an uncaught exception
 // in a socket handler or background task.  Log the error so it
 // can be debugged, but keep the process alive.
 process.on('uncaughtException', (err) => {
-  console.error('⚠️  Uncaught exception (server kept alive):', err);
+  logCrash('Uncaught exception (server kept alive)', err);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('⚠️  Unhandled promise rejection (server kept alive):', reason);
+  logCrash('Unhandled promise rejection (server kept alive)', reason);
 });
+
+// ── Process exit logging ─────────────────────────────────
+// Catches ALL exits — including native crashes and V8 OOM.
+// The 'exit' event fires even for abort() / SIGSEGV on some
+// Node versions.  We also log SIGABRT (V8 OOM fires this).
+process.on('exit', (code) => {
+  if (code !== 0) {
+    const ts = new Date().toISOString();
+    const line = `[${ts}] Process exited with code ${code}\n`;
+    try { fs.appendFileSync(CRASH_LOG, line); } catch {}
+  }
+});
+
+// ── Event loop lag monitor ───────────────────────────────
+// Detects when the event loop is blocked (heavy sync SQLite ops
+// or native module work).  Logs a warning when lag exceeds 500ms
+// so we can correlate with crashes on low-power hardware.
+let _lastTick = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  const lag = now - _lastTick - 2000; // expected interval is 2s
+  if (lag > 500) {
+    logCrash('Event loop lag', `${lag}ms (event loop was blocked)`);
+  }
+  _lastTick = now;
+}, 2000).unref();
 
 // ── Memory watchdog ──────────────────────────────────────
 // Periodically log memory usage and nudge GC when heap is getting large.
 // This helps prevent the Oilpan "large allocation" OOM in Haven Desktop
 // where the server runs alongside Electron.
-const MEM_WARN_MB = 350;  // warn threshold
+//
+// Auto-detects system RAM so Raspberry Pi (1-4 GB) gets a lower
+// threshold than a 32 GB desktop.  Fallback: 350 MB.
+const MEM_WARN_MB = (() => {
+  try {
+    const os = require('os');
+    const totalMB = Math.round(os.totalmem() / 1048576);
+    // Warn at ~40% of total RAM (aggressive for low-RAM devices)
+    const threshold = Math.round(totalMB * 0.4);
+    // Clamp between 150 MB (Pi Zero) and 500 MB (big box)
+    return Math.max(150, Math.min(500, threshold));
+  } catch { return 350; }
+})();
 setInterval(() => {
   const mem = process.memoryUsage();
   const heapMB  = Math.round(mem.heapUsed / 1048576);
@@ -2434,7 +2515,7 @@ setInterval(() => {
 
   // Log if above warning threshold
   if (rssMB > MEM_WARN_MB) {
-    console.warn(`⚠️  Memory high — RSS: ${rssMB} MB, Heap: ${heapMB} MB, External: ${extMB} MB`);
+    logCrash('Memory high', `RSS: ${rssMB} MB, Heap: ${heapMB} MB, External: ${extMB} MB (threshold: ${MEM_WARN_MB} MB)`);
     // Nudge GC if --expose-gc was passed
     if (global.gc) {
       global.gc();
@@ -2464,6 +2545,9 @@ server.listen(PORT, HOST, () => {
 });
 
 function gracefulShutdown(signal) {
+  const ts = new Date().toISOString();
+  const line = `[${ts}] Graceful shutdown: ${signal}\n`;
+  try { fs.appendFileSync(CRASH_LOG, line); } catch {}
   console.log(`\n${signal} received — shutting down`);
   io.close();
   server.close(() => process.exit(0));
