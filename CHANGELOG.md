@@ -11,15 +11,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
-## [2.9.8] — 2026-04-11
+## [2.9.8] — 2026-04-12
 
 ### Added
 - **Read-only channels** — admins can now mark any text channel as read-only. Members without the new `Read-Only Override` role permission can still read and react, but the message input is hidden. Useful for announcement-style channels. (#5231)
 - **`Read-Only Override` role permission** — grants specific roles the ability to post in read-only channels.
 - **Server-relayed mic illumination** — the speaking indicator now reflects what the server actually received rather than local mic detection. If your audio isn't making it to the server, the indicator won't light up, giving a more accurate picture of what others are hearing.
+- **Role display picker** — new setting to choose between "Colored Name" (role color applied to the username) or "Dot" (small colored circle next to the name). Applies to both chat messages and the member list.
+- **Welcome message** — admins can configure a custom welcome message shown when a user joins a channel. Use `{user}` as a placeholder for the username. Set via Admin Settings; leave blank to disable.
+- **Masked link warning** — clicking a markdown link where the display text differs from the URL now shows a confirmation dialog with the real destination before navigating. Helps prevent phishing via disguised links.
+- **Admin password reset via `.env`** — set `ADMIN_RESET_PASSWORD=<newpass>` in `.env` and restart. The admin password is updated, any ban/mute on the admin account is cleared, and the variable is automatically removed from `.env` after use.
+- **Crash log** — uncaught exceptions, unhandled rejections, and non-zero exits are now written to `crash.log` in the data directory with timestamps and memory stats, surviving even when stdout isn't captured.
+- **Event loop lag monitor** — logs a warning when the Node.js event loop is blocked for more than 500 ms, helping diagnose freezes on low-power hardware like Raspberry Pi.
 
 ### Changed
 - **Role permission row highlight** — checking a permission in the role editor now lights up that entire row with an accent background, making it easier to see which permissions are enabled at a glance.
+- **Dynamic memory watchdog threshold** — the memory warning threshold now auto-detects system RAM instead of using a hardcoded 350 MB limit, so Raspberry Pi and other low-memory hosts get appropriate warnings.
+
+### Fixed
+- **E2E pinned message decryption** — pinned messages in encrypted DMs are now decrypted before rendering in the pinned panel.
+- **Pinned panel stale data** — switching channels now auto-closes the pinned panel so stale pins from the previous channel don't linger.
+- **User deletion FK constraint errors** — deleting a user (admin purge or self-delete) now nullifies all non-cascading foreign key references before removing the user row, preventing SQLITE_CONSTRAINT failures.
+- **User deletion audit trail** — the `deleted_users` audit record is now inserted inside the same transaction as the purge, so it rolls back cleanly if any step fails.
+- **Desktop shortcut recording** — fixed several issues: global hotkey no longer swallows the keystroke while recording a new shortcut, config state updates correctly after setting or clearing a shortcut, and duplicate listener attachment is prevented.
 
 ---
 
