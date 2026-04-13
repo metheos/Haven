@@ -17,6 +17,7 @@ module.exports = function register(socket, ctx) {
     if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
     const before = isInt(data.before) ? data.before : null;
     const after  = isInt(data.after)  ? data.after  : null;
+    const around = isInt(data.around) ? data.around : null;
     const limit = isInt(data.limit) && data.limit > 0 && data.limit <= 100 ? data.limit : 80;
 
     const channel = db.prepare('SELECT id FROM channels WHERE code = ?').get(code);
@@ -44,6 +45,30 @@ module.exports = function register(socket, ctx) {
         WHERE m.channel_id = ? AND m.id > ?
         ORDER BY m.created_at ASC LIMIT ?
       `).all(channel.id, after, limit);
+    } else if (around) {
+      const half = Math.floor(limit / 2);
+      const beforeMsgs = db.prepare(`
+        SELECT m.id, m.content, m.created_at, m.reply_to, m.edited_at, m.is_webhook, m.webhook_username, m.webhook_avatar, m.imported_from, m.is_archived, m.poll_data,
+               COALESCE(m.webhook_username, u.display_name, u.username, '[Deleted User]') as username, u.id as user_id, u.avatar, COALESCE(u.avatar_shape, 'circle') as avatar_shape
+        FROM messages m LEFT JOIN users u ON m.user_id = u.id
+        WHERE m.channel_id = ? AND m.id < ?
+        ORDER BY m.created_at DESC LIMIT ?
+      `).all(channel.id, around, half);
+      const targetMsg = db.prepare(`
+        SELECT m.id, m.content, m.created_at, m.reply_to, m.edited_at, m.is_webhook, m.webhook_username, m.webhook_avatar, m.imported_from, m.is_archived, m.poll_data,
+               COALESCE(m.webhook_username, u.display_name, u.username, '[Deleted User]') as username, u.id as user_id, u.avatar, COALESCE(u.avatar_shape, 'circle') as avatar_shape
+        FROM messages m LEFT JOIN users u ON m.user_id = u.id
+        WHERE m.channel_id = ? AND m.id = ?
+      `).all(channel.id, around);
+      const afterMsgs = db.prepare(`
+        SELECT m.id, m.content, m.created_at, m.reply_to, m.edited_at, m.is_webhook, m.webhook_username, m.webhook_avatar, m.imported_from, m.is_archived, m.poll_data,
+               COALESCE(m.webhook_username, u.display_name, u.username, '[Deleted User]') as username, u.id as user_id, u.avatar, COALESCE(u.avatar_shape, 'circle') as avatar_shape
+        FROM messages m LEFT JOIN users u ON m.user_id = u.id
+        WHERE m.channel_id = ? AND m.id > ?
+        ORDER BY m.created_at ASC LIMIT ?
+      `).all(channel.id, around, half);
+      // Combine: beforeMsgs is DESC so reverse it, target, then afterMsgs ASC
+      messages = [...beforeMsgs.reverse(), ...targetMsg, ...afterMsgs];
     } else {
       messages = db.prepare(`
         SELECT m.id, m.content, m.created_at, m.reply_to, m.edited_at, m.is_webhook, m.webhook_username, m.webhook_avatar, m.imported_from, m.is_archived, m.poll_data,
@@ -147,7 +172,8 @@ module.exports = function register(socket, ctx) {
 
     socket.emit('message-history', {
       channelCode: code,
-      messages: after ? enriched : enriched.reverse()
+      messages: (after || around) ? enriched : enriched.reverse(),
+      ...(around ? { around } : {})
     });
   });
 
@@ -158,13 +184,17 @@ module.exports = function register(socket, ctx) {
     const query = typeof data.query === 'string' ? data.query.trim() : '';
     if (!code || !query || query.length < 2) return;
 
-    const channel = db.prepare('SELECT id FROM channels WHERE code = ?').get(code);
+    const channel = db.prepare('SELECT id, is_dm FROM channels WHERE code = ?').get(code);
     if (!channel) return;
 
     const member = db.prepare(
       'SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?'
     ).get(channel.id, socket.user.id);
     if (!member) return;
+
+    if (channel.is_dm) {
+      return socket.emit('search-results', { results: [], query, isDM: true });
+    }
 
     const escapedQuery = query.replace(/[%_\\]/g, '\\$&');
     const results = db.prepare(`

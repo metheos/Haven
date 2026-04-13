@@ -369,6 +369,20 @@ _setupSocketListeners() {
       this._newestMsgId = data.messages[data.messages.length - 1].id;
       this._appendMessages(data.messages);
       this._loadingFuture = false;
+    } else if (data.around) {
+      // Jump-to-message — replace everything and scroll to target
+      if (data.messages.length > 0) {
+        this._oldestMsgId = data.messages[0].id;
+        this._newestMsgId = data.messages[data.messages.length - 1].id;
+      }
+      this._noMoreHistory = false;
+      this._noMoreFuture = false;
+      this._loadingHistory = false;
+      this._loadingFuture = false;
+      this._historyBefore = null;
+      this._historyAfter = null;
+      // _jumpTargetId is already set by _jumpToMessage — _renderMessages reads it
+      this._renderMessages(data.messages);
     } else {
       // Initial load — replace everything
       this._noMoreFuture = true;
@@ -1161,6 +1175,12 @@ _setupSocketListeners() {
     const panel = document.getElementById('search-results-panel');
     const list = document.getElementById('search-results-list');
     const count = document.getElementById('search-results-count');
+    if (data.isDM) {
+      count.textContent = t('header.search_results_other', { count: 0, query: this._escapeHtml(data.query) });
+      list.innerHTML = `<p class="muted-text" style="padding:12px">Search is not available in DMs because messages are end-to-end encrypted.</p>`;
+      panel.style.display = 'block';
+      return;
+    }
     count.textContent = t(data.results.length === 1 ? 'header.search_results_one' : 'header.search_results_other', { count: data.results.length, query: this._escapeHtml(data.query) });
     list.innerHTML = data.results.length === 0
       ? `<p class="muted-text" style="padding:12px">${t('header.search_no_results')}</p>`
@@ -1177,12 +1197,7 @@ _setupSocketListeners() {
     list.querySelectorAll('.search-result-item').forEach(item => {
       item.addEventListener('click', () => {
         const msgId = item.dataset.msgId;
-        const msgEl = document.querySelector(`[data-msg-id="${msgId}"]`);
-        if (msgEl) {
-          msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          msgEl.classList.add('highlight-flash');
-          setTimeout(() => msgEl.classList.remove('highlight-flash'), 2000);
-        }
+        this._jumpToMessage(parseInt(msgId, 10));
       });
     });
   });

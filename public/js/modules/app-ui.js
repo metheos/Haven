@@ -1440,12 +1440,7 @@ _setupUI() {
     if (!banner) return;
     const replyMsgId = banner.dataset.replyMsgId;
     if (!replyMsgId) return;
-    const targetMsg = document.querySelector(`[data-msg-id="${replyMsgId}"]`);
-    if (targetMsg) {
-      targetMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      targetMsg.classList.add('highlight-flash');
-      setTimeout(() => targetMsg.classList.remove('highlight-flash'), 2000);
-    }
+    this._jumpToMessage(parseInt(replyMsgId, 10));
   });
 
   // Emoji picker toggle

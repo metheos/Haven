@@ -168,6 +168,19 @@ async _sendMessage() {
   }
 },
 
+_jumpToMessage(msgId) {
+  const existing = document.querySelector(`[data-msg-id="${msgId}"]`);
+  if (existing) {
+    existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    existing.classList.add('highlight-flash');
+    setTimeout(() => existing.classList.remove('highlight-flash'), 2000);
+    return;
+  }
+  // Message not in DOM — fetch messages around it
+  this._jumpTargetId = msgId;
+  this.socket.emit('get-messages', { code: this.currentChannel, around: msgId });
+},
+
 _renderMessages(messages) {
   const container = document.getElementById('messages');
   container.innerHTML = '';
@@ -181,18 +194,36 @@ _renderMessages(messages) {
     frag.appendChild(this._createMessageEl(messages[i], prevMsg));
   }
   container.appendChild(frag);
-  this._scrollToBottom(true);
-  // Re-scroll after images load, but only if user hasn't scrolled away
-  container.querySelectorAll('img').forEach(img => {
-    if (!img.complete) img.addEventListener('load', () => {
-      if (this._coupledToBottom) this._scrollToBottom(true);
-    }, { once: true });
-  });
-  // Deferred re-scroll: images, link previews, and E2E decryption can add
-  // height after the synchronous scrollToBottom above.  Force a re-scroll
-  // after layout settles to prevent DMs from landing mid-history.
-  requestAnimationFrame(() => this._scrollToBottom(true));
-  setTimeout(() => { if (this._coupledToBottom) this._scrollToBottom(true); }, 300);
+  const jumpId = this._jumpTargetId;
+  if (jumpId) {
+    // Jump-to-message mode: scroll to target instead of bottom
+    this._jumpTargetId = null;
+    this._coupledToBottom = false;
+    const scrollToTarget = () => {
+      const target = container.querySelector(`[data-msg-id="${jumpId}"]`);
+      if (target) {
+        target.scrollIntoView({ block: 'center' });
+        target.classList.add('highlight-flash');
+        setTimeout(() => target.classList.remove('highlight-flash'), 2000);
+      }
+    };
+    scrollToTarget();
+    requestAnimationFrame(scrollToTarget);
+    setTimeout(scrollToTarget, 300);
+  } else {
+    this._scrollToBottom(true);
+    // Re-scroll after images load, but only if user hasn't scrolled away
+    container.querySelectorAll('img').forEach(img => {
+      if (!img.complete) img.addEventListener('load', () => {
+        if (this._coupledToBottom) this._scrollToBottom(true);
+      }, { once: true });
+    });
+    // Deferred re-scroll: images, link previews, and E2E decryption can add
+    // height after the synchronous scrollToBottom above.  Force a re-scroll
+    // after layout settles to prevent DMs from landing mid-history.
+    requestAnimationFrame(() => this._scrollToBottom(true));
+    setTimeout(() => { if (this._coupledToBottom) this._scrollToBottom(true); }, 300);
+  }
   // Fetch link previews for all messages
   this._fetchLinkPreviews(container);
   this._setupVideos(container);

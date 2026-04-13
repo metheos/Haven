@@ -71,9 +71,21 @@ module.exports = function register(socket, ctx) {
     }
 
     if (!voiceUsers.has(code)) voiceUsers.set(code, new Map());
+
+    // If this user is already in the same voice channel (e.g. from another
+    // client/tab), remove the old socket entry and leave the old room so
+    // we don't end up with duplicate voice connections.
+    const existingEntry = voiceUsers.get(code).get(socket.user.id);
+    if (existingEntry && existingEntry.socketId !== socket.id) {
+      const oldSocket = io.sockets.sockets.get(existingEntry.socketId);
+      if (oldSocket) oldSocket.leave(`voice:${code}`);
+      voiceUsers.get(code).delete(socket.user.id);
+    }
+
     socket.join(`voice:${code}`);
 
-    const existingUsers = Array.from(voiceUsers.get(code).values());
+    const existingUsers = Array.from(voiceUsers.get(code).values())
+      .filter(u => u.id !== socket.user.id);
 
     voiceUsers.get(code).set(socket.user.id, {
       id: socket.user.id,
