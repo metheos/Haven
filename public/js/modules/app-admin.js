@@ -1129,8 +1129,9 @@ _openMemberChannelPicker(userId, username, mode) {
 // @MENTION AUTOCOMPLETE
 // ═══════════════════════════════════════════════════════
 
-_checkMentionTrigger() {
-  const input = document.getElementById('message-input');
+_checkMentionTrigger(inputEl) {
+  const input = inputEl || document.getElementById('message-input');
+  this._mentionInput = input;
   const cursor = input.selectionStart;
   const text = input.value.substring(0, cursor);
 
@@ -1193,7 +1194,7 @@ _navigateMentionDropdown(direction) {
 },
 
 _insertMention(username) {
-  const input = document.getElementById('message-input');
+  const input = this._mentionInput || document.getElementById('message-input');
   const before = input.value.substring(0, this.mentionStart);
   const after = input.value.substring(input.selectionStart);
   input.value = before + '@' + username + ' ' + after;
@@ -1206,8 +1207,9 @@ _insertMention(username) {
 // EMOJI AUTOCOMPLETE  (:name)
 // ═══════════════════════════════════════════════════════
 
-_checkEmojiTrigger() {
-  const input = document.getElementById('message-input');
+_checkEmojiTrigger(inputEl) {
+  const input = inputEl || document.getElementById('message-input');
+  this._emojiAcInput = input;
   const text = input.value;
   const cursor = input.selectionStart;
 
@@ -1309,7 +1311,7 @@ _navigateEmojiDropdown(dir) {
 },
 
 _insertEmojiAc(insert) {
-  const input = document.getElementById('message-input');
+  const input = this._emojiAcInput || document.getElementById('message-input');
   const before = input.value.substring(0, this._emojiColonStart);
   const after = input.value.substring(input.selectionStart);
   input.value = before + insert + ' ' + after;

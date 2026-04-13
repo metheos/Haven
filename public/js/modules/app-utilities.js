@@ -1407,6 +1407,9 @@ _startEditMessage(msgEl, msgId) {
     // Close emoji picker if it was open for this edit
     const picker = document.getElementById('emoji-picker');
     if (picker) picker.style.display = 'none';
+    // Close autocomplete dropdowns
+    this._hideMentionDropdown();
+    this._hideEmojiDropdown();
   };
 
   btnRow.querySelector('.edit-cancel-btn').addEventListener('click', (e) => {
@@ -1437,6 +1440,35 @@ _startEditMessage(msgEl, msgId) {
 
   textarea.addEventListener('keydown', (e) => {
     e.stopPropagation();
+
+    // Handle @mention and :emoji dropdown navigation in edit mode
+    const mentionDd = document.getElementById('mention-dropdown');
+    if (mentionDd && mentionDd.style.display !== 'none') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        this._navigateMentionDropdown(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        const active = mentionDd.querySelector('.mention-item.active');
+        if (active) { e.preventDefault(); active.click(); return; }
+      }
+      if (e.key === 'Escape') { this._hideMentionDropdown(); return; }
+    }
+    const emojiDd = document.getElementById('emoji-dropdown');
+    if (emojiDd && emojiDd.style.display !== 'none') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        this._navigateEmojiDropdown(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        const active = emojiDd.querySelector('.emoji-ac-item.active');
+        if (active) { e.preventDefault(); active.click(); return; }
+      }
+      if (e.key === 'Escape') { this._hideEmojiDropdown(); return; }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       btnRow.querySelector('.edit-save-btn').click();
@@ -1445,6 +1477,12 @@ _startEditMessage(msgEl, msgId) {
       e.preventDefault();
       cancel();
     }
+  });
+
+  // Enable @mention and :emoji autocomplete in edit textarea
+  textarea.addEventListener('input', () => {
+    this._checkMentionTrigger(textarea);
+    this._checkEmojiTrigger(textarea);
   });
 
   // Click inside edit area should not bubble to delegation handler
