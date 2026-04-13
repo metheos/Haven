@@ -1698,7 +1698,8 @@ _setupModalExpand() {
   document.querySelectorAll('.modal').forEach(modal => {
     // Skip promo/centered popups — they're not regular modals
     if (modal.classList.contains('android-beta-promo') ||
-        modal.classList.contains('desktop-promo')) return;
+        modal.classList.contains('desktop-promo') ||
+        modal.classList.contains('donors-modal-box')) return;
 
     // Find the header container — either .settings-header / .activities-header or the first h3
     let headerContainer = modal.querySelector('.settings-header, .activities-header');
