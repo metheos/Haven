@@ -76,6 +76,14 @@ async _sendMessage() {
         this._hideSlashDropdown();
         return;
       }
+      if (cmd === 'poll') {
+        input.value = '';
+        input.style.height = 'auto';
+        this._hideMentionDropdown();
+        this._hideSlashDropdown();
+        this._openPollModal();
+        return;
+      }
     }
   }
 
@@ -180,6 +188,11 @@ _renderMessages(messages) {
       if (this._coupledToBottom) this._scrollToBottom(true);
     }, { once: true });
   });
+  // Deferred re-scroll: images, link previews, and E2E decryption can add
+  // height after the synchronous scrollToBottom above.  Force a re-scroll
+  // after layout settles to prevent DMs from landing mid-history.
+  requestAnimationFrame(() => this._scrollToBottom(true));
+  setTimeout(() => { if (this._coupledToBottom) this._scrollToBottom(true); }, 300);
   // Fetch link previews for all messages
   this._fetchLinkPreviews(container);
   this._setupVideos(container);

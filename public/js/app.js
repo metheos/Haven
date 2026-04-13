@@ -82,6 +82,7 @@ class HavenApp {
       { cmd: 'wave',       args: '[text]',   desc: 'Wave at the chat 👋' },
       { cmd: 'play',       args: '<name or url>',    desc: 'Search & play music (e.g. /play Cut Your Teeth Kygo)' },
       { cmd: 'gif',        args: '<query>',  desc: 'Search & send a GIF inline (e.g. /gif thumbs up)' },
+      { cmd: 'poll',       args: '[question]',       desc: 'Open the poll creator' },
     ];
 
     // Emoji palette organized by category
