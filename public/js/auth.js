@@ -116,6 +116,7 @@
   const tabs = document.querySelectorAll('.auth-tab');
   const loginForm = document.getElementById('login-form');
   const registerForm = document.getElementById('register-form');
+  const ssoForm = document.getElementById('sso-form');
   const totpForm = document.getElementById('totp-form');
   const errorEl = document.getElementById('auth-error');
 
@@ -125,6 +126,7 @@
   function showTotpForm() {
     loginForm.style.display = 'none';
     registerForm.style.display = 'none';
+    if (ssoForm) ssoForm.style.display = 'none';
     totpForm.style.display = 'flex';
     document.querySelector('.auth-tabs').style.display = 'none';
     document.getElementById('totp-code').value = '';
@@ -148,6 +150,7 @@
       const target = tab.dataset.tab;
       loginForm.style.display = target === 'login' ? 'flex' : 'none';
       registerForm.style.display = target === 'register' ? 'flex' : 'none';
+      if (ssoForm) ssoForm.style.display = target === 'sso' ? 'flex' : 'none';
       totpForm.style.display = 'none';
       document.getElementById('recover-form').style.display = 'none';
       hideError();
@@ -200,6 +203,7 @@
   function showRecoverForm() {
     loginForm.style.display = 'none';
     registerForm.style.display = 'none';
+    if (ssoForm) ssoForm.style.display = 'none';
     totpForm.style.display = 'none';
     recoverForm.style.display = 'flex';
     document.querySelector('.auth-tabs').style.display = 'none';
@@ -359,6 +363,158 @@
     totpBackBtn.addEventListener('click', (e) => {
       e.preventDefault();
       hideTotpForm();
+    });
+  }
+
+  // ── SSO (Link Server) ──────────────────────────────────
+  if (ssoForm) {
+    let ssoAuthCode = null;
+    let ssoServerUrl = null;
+    let ssoProfileData = null;
+    let ssoWaiting = false;
+
+    const ssoConnectBtn   = document.getElementById('sso-connect-btn');
+    const ssoStepServer   = document.getElementById('sso-step-server');
+    const ssoStepRegister = document.getElementById('sso-step-register');
+    const ssoPreviewAvatar   = document.getElementById('sso-preview-avatar');
+    const ssoPreviewUsername = document.getElementById('sso-preview-username');
+    const ssoRegisterBtn  = document.getElementById('sso-register-btn');
+    const ssoBackBtn      = document.getElementById('sso-back-btn');
+    const ssoServerInput  = document.getElementById('sso-server-url');
+
+    function ssoReset() {
+      ssoAuthCode = null;
+      ssoServerUrl = null;
+      ssoProfileData = null;
+      ssoWaiting = false;
+      ssoStepServer.style.display = '';
+      ssoStepRegister.style.display = 'none';
+      ssoPreviewAvatar.innerHTML = '?';
+      ssoPreviewUsername.textContent = '—';
+      document.getElementById('sso-password').value = '';
+      document.getElementById('sso-confirm').value = '';
+      hideError();
+    }
+
+    // Step 1 — Connect to home server
+    ssoConnectBtn.addEventListener('click', () => {
+      hideError();
+      let raw = ssoServerInput.value.trim();
+      if (!raw) return showError('Enter the address of your Haven server');
+
+      // Normalise the URL
+      raw = raw.replace(/\/+$/, '');
+      if (!/^https?:\/\//i.test(raw)) {
+        raw = (raw.startsWith('localhost') || raw.startsWith('127.0.0.1'))
+          ? 'http://' + raw
+          : 'https://' + raw;
+      }
+      ssoServerUrl = raw;
+
+      // Generate a cryptographically secure auth code
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      ssoAuthCode = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      // Open the consent page on the home server in a new tab
+      const consentUrl = `${ssoServerUrl}/api/auth/SSO?authCode=${encodeURIComponent(ssoAuthCode)}&origin=${encodeURIComponent(window.location.origin)}`;
+      window.open(consentUrl, '_blank');
+
+      ssoWaiting = true;
+      ssoConnectBtn.textContent = 'Waiting for approval…';
+      ssoConnectBtn.disabled = true;
+    });
+
+    // When user returns to this tab after approving on home server
+    window.addEventListener('focus', async () => {
+      if (!ssoWaiting || !ssoAuthCode || !ssoServerUrl) return;
+      ssoWaiting = false;
+
+      try {
+        const res = await fetch(`${ssoServerUrl}/api/auth/SSO/authenticate?authCode=${encodeURIComponent(ssoAuthCode)}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          ssoConnectBtn.textContent = 'Connect';
+          ssoConnectBtn.disabled = false;
+          return showError(data.error || 'SSO failed — please try again');
+        }
+
+        ssoProfileData = await res.json();
+
+        // Show the profile preview
+        if (ssoProfileData.profilePicture) {
+          let src = ssoProfileData.profilePicture;
+          if (src.startsWith('/')) src = ssoServerUrl + src;
+          ssoPreviewAvatar.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover" alt="">`;
+        } else {
+          ssoPreviewAvatar.textContent = (ssoProfileData.username || '?')[0].toUpperCase();
+        }
+        ssoPreviewUsername.textContent = ssoProfileData.username || '—';
+
+        // Switch to step 2
+        ssoStepServer.style.display = 'none';
+        ssoStepRegister.style.display = '';
+        ssoConnectBtn.textContent = 'Connect';
+        ssoConnectBtn.disabled = false;
+      } catch (err) {
+        ssoConnectBtn.textContent = 'Connect';
+        ssoConnectBtn.disabled = false;
+        showError('Could not reach home server — please try again');
+      }
+    });
+
+    // Back button — return to step 1
+    ssoBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      ssoReset();
+    });
+
+    // Step 2 — Register with imported profile
+    ssoRegisterBtn.addEventListener('click', async () => {
+      hideError();
+      if (!checkEula()) return;
+      if (!ssoProfileData) return showError('Please connect to your home server first');
+
+      const password = document.getElementById('sso-password').value;
+      const confirm  = document.getElementById('sso-confirm').value;
+
+      if (!password || !confirm) return showError(t('auth.errors.fill_all_fields'));
+      if (password.length < 8) return showError(t('auth.errors.password_too_short'));
+      if (password !== confirm) return showError(t('auth.errors.passwords_no_match'));
+
+      // Build the full profile picture URL for the server to download
+      let profilePicUrl = ssoProfileData.profilePicture || null;
+      if (profilePicUrl && profilePicUrl.startsWith('/')) {
+        profilePicUrl = ssoServerUrl + profilePicUrl;
+      }
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: ssoProfileData.username,
+            password,
+            eulaVersion: '2.0',
+            ageVerified: true,
+            ssoProfilePicture: profilePicUrl
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) return showError(data.error || t('auth.errors.registration_failed'));
+
+        // Derive E2E wrapping key from password
+        const e2eWrap = await deriveE2EWrappingKey(password);
+        sessionStorage.setItem('haven_e2e_wrap', e2eWrap);
+
+        localStorage.setItem('haven_token', data.token);
+        localStorage.setItem('haven_user', JSON.stringify(data.user));
+        localStorage.setItem('haven_eula_accepted', '2.0');
+        window.location.href = '/app';
+      } catch (err) {
+        showError(t('auth.errors.connection_error'));
+      }
     });
   }
 

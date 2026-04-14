@@ -23,6 +23,7 @@
       <div class="auth-tabs">
         <button class="auth-tab active" data-tab="login" data-i18n="auth.tabs.login">Login</button>
         <button class="auth-tab" data-tab="register" data-i18n="auth.tabs.register">Register</button>
+        <button class="auth-tab" data-tab="sso" data-i18n="auth.tabs.sso">Link Server</button>
       </div>
 
       <form id="login-form" class="auth-form">
@@ -64,6 +65,45 @@
         </div>
         <button type="submit" class="btn-primary" data-i18n="auth.register.submit">Create Account</button>
       </form>
+
+      <!-- SSO form: register using identity from another Haven server -->
+      <div id="sso-form" class="auth-form" style="display:none">
+        <p style="text-align:center;color:var(--text-muted);font-size:0.9rem;margin-bottom:16px;">
+          <span data-i18n="auth.sso.instruction">Register using your account from another Haven server. Your username and profile picture will be imported.</span>
+        </p>
+
+        <!-- Step 1: Enter home server URL -->
+        <div id="sso-step-server">
+          <div class="form-group">
+            <label for="sso-server-url" data-i18n="auth.sso.server_label">Your Haven server</label>
+            <input type="text" id="sso-server-url" placeholder="haven.example.com" required>
+            <small data-i18n="auth.sso.server_hint">Enter the address of the Haven server you already have an account on</small>
+          </div>
+          <button type="button" class="btn-primary" id="sso-connect-btn" data-i18n="auth.sso.connect">Connect</button>
+        </div>
+
+        <!-- Step 2: SSO result + set local password -->
+        <div id="sso-step-register" style="display:none">
+          <div class="sso-profile-preview" style="text-align:center;margin-bottom:16px;padding:12px;background:var(--bg-tertiary,#12122a);border-radius:8px;border:1px solid var(--border,#333)">
+            <div id="sso-preview-avatar" style="width:64px;height:64px;border-radius:50%;margin:0 auto 8px;background:var(--bg-secondary,#1a1a2e);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--text-muted)">?</div>
+            <div id="sso-preview-username" style="font-weight:600;font-size:15px;color:var(--text-primary)">—</div>
+            <small style="color:var(--text-muted);font-size:11px" data-i18n="auth.sso.imported_from">Imported from your home server</small>
+          </div>
+          <div class="form-group">
+            <label for="sso-password" data-i18n="auth.sso.password_label">Set a password for this server</label>
+            <input type="password" id="sso-password" autocomplete="new-password" minlength="8" required>
+            <small data-i18n="auth.sso.password_hint">Required for encryption. Minimum 8 characters.</small>
+          </div>
+          <div class="form-group">
+            <label for="sso-confirm" data-i18n="auth.sso.confirm_label">Confirm Password</label>
+            <input type="password" id="sso-confirm" autocomplete="new-password" required>
+          </div>
+          <button type="button" class="btn-primary" id="sso-register-btn" data-i18n="auth.sso.register">Create Account</button>
+          <p style="text-align:center;margin-top:8px">
+            <a href="#" id="sso-back-btn" style="color:var(--text-muted);font-size:0.8rem;text-decoration:none" data-i18n="auth.sso.back">← Start over</a>
+          </p>
+        </div>
+      </div>
 
       <div id="auth-error" class="auth-error" style="display:none"></div>
 
