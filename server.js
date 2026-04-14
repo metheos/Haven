@@ -538,6 +538,21 @@ app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
+// ── Vanity invite link (/invite/:code) ────────────────
+app.get('/invite/:vanityCode', (req, res) => {
+  const vanityCode = req.params.vanityCode;
+  if (!vanityCode || typeof vanityCode !== 'string' || !/^[a-zA-Z0-9_-]{3,32}$/.test(vanityCode)) {
+    return res.status(400).send('Invalid invite link');
+  }
+  const { getDb } = require('./src/database');
+  const row = getDb().prepare("SELECT value FROM server_settings WHERE key = 'vanity_code'").get();
+  if (!row || row.value !== vanityCode) {
+    return res.status(404).send('Invite link not found or expired');
+  }
+  // Redirect to /app with the vanity code as a query param — the frontend will auto-join
+  res.redirect(`/app?invite=${encodeURIComponent(vanityCode)}`);
+});
+
 app.get('/games/flappy', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'games', 'flappy.html'));
 });
@@ -1116,6 +1131,74 @@ app.post('/api/upload-server-icon', uploadLimiter, (req, res) => {
     const { getDb } = require('./src/database');
     getDb().prepare("INSERT OR REPLACE INTO server_settings (key, value) VALUES ('server_icon', ?)").run(iconUrl);
     res.json({ url: iconUrl });
+  });
+});
+
+// ── Role icon upload (admin only, image only, max 512 KB) ──
+app.post('/api/upload-role-icon', uploadLimiter, (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user) && !userHasPermission(user.id, 'manage_roles')) {
+    return res.status(403).json({ error: 'Admin or manage_roles permission required' });
+  }
+
+  upload.single('icon')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (req.file.size > 512 * 1024) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Role icon must be under 512 KB' });
+    }
+    try {
+      const fd = fs.openSync(req.file.path, 'r');
+      const hdr = Buffer.alloc(12);
+      fs.readSync(fd, hdr, 0, 12, 0);
+      fs.closeSync(fd);
+      let validMagic = false;
+      if (req.file.mimetype === 'image/jpeg') validMagic = hdr[0] === 0xFF && hdr[1] === 0xD8 && hdr[2] === 0xFF;
+      else if (req.file.mimetype === 'image/png') validMagic = hdr[0] === 0x89 && hdr[1] === 0x50 && hdr[2] === 0x4E && hdr[3] === 0x47;
+      else if (req.file.mimetype === 'image/gif') validMagic = hdr.slice(0, 6).toString().startsWith('GIF8');
+      else if (req.file.mimetype === 'image/webp') validMagic = hdr.slice(0, 4).toString() === 'RIFF' && hdr.slice(8, 12).toString() === 'WEBP';
+      if (!validMagic) { fs.unlinkSync(req.file.path); return res.status(400).json({ error: 'Invalid image' }); }
+    } catch { try { fs.unlinkSync(req.file.path); } catch {} return res.status(400).json({ error: 'Failed to validate' }); }
+
+    const iconUrl = `/uploads/${req.file.filename}`;
+    res.json({ path: iconUrl });
+  });
+});
+
+// ── Server banner upload (admin only, image only, max 4 MB) ──
+app.post('/api/upload-server-banner', uploadLimiter, (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+
+  upload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (req.file.size > 4 * 1024 * 1024) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Server banner must be under 4 MB' });
+    }
+    try {
+      const fd = fs.openSync(req.file.path, 'r');
+      const hdr = Buffer.alloc(12);
+      fs.readSync(fd, hdr, 0, 12, 0);
+      fs.closeSync(fd);
+      let validMagic = false;
+      if (req.file.mimetype === 'image/jpeg') validMagic = hdr[0] === 0xFF && hdr[1] === 0xD8 && hdr[2] === 0xFF;
+      else if (req.file.mimetype === 'image/png') validMagic = hdr[0] === 0x89 && hdr[1] === 0x50 && hdr[2] === 0x4E && hdr[3] === 0x47;
+      else if (req.file.mimetype === 'image/gif') validMagic = hdr.slice(0, 6).toString().startsWith('GIF8');
+      else if (req.file.mimetype === 'image/webp') validMagic = hdr.slice(0, 4).toString() === 'RIFF' && hdr.slice(8, 12).toString() === 'WEBP';
+      if (!validMagic) { fs.unlinkSync(req.file.path); return res.status(400).json({ error: 'Invalid image' }); }
+    } catch { try { fs.unlinkSync(req.file.path); } catch {} return res.status(400).json({ error: 'Failed to validate' }); }
+
+    const bannerUrl = `/uploads/${req.file.filename}`;
+    const { getDb } = require('./src/database');
+    getDb().prepare("INSERT OR REPLACE INTO server_settings (key, value) VALUES ('server_banner', ?)").run(bannerUrl);
+    res.json({ url: bannerUrl });
   });
 });
 
@@ -1700,6 +1783,251 @@ app.post('/api/webhooks/:token', webhookLimiter, express.json({ limit: '64kb' })
   }
 
   res.status(200).json({ success: true, message_id: result.lastInsertRowid });
+});
+
+// ═══════════════════════════════════════════════════════════
+// MODERATION REST API
+// ═══════════════════════════════════════════════════════════
+const modLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, message: { error: 'Rate limit exceeded' } });
+
+// Helper: get authenticated user from Bearer token with admin/mod check
+function getModUser(req, permission) {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return { error: 'Unauthorized', status: 401 };
+  if (!verifyAdminFromDb(user) && !userHasPermission(user.id, permission)) {
+    return { error: 'Insufficient permissions', status: 403 };
+  }
+  return { user };
+}
+
+// POST /api/moderation/kick
+app.post('/api/moderation/kick', modLimiter, express.json({ limit: '16kb' }), (req, res) => {
+  const auth = getModUser(req, 'kick_user');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
+  const { getDb } = require('./src/database');
+  const db = getDb();
+  const { userId, channelCode, reason } = req.body;
+  if (!userId || !Number.isInteger(userId)) return res.status(400).json({ error: 'userId required (integer)' });
+  if (!channelCode || typeof channelCode !== 'string') return res.status(400).json({ error: 'channelCode required' });
+
+  const channel = db.prepare('SELECT id FROM channels WHERE code = ?').get(channelCode);
+  if (!channel) return res.status(404).json({ error: 'Channel not found' });
+
+  const target = db.prepare('SELECT id, COALESCE(display_name, username) as username FROM users WHERE id = ?').get(userId);
+  if (!target) return res.status(404).json({ error: 'User not found' });
+
+  db.prepare('DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?').run(channel.id, userId);
+
+  if (io) {
+    const safeReason = typeof reason === 'string' ? reason.trim().slice(0, 200) : '';
+    for (const [, s] of io.sockets.sockets) {
+      if (s.user && s.user.id === userId) {
+        s.emit('kicked', { channelCode, reason: safeReason });
+        s.leave(`channel:${channelCode}`);
+      }
+    }
+  }
+
+  res.json({ success: true, message: `Kicked ${target.username}` });
+});
+
+// POST /api/moderation/ban
+app.post('/api/moderation/ban', modLimiter, express.json({ limit: '16kb' }), (req, res) => {
+  const auth = getModUser(req, 'ban_user');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
+  const { getDb } = require('./src/database');
+  const db = getDb();
+  const { userId, reason } = req.body;
+  if (!userId || !Number.isInteger(userId)) return res.status(400).json({ error: 'userId required (integer)' });
+
+  const target = db.prepare('SELECT id, COALESCE(display_name, username) as username, is_admin FROM users WHERE id = ?').get(userId);
+  if (!target) return res.status(404).json({ error: 'User not found' });
+  if (target.is_admin) return res.status(403).json({ error: 'Cannot ban an admin' });
+
+  const safeReason = typeof reason === 'string' ? reason.trim().slice(0, 200) : '';
+
+  try {
+    db.prepare('INSERT OR REPLACE INTO bans (user_id, banned_by, reason) VALUES (?, ?, ?)').run(userId, auth.user.id, safeReason);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to ban user' });
+  }
+
+  if (io) {
+    for (const [, s] of io.sockets.sockets) {
+      if (s.user && s.user.id === userId) {
+        s.emit('banned', { reason: safeReason });
+        s.disconnect(true);
+      }
+    }
+  }
+
+  res.json({ success: true, message: `Banned ${target.username}` });
+});
+
+// POST /api/moderation/unban
+app.post('/api/moderation/unban', modLimiter, express.json({ limit: '16kb' }), (req, res) => {
+  const auth = getModUser(req, 'ban_user');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
+  const { getDb } = require('./src/database');
+  const db = getDb();
+  const { userId } = req.body;
+  if (!userId || !Number.isInteger(userId)) return res.status(400).json({ error: 'userId required (integer)' });
+
+  db.prepare('DELETE FROM bans WHERE user_id = ?').run(userId);
+  const target = db.prepare('SELECT COALESCE(display_name, username) as username FROM users WHERE id = ?').get(userId);
+  res.json({ success: true, message: `Unbanned ${target ? target.username : 'user'}` });
+});
+
+// POST /api/moderation/mute
+app.post('/api/moderation/mute', modLimiter, express.json({ limit: '16kb' }), (req, res) => {
+  const auth = getModUser(req, 'mute_user');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
+  const { getDb } = require('./src/database');
+  const db = getDb();
+  const { userId, duration, reason } = req.body;
+  if (!userId || !Number.isInteger(userId)) return res.status(400).json({ error: 'userId required (integer)' });
+
+  const target = db.prepare('SELECT id, COALESCE(display_name, username) as username FROM users WHERE id = ?').get(userId);
+  if (!target) return res.status(404).json({ error: 'User not found' });
+
+  const durationMs = Number.isInteger(duration) && duration > 0 ? duration * 60 * 1000 : 10 * 60 * 1000;
+  const expiresAt = new Date(Date.now() + durationMs).toISOString();
+  const safeReason = typeof reason === 'string' ? reason.trim().slice(0, 200) : '';
+
+  db.prepare('DELETE FROM mutes WHERE user_id = ?').run(userId);
+  db.prepare('INSERT INTO mutes (user_id, muted_by, reason, expires_at) VALUES (?, ?, ?, ?)').run(userId, auth.user.id, safeReason, expiresAt);
+
+  if (io) {
+    for (const [, s] of io.sockets.sockets) {
+      if (s.user && s.user.id === userId) {
+        s.emit('muted', { reason: safeReason, expiresAt });
+      }
+    }
+  }
+
+  res.json({ success: true, message: `Muted ${target.username} until ${expiresAt}` });
+});
+
+// POST /api/moderation/unmute
+app.post('/api/moderation/unmute', modLimiter, express.json({ limit: '16kb' }), (req, res) => {
+  const auth = getModUser(req, 'mute_user');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
+  const { getDb } = require('./src/database');
+  const db = getDb();
+  const { userId } = req.body;
+  if (!userId || !Number.isInteger(userId)) return res.status(400).json({ error: 'userId required (integer)' });
+
+  db.prepare('DELETE FROM mutes WHERE user_id = ?').run(userId);
+  const target = db.prepare('SELECT COALESCE(display_name, username) as username FROM users WHERE id = ?').get(userId);
+  res.json({ success: true, message: `Unmuted ${target ? target.username : 'user'}` });
+});
+
+// GET /api/moderation/bans — list all bans
+app.get('/api/moderation/bans', modLimiter, (req, res) => {
+  const auth = getModUser(req, 'ban_user');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
+  const { getDb } = require('./src/database');
+  const bans = getDb().prepare(`
+    SELECT b.id, b.user_id, COALESCE(u.display_name, u.username) as username, b.reason, b.created_at
+    FROM bans b JOIN users u ON b.user_id = u.id ORDER BY b.created_at DESC
+  `).all();
+  res.json({ bans });
+});
+
+// GET /api/moderation/mutes — list active mutes
+app.get('/api/moderation/mutes', modLimiter, (req, res) => {
+  const auth = getModUser(req, 'mute_user');
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
+  const { getDb } = require('./src/database');
+  const mutes = getDb().prepare(`
+    SELECT m.id, m.user_id, COALESCE(u.display_name, u.username) as username, m.reason, m.expires_at, m.created_at
+    FROM mutes m JOIN users u ON m.user_id = u.id WHERE m.expires_at > datetime('now') ORDER BY m.created_at DESC
+  `).all();
+  res.json({ mutes });
+});
+
+// ═══════════════════════════════════════════════════════════
+// BOT SLASH COMMANDS API
+// ═══════════════════════════════════════════════════════════
+
+// Helper: authenticate webhook bot by token
+function getWebhookByToken(token) {
+  if (!token || typeof token !== 'string' || token.length !== 64) return null;
+  const { getDb } = require('./src/database');
+  return getDb().prepare(
+    'SELECT id, name, channel_id, callback_url FROM webhooks WHERE token = ? AND is_active = 1'
+  ).get(token);
+}
+
+// GET /api/webhooks/:token/commands — list registered commands
+app.get('/api/webhooks/:token/commands', webhookLimiter, (req, res) => {
+  const webhook = getWebhookByToken(req.params.token);
+  if (!webhook) return res.status(404).json({ error: 'Webhook not found or inactive' });
+
+  const { getDb } = require('./src/database');
+  const commands = getDb().prepare('SELECT id, command, description FROM bot_commands WHERE webhook_id = ?').all(webhook.id);
+  res.json({ commands });
+});
+
+// POST /api/webhooks/:token/commands — register a command
+app.post('/api/webhooks/:token/commands', webhookLimiter, express.json({ limit: '16kb' }), (req, res) => {
+  const webhook = getWebhookByToken(req.params.token);
+  if (!webhook) return res.status(404).json({ error: 'Webhook not found or inactive' });
+  if (!webhook.callback_url) return res.status(400).json({ error: 'Webhook must have a callback_url to register commands' });
+
+  const { command, description } = req.body;
+  if (!command || typeof command !== 'string') return res.status(400).json({ error: 'command required (string)' });
+
+  const cmd = command.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 32);
+  if (!cmd) return res.status(400).json({ error: 'Invalid command name' });
+
+  // Reject built-in command names
+  const builtIn = ['shrug','tableflip','unflip','lenny','disapprove','bbs','boobs','butt','brb','afk','me','spoiler','tts','flip','roll','hug','wave','play','gif','poll'];
+  if (builtIn.includes(cmd)) return res.status(409).json({ error: `/${cmd} is a built-in command` });
+
+  const desc = typeof description === 'string' ? description.trim().slice(0, 100) : '';
+
+  const { getDb } = require('./src/database');
+  try {
+    getDb().prepare('INSERT OR REPLACE INTO bot_commands (webhook_id, command, description) VALUES (?, ?, ?)').run(webhook.id, cmd, desc);
+    res.json({ success: true, command: cmd, description: desc });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to register command' });
+  }
+});
+
+// DELETE /api/webhooks/:token/commands/:command — unregister a command
+app.delete('/api/webhooks/:token/commands/:command', webhookLimiter, (req, res) => {
+  const webhook = getWebhookByToken(req.params.token);
+  if (!webhook) return res.status(404).json({ error: 'Webhook not found or inactive' });
+
+  const cmd = (req.params.command || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!cmd) return res.status(400).json({ error: 'Invalid command name' });
+
+  const { getDb } = require('./src/database');
+  const result = getDb().prepare('DELETE FROM bot_commands WHERE webhook_id = ? AND command = ?').run(webhook.id, cmd);
+  if (result.changes === 0) return res.status(404).json({ error: 'Command not found' });
+  res.json({ success: true });
+});
+
+// GET /api/bot-commands — list all registered bot commands (for client autocomplete)
+app.get('/api/bot-commands', (req, res) => {
+  const { getDb } = require('./src/database');
+  const commands = getDb().prepare(`
+    SELECT bc.command, bc.description, w.name as bot_name
+    FROM bot_commands bc
+    JOIN webhooks w ON bc.webhook_id = w.id
+    WHERE w.is_active = 1
+  `).all();
+  res.json({ commands });
 });
 
 // ═══════════════════════════════════════════════════════════

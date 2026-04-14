@@ -383,6 +383,33 @@ _applyServerSettings() {
     serverCodeEl.style.opacity = code ? '1' : '0.4';
   }
 
+  // Vanity code — update input if modal is open
+  if (!modalOpen) {
+    const vanityInput = document.getElementById('vanity-code-input');
+    if (vanityInput) vanityInput.value = this.serverSettings.vanity_code || '';
+  }
+
+  // Server banner — always update display
+  const bannerDisplay = document.getElementById('server-banner-display');
+  const bannerImg = document.getElementById('server-banner-img');
+  const bannerPreview = document.getElementById('server-banner-preview');
+  if (bannerDisplay && bannerImg) {
+    if (this.serverSettings.server_banner) {
+      bannerImg.src = this.serverSettings.server_banner;
+      bannerDisplay.style.display = '';
+    } else {
+      bannerDisplay.style.display = 'none';
+      bannerImg.src = '';
+    }
+  }
+  if (bannerPreview) {
+    if (this.serverSettings.server_banner) {
+      bannerPreview.innerHTML = `<img src="${this._escapeHtml(this.serverSettings.server_banner)}" style="max-width:100%;max-height:80px;border-radius:6px;object-fit:cover">`;
+    } else {
+      bannerPreview.innerHTML = '<span class="muted-text" style="font-size:11px">No banner</span>';
+    }
+  }
+
   // Always update visual branding regardless of modal state
   this._applyServerBranding();
 
@@ -759,6 +786,50 @@ _initServerBranding() {
   document.getElementById('server-icon-remove-btn')?.addEventListener('click', () => {
     this.socket.emit('update-server-setting', { key: 'server_icon', value: '' });
     this._showToast(t('settings.admin.server_icon_removed'), 'success');
+  });
+
+  // Server banner upload
+  document.getElementById('server-banner-upload-btn')?.addEventListener('click', async () => {
+    const fileInput = document.getElementById('server-banner-file');
+    if (!fileInput || !fileInput.files[0]) return this._showToast('Select an image first', 'error');
+    const form = new FormData();
+    form.append('image', fileInput.files[0]);
+    try {
+      const res = await fetch('/api/upload-server-banner', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${this.token}` },
+        body: form
+      });
+      const data = await res.json();
+      if (data.error) return this._showToast(data.error, 'error');
+      this.socket.emit('update-server-setting', { key: 'server_banner', value: data.url });
+      this._showToast('Server banner updated', 'success');
+      fileInput.value = '';
+    } catch (err) {
+      this._showToast('Upload failed', 'error');
+    }
+  });
+
+  // Server banner remove
+  document.getElementById('server-banner-remove-btn')?.addEventListener('click', () => {
+    this.socket.emit('update-server-setting', { key: 'server_banner', value: '' });
+    this._showToast('Server banner removed', 'success');
+  });
+
+  // Vanity code
+  document.getElementById('vanity-code-save-btn')?.addEventListener('click', () => {
+    const val = document.getElementById('vanity-code-input')?.value.trim() || '';
+    if (val && (val.length < 3 || val.length > 32 || !/^[a-zA-Z0-9_-]+$/.test(val))) {
+      return this._showToast('Vanity code must be 3-32 chars (letters, numbers, hyphens, underscores)', 'error');
+    }
+    this.socket.emit('update-server-setting', { key: 'vanity_code', value: val });
+    this._showToast(val ? 'Vanity invite link saved' : 'Vanity invite link cleared', 'success');
+  });
+
+  document.getElementById('vanity-code-clear-btn')?.addEventListener('click', () => {
+    document.getElementById('vanity-code-input').value = '';
+    this.socket.emit('update-server-setting', { key: 'vanity_code', value: '' });
+    this._showToast('Vanity invite link cleared', 'success');
   });
 },
 
@@ -2492,6 +2563,14 @@ _renderRoleDetail() {
       <input type="number" class="settings-number-input" id="role-edit-level" value="${role.level}" min="1" max="99">
       <label class="settings-label" style="margin-top:8px;">${t('settings.admin.role_form.color')}</label>
       <input type="color" id="role-edit-color" value="${role.color || '#aaaaaa'}" style="width:50px;height:30px;border:none;cursor:pointer">
+      <label class="settings-label" style="margin-top:8px;">Role Icon</label>
+      <div class="role-icon-upload-row">
+        ${role.icon ? `<img class="role-icon-preview" src="${this._escapeHtml(role.icon)}" alt="icon">` : '<div class="role-icon-preview" style="display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-muted)">None</div>'}
+        <input type="file" id="role-icon-file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none">
+        <button class="btn-sm" id="role-icon-upload-btn" type="button">Upload</button>
+        ${role.icon ? '<button class="btn-sm danger" id="role-icon-remove-btn" type="button">Remove</button>' : ''}
+      </div>
+      <small class="muted-text" style="font-size:11px;">Icon shown next to role name (auto-resized to 16×16). Max 512KB.</small>
       <label class="toggle-row" style="margin-top:12px;">
         <span>${t('settings.admin.role_form.auto_assign')}</span>
         <input type="checkbox" id="role-edit-auto-assign" ${role.auto_assign ? 'checked' : ''}>
@@ -2527,6 +2606,48 @@ _renderRoleDetail() {
   // Toggle channel access panel visibility
   const linkCheckbox = document.getElementById('role-edit-link-channel-access');
   const accessPanel = document.getElementById('role-channel-access-panel');
+
+  // Role icon upload/remove
+  this._pendingRoleIcon = undefined;
+  const iconFileInput = document.getElementById('role-icon-file');
+  document.getElementById('role-icon-upload-btn')?.addEventListener('click', () => iconFileInput.click());
+  iconFileInput?.addEventListener('change', async () => {
+    const file = iconFileInput.files[0];
+    if (!file) return;
+    if (file.size > 512 * 1024) { this._showToast('Icon must be under 512KB', 'error'); return; }
+    // Auto-resize to 16x16 on a canvas so any image size works
+    let uploadFile = file;
+    try {
+      const bmp = await createImageBitmap(file);
+      if (bmp.width !== 16 || bmp.height !== 16) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 16; canvas.height = 16;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bmp, 0, 0, 16, 16);
+        bmp.close();
+        uploadFile = await new Promise(r => canvas.toBlob(r, 'image/png'));
+      } else { bmp.close(); }
+    } catch { /* fall through with original file */ }
+    const fd = new FormData();
+    fd.append('icon', uploadFile, 'role-icon.png');
+    try {
+      const res = await fetch('/api/upload-role-icon', { method: 'POST', headers: { 'Authorization': 'Bearer ' + this.token }, body: fd });
+      const data = await res.json();
+      if (data.error) { this._showToast(data.error, 'error'); return; }
+      this._pendingRoleIcon = data.path;
+      const preview = panel.querySelector('.role-icon-preview');
+      if (preview) { preview.outerHTML = `<img class="role-icon-preview" src="${this._escapeHtml(data.path)}" alt="icon">`; }
+      this._showToast('Icon uploaded — save role to apply', 'success');
+    } catch { this._showToast('Upload failed', 'error'); }
+  });
+  document.getElementById('role-icon-remove-btn')?.addEventListener('click', () => {
+    this._pendingRoleIcon = null;
+    const preview = panel.querySelector('.role-icon-preview');
+    if (preview) { preview.outerHTML = '<div class="role-icon-preview" style="display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-muted)">None</div>'; }
+    const removeBtn = document.getElementById('role-icon-remove-btn');
+    if (removeBtn) removeBtn.remove();
+    this._showToast('Icon removed — save role to apply', 'success');
+  });
   linkCheckbox.addEventListener('change', () => {
     accessPanel.style.display = linkCheckbox.checked ? 'block' : 'none';
     if (linkCheckbox.checked) this._loadRoleChannelAccess(role.id);
@@ -2569,6 +2690,7 @@ _renderRoleDetail() {
       name: document.getElementById('role-edit-name').value.trim(),
       level: parseInt(document.getElementById('role-edit-level').value, 10),
       color: document.getElementById('role-edit-color').value,
+      icon: this._pendingRoleIcon !== undefined ? this._pendingRoleIcon : role.icon,
       autoAssign: document.getElementById('role-edit-auto-assign').checked,
       linkChannelAccess: linkEnabled,
       permissions: perms
