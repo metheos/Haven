@@ -257,6 +257,10 @@
 
       <!-- ─── Main Content ────────────────────────────── -->
       <main class="main">
+        <!-- Server Banner (always behind all content) -->
+        <div id="server-banner-display" class="server-banner-display" style="display:none">
+          <img id="server-banner-img" class="server-banner-img" src="" alt="Server banner">
+        </div>
         <header class="channel-header">
           <button id="mobile-menu-btn" class="mobile-menu-btn" data-i18n-title="header.mobile_menu" data-i18n-aria-label="header.mobile_menu" title="Menu" aria-label="Menu">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -349,10 +353,6 @@
 
         <!-- Chat Area -->
         <div id="message-area" class="message-area" style="display:none">
-          <!-- Server Banner -->
-          <div id="server-banner-display" class="server-banner-display" style="display:none">
-            <img id="server-banner-img" class="server-banner-img" src="" alt="Server banner">
-          </div>
           <!-- Webcam Grid -->
           <div id="webcam-container" class="webcam-container" style="display:none">
             <div class="webcam-header">
@@ -1468,78 +1468,98 @@
         <!-- Server Branding -->
         <div class="admin-settings" id="section-branding">
           <h5 class="settings-section-subtitle">🏠 <span data-i18n="settings.admin.branding_title">Server Branding</span></h5>
+
           <label class="select-row">
             <span data-i18n="settings.admin.server_name">Server Name</span>
             <input type="text" id="server-name-input" maxlength="32" class="settings-text-input" style="max-width:160px" placeholder="HAVEN">
           </label>
+
           <label class="select-row">
             <span data-i18n="settings.admin.login_title">Login Title</span>
             <input type="text" id="server-title-input" maxlength="40" class="settings-text-input" style="max-width:200px" placeholder="(shown on login page)">
           </label>
           <small class="settings-hint" style="margin-top:2px;display:block" data-i18n="settings.admin.login_title_hint">Custom title displayed on the login screen below the HAVEN logo.</small>
-          <div class="server-icon-upload-area">
-            <div class="server-icon-preview" id="server-icon-preview">
-              <span class="server-icon-text">⬡</span>
-            </div>
-            <div class="server-icon-upload-controls">
-              <small class="settings-hint" data-i18n="settings.admin.server_icon_hint">Server icon (square, max 2 MB)</small>
-              <input type="file" id="server-icon-file" accept="image/*" style="font-size:11px;max-width:160px">
-              <div style="display:flex;gap:4px;margin-top:4px">
-                <button class="btn-sm btn-accent" id="server-icon-upload-btn" data-i18n="settings.admin.upload_btn">Upload</button>
-                <button class="btn-sm" id="server-icon-remove-btn" data-i18n="settings.admin.remove_btn">Remove</button>
+
+          <!-- Server Icon -->
+          <div class="settings-group" style="margin-top:12px">
+            <small class="settings-group-label" data-i18n="settings.admin.server_icon_hint">Server icon (square, max 2 MB)</small>
+            <div class="server-icon-upload-area">
+              <div class="server-icon-preview" id="server-icon-preview">
+                <span class="server-icon-text">⬡</span>
+              </div>
+              <div class="server-icon-upload-controls">
+                <input type="file" id="server-icon-file" accept="image/*" style="font-size:11px;max-width:160px">
+                <div style="display:flex;gap:4px;margin-top:4px">
+                  <button class="btn-sm btn-accent" id="server-icon-upload-btn" data-i18n="settings.admin.upload_btn">Upload</button>
+                  <button class="btn-sm" id="server-icon-remove-btn" data-i18n="settings.admin.remove_btn">Remove</button>
+                </div>
               </div>
             </div>
           </div>
-          <div class="server-banner-upload-area" style="margin-top:12px">
-            <div class="server-banner-preview" id="server-banner-preview">
-              <span class="muted-text" style="font-size:11px">No banner</span>
-            </div>
-            <div class="server-banner-upload-controls">
-              <small class="settings-hint">Server banner (wide, max 4 MB). Displayed at the top of channels.</small>
-              <input type="file" id="server-banner-file" accept="image/jpeg,image/png,image/gif,image/webp" style="font-size:11px;max-width:160px">
-              <div style="display:flex;gap:4px;margin-top:4px">
-                <button class="btn-sm btn-accent" id="server-banner-upload-btn">Upload</button>
-                <button class="btn-sm" id="server-banner-remove-btn">Remove</button>
+
+          <!-- Server Banner -->
+          <div class="settings-group" style="margin-top:12px">
+            <small class="settings-group-label">Server banner (wide, max 4 MB)</small>
+            <div class="server-banner-upload-area">
+              <div class="server-banner-preview" id="server-banner-preview">
+                <span class="muted-text" style="font-size:11px">No banner</span>
               </div>
-              <label class="toggle-row" style="margin-top:8px">
-                <span>Banner overlays header</span>
-                <input type="checkbox" id="banner-overlay-header">
-              </label>
-              <small class="settings-hint">When enabled, the banner extends behind the channel header and topic bar (Discord-style)</small>
+              <div class="server-banner-upload-controls">
+                <input type="file" id="server-banner-file" accept="image/jpeg,image/png,image/gif,image/webp" style="font-size:11px;max-width:160px">
+                <div style="display:flex;gap:4px;margin-top:4px">
+                  <button class="btn-sm btn-accent" id="server-banner-upload-btn">Upload</button>
+                  <button class="btn-sm" id="server-banner-remove-btn">Remove</button>
+                </div>
+              </div>
             </div>
+            <label style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:12px">
+              <span style="white-space:nowrap">Banner height</span>
+              <input type="range" id="banner-height-slider" min="80" max="400" step="10" value="180" style="flex:1">
+              <span id="banner-height-value" style="min-width:36px;text-align:right;font-variant-numeric:tabular-nums">180px</span>
+            </label>
+            <label class="toggle-row" style="margin-top:8px">
+              <span>Banner overlays header</span>
+              <input type="checkbox" id="banner-overlay-header">
+            </label>
+            <small class="settings-hint">When enabled, the banner extends behind the channel header and topic bar (Discord-style)</small>
           </div>
-          <label class="select-row" style="margin-top:8px">
-            <span data-i18n="settings.admin.default_theme">Default Theme</span>
-            <select id="default-theme-select" style="max-width:160px">
-              <option value="" data-i18n="settings.admin.no_theme">None (user's choice)</option>
-              <option value="haven">Haven</option>
-              <option value="discord">Discord</option>
-              <option value="matrix">Matrix</option>
-              <option value="fallout">Fallout</option>
-              <option value="ffx">Final Fantasy</option>
-              <option value="ice">Ice</option>
-              <option value="nord">Nord</option>
-              <option value="darksouls">Dark Souls</option>
-              <option value="eldenring">Elden Ring</option>
-              <option value="bloodborne">Bloodborne</option>
-              <option value="cyberpunk">Cyberpunk</option>
-              <option value="lotr">Lord of the Rings</option>
-              <option value="abyss">Abyss</option>
-              <option value="scripture">Scripture</option>
-              <option value="chapel">Chapel</option>
-              <option value="gospel">Gospel</option>
-              <option value="tron">Tron</option>
-              <option value="halo">Halo</option>
-              <option value="dracula">Dracula</option>
-              <option value="win95">Windows 95</option>
-            </select>
-          </label>
-          <small class="settings-hint" style="margin-top:2px;display:block" data-i18n="settings.admin.default_theme_hint">New users see this theme on first visit. They can still pick their own.</small>
-          <label class="select-row" style="margin-top:12px">
-            <span>Welcome Message</span>
-            <input type="text" id="welcome-message-input" maxlength="500" class="settings-text-input" style="max-width:280px" placeholder="e.g. Welcome {user}!">
-          </label>
-          <small class="settings-hint" style="margin-top:2px;display:block">Shown when a new user joins a channel. Use <code>{user}</code> for the username. Leave blank to disable.</small>
+
+          <!-- Theme & Welcome -->
+          <div class="settings-group" style="margin-top:12px">
+            <small class="settings-group-label">Appearance &amp; Welcome</small>
+            <label class="select-row">
+              <span data-i18n="settings.admin.default_theme">Default Theme</span>
+              <select id="default-theme-select" style="max-width:160px">
+                <option value="" data-i18n="settings.admin.no_theme">None (user's choice)</option>
+                <option value="haven">Haven</option>
+                <option value="discord">Discord</option>
+                <option value="matrix">Matrix</option>
+                <option value="fallout">Fallout</option>
+                <option value="ffx">Final Fantasy</option>
+                <option value="ice">Ice</option>
+                <option value="nord">Nord</option>
+                <option value="darksouls">Dark Souls</option>
+                <option value="eldenring">Elden Ring</option>
+                <option value="bloodborne">Bloodborne</option>
+                <option value="cyberpunk">Cyberpunk</option>
+                <option value="lotr">Lord of the Rings</option>
+                <option value="abyss">Abyss</option>
+                <option value="scripture">Scripture</option>
+                <option value="chapel">Chapel</option>
+                <option value="gospel">Gospel</option>
+                <option value="tron">Tron</option>
+                <option value="halo">Halo</option>
+                <option value="dracula">Dracula</option>
+                <option value="win95">Windows 95</option>
+              </select>
+            </label>
+            <small class="settings-hint" data-i18n="settings.admin.default_theme_hint">New users see this theme on first visit. They can still pick their own.</small>
+            <label class="select-row" style="margin-top:8px">
+              <span>Welcome Message</span>
+              <input type="text" id="welcome-message-input" maxlength="500" class="settings-text-input" style="max-width:280px" placeholder="e.g. Welcome {user}!">
+            </label>
+            <small class="settings-hint">Shown when a new user joins a channel. Use <code>{user}</code> for the username. Leave blank to disable.</small>
+          </div>
         </div>
 
         <div class="admin-settings" id="section-members" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
@@ -1664,6 +1684,22 @@
           <div style="margin-top:8px;display:flex;gap:6px">
             <button class="btn-sm btn-full btn-accent" id="open-role-editor-btn">⚙️ <span data-i18n="settings.admin.manage_roles_btn">Manage Roles</span></button>
             <button class="btn-sm" id="reset-roles-btn" title="Reset all roles to deployment defaults">🔄 <span data-i18n="settings.admin.reset_roles_btn">Reset to Default</span></button>
+          </div>
+          <div class="settings-group" style="margin-top:12px">
+            <small class="settings-group-label">Role Icon Visibility</small>
+            <label class="toggle-row">
+              <span>Show role icons in sidebar</span>
+              <input type="checkbox" id="role-icon-sidebar" checked>
+            </label>
+            <label class="toggle-row">
+              <span>Show role icons in chat</span>
+              <input type="checkbox" id="role-icon-chat">
+            </label>
+            <label class="toggle-row">
+              <span>Show role icons after username</span>
+              <input type="checkbox" id="role-icon-after-name">
+            </label>
+            <small class="settings-hint">Controls where role icons appear. "After username" moves icons to the right side of the name instead of the left.</small>
           </div>
           <div id="roles-list-preview" style="margin-top:8px;">
           </div>

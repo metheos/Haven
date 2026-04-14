@@ -12629,6 +12629,23 @@ ul.chat-list { list-style-type: disc; }
   padding: 4px 8px;
 }
 
+/* ── Settings Group Card ─────────────────────────── */
+.settings-group {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.settings-group-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
 /* ── Server Icon Upload (admin settings) ─────────── */
 .server-icon-upload-area {
   display: flex;
@@ -12693,18 +12710,22 @@ ul.chat-list { list-style-type: disc; }
   gap: 2px;
 }
 
-/* ── Server Banner Display (below header, inside chat area) ─── */
+/* ── Server Banner Display (always behind all content) ─── */
 .server-banner-display {
-  position: relative;
-  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 180px;
+  z-index: 0;
   overflow: hidden;
-  flex-shrink: 0;
+  pointer-events: none;
 }
 .server-banner-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
   display: block;
   opacity: 0.8;
 }
@@ -12719,26 +12740,20 @@ ul.chat-list { list-style-type: disc; }
   background: linear-gradient(to bottom, transparent, var(--bg-primary));
   pointer-events: none;
 }
-
-/* ── Banner Overlay Mode (opt-in: banner behind header) ─── */
-.main.has-banner-overlay .server-banner-display {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-.main.has-banner-overlay .channel-header {
+/* All content layers sit above the banner */
+.main > .channel-header,
+.main > .welcome-screen,
+.main > .message-area {
   position: relative;
   z-index: 1;
+}
+
+/* ── Banner Overlay Mode (opt-in: header becomes transparent) ─── */
+.main.has-banner-overlay .channel-header {
   background: transparent !important;
   border-bottom-color: transparent !important;
-  min-height: 52px;
 }
 .main.has-banner-overlay .channel-topic-bar {
-  position: relative;
-  z-index: 1;
   background: transparent !important;
   border-bottom-color: transparent !important;
 }
@@ -12763,10 +12778,6 @@ ul.chat-list { list-style-type: disc; }
 .main.has-banner-overlay .desktop-app-banner,
 .main.has-banner-overlay .android-beta-banner {
   text-shadow: none;
-}
-.main.has-banner-overlay .message-area {
-  position: relative;
-  z-index: 1;
 }
 
 /* ── Role Icons ────────────────────────────────────── */

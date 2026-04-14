@@ -395,22 +395,15 @@ _applyServerSettings() {
   const bannerPreview = document.getElementById('server-banner-preview');
   const mainEl = document.querySelector('.main');
   const overlayEnabled = this.serverSettings.banner_overlay_header === 'true';
+  const bannerHeight = parseInt(this.serverSettings.banner_height) || 180;
   if (bannerDisplay && bannerImg) {
     if (this.serverSettings.server_banner) {
       bannerImg.src = this.serverSettings.server_banner;
       bannerDisplay.style.display = '';
+      bannerDisplay.style.height = bannerHeight + 'px';
       if (overlayEnabled) {
-        // Move banner to .main (first child) for absolute overlay mode
-        if (bannerDisplay.parentElement !== mainEl) {
-          mainEl.insertBefore(bannerDisplay, mainEl.firstChild);
-        }
         mainEl?.classList.add('has-banner-overlay');
       } else {
-        // Move banner into message-area (first child) for default below-header mode
-        const msgArea = document.getElementById('message-area');
-        if (msgArea && bannerDisplay.parentElement !== msgArea) {
-          msgArea.insertBefore(bannerDisplay, msgArea.firstChild);
-        }
         mainEl?.classList.remove('has-banner-overlay');
       }
     } else {
@@ -422,6 +415,22 @@ _applyServerSettings() {
   // Banner overlay toggle checkbox
   const overlayCheckbox = document.getElementById('banner-overlay-header');
   if (overlayCheckbox) overlayCheckbox.checked = overlayEnabled;
+  // Banner height slider
+  const heightSlider = document.getElementById('banner-height-slider');
+  const heightValue = document.getElementById('banner-height-value');
+  if (heightSlider) {
+    heightSlider.value = bannerHeight;
+    if (heightValue) heightValue.textContent = bannerHeight + 'px';
+  }
+
+  // Role icon display checkboxes
+  const riSidebar = document.getElementById('role-icon-sidebar');
+  if (riSidebar) riSidebar.checked = (this.serverSettings.role_icon_sidebar || 'true') === 'true';
+  const riChat = document.getElementById('role-icon-chat');
+  if (riChat) riChat.checked = this.serverSettings.role_icon_chat === 'true';
+  const riAfter = document.getElementById('role-icon-after-name');
+  if (riAfter) riAfter.checked = this.serverSettings.role_icon_after_name === 'true';
+
   if (bannerPreview) {
     if (this.serverSettings.server_banner) {
       bannerPreview.innerHTML = `<img src="${this._escapeHtml(this.serverSettings.server_banner)}" style="max-width:100%;max-height:80px;border-radius:6px;object-fit:cover">`;
@@ -525,7 +534,10 @@ _snapshotAdminSettings() {
     max_poll_options: this.serverSettings.max_poll_options || '10',
     update_banner_admin_only: this.serverSettings.update_banner_admin_only || 'false',
     default_theme: this.serverSettings.default_theme || '',
-    custom_tos: this.serverSettings.custom_tos || ''
+    custom_tos: this.serverSettings.custom_tos || '',
+    role_icon_sidebar: this.serverSettings.role_icon_sidebar || 'true',
+    role_icon_chat: this.serverSettings.role_icon_chat || 'false',
+    role_icon_after_name: this.serverSettings.role_icon_after_name || 'false'
   };
   const tosEl = document.getElementById('custom-tos-input');
   if (tosEl) tosEl.value = this._adminSnapshot.custom_tos;
@@ -631,6 +643,24 @@ _saveAdminSettings() {
   const customTos = document.getElementById('custom-tos-input')?.value.trim() || '';
   if (customTos !== (snap.custom_tos || '')) {
     this.socket.emit('update-server-setting', { key: 'custom_tos', value: customTos });
+    changed = true;
+  }
+
+  const roleIconSidebar = document.getElementById('role-icon-sidebar')?.checked ? 'true' : 'false';
+  if (roleIconSidebar !== (snap.role_icon_sidebar || 'true')) {
+    this.socket.emit('update-server-setting', { key: 'role_icon_sidebar', value: roleIconSidebar });
+    changed = true;
+  }
+
+  const roleIconChat = document.getElementById('role-icon-chat')?.checked ? 'true' : 'false';
+  if (roleIconChat !== (snap.role_icon_chat || 'false')) {
+    this.socket.emit('update-server-setting', { key: 'role_icon_chat', value: roleIconChat });
+    changed = true;
+  }
+
+  const roleIconAfterName = document.getElementById('role-icon-after-name')?.checked ? 'true' : 'false';
+  if (roleIconAfterName !== (snap.role_icon_after_name || 'false')) {
+    this.socket.emit('update-server-setting', { key: 'role_icon_after_name', value: roleIconAfterName });
     changed = true;
   }
 
@@ -839,8 +869,22 @@ _initServerBranding() {
   // Banner overlay header toggle
   document.getElementById('banner-overlay-header')?.addEventListener('change', (e) => {
     this.socket.emit('update-server-setting', { key: 'banner_overlay_header', value: e.target.checked ? 'true' : 'false' });
-    this._showToast(e.target.checked ? 'Banner will overlay the header' : 'Banner shown below the header', 'success');
+    this._showToast(e.target.checked ? 'Banner will overlay the header' : 'Banner behind the header', 'success');
   });
+
+  // Banner height slider
+  const bannerSlider = document.getElementById('banner-height-slider');
+  const bannerSliderLabel = document.getElementById('banner-height-value');
+  if (bannerSlider) {
+    bannerSlider.addEventListener('input', (e) => {
+      if (bannerSliderLabel) bannerSliderLabel.textContent = e.target.value + 'px';
+      const bd = document.getElementById('server-banner-display');
+      if (bd) bd.style.height = e.target.value + 'px';
+    });
+    bannerSlider.addEventListener('change', (e) => {
+      this.socket.emit('update-server-setting', { key: 'banner_height', value: e.target.value });
+    });
+  }
 
   // Vanity code
   document.getElementById('vanity-code-save-btn')?.addEventListener('click', () => {
