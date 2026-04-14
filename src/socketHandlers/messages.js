@@ -87,7 +87,7 @@ module.exports = function register(socket, ctx) {
     if (replyIds.length > 0) {
       const ph = replyIds.map(() => '?').join(',');
       db.prepare(`
-        SELECT m.id, m.content, COALESCE(u.display_name, u.username, '[Deleted User]') as username
+        SELECT m.id, m.content, m.user_id, COALESCE(u.display_name, u.username, '[Deleted User]') as username
         FROM messages m LEFT JOIN users u ON m.user_id = u.id
         WHERE m.id IN (${ph})
       `).all(...replyIds).forEach(r => replyMap.set(r.id, r));
@@ -181,7 +181,7 @@ module.exports = function register(socket, ctx) {
   socket.on('search-messages', (data) => {
     if (!data || typeof data !== 'object') return;
     const code = typeof data.code === 'string' ? data.code.trim() : '';
-    const query = typeof data.query === 'string' ? data.query.trim() : '';
+    let query = typeof data.query === 'string' ? data.query.trim() : '';
     if (!code || !query || query.length < 2) return;
 
     const channel = db.prepare('SELECT id, is_dm FROM channels WHERE code = ?').get(code);
@@ -196,19 +196,78 @@ module.exports = function register(socket, ctx) {
       return socket.emit('search-results', { results: [], query, isDM: true });
     }
 
-    const escapedQuery = query.replace(/[%_\\]/g, '\\$&');
+    // ── Parse search filters ──
+    const filters = { from: null, in: null, has: null };
+    // Extract from:username
+    query = query.replace(/\bfrom:(\S+)/gi, (_, v) => { filters.from = v; return ''; });
+    // Extract in:#channel or in:channel
+    query = query.replace(/\bin:#?(\S+)/gi, (_, v) => { filters.in = v; return ''; });
+    // Extract has:image, has:file, has:link, has:embed
+    query = query.replace(/\bhas:(\S+)/gi, (_, v) => { filters.has = v.toLowerCase(); return ''; });
+    query = query.trim();
+
+    // Determine target channel(s)
+    let targetChannelId = channel.id;
+    if (filters.in) {
+      const targetChannel = db.prepare('SELECT id FROM channels WHERE name = ? COLLATE NOCASE AND is_dm = 0').get(filters.in);
+      if (!targetChannel) {
+        return socket.emit('search-results', { results: [], query: data.query, filters });
+      }
+      // Verify user is a member of the target channel
+      const targetMember = db.prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?').get(targetChannel.id, socket.user.id);
+      if (!targetMember) {
+        return socket.emit('search-results', { results: [], query: data.query, filters });
+      }
+      targetChannelId = targetChannel.id;
+    }
+
+    // Build dynamic WHERE conditions
+    const conditions = ['m.channel_id = ?'];
+    const params = [targetChannelId];
+
+    // Text search (only if there's remaining query text after extracting filters)
+    if (query.length >= 1) {
+      const escapedQuery = query.replace(/[%_\\]/g, '\\$&');
+      conditions.push("m.content LIKE ? ESCAPE '\\'");
+      params.push(`%${escapedQuery}%`);
+    }
+
+    // from:username filter
+    if (filters.from) {
+      conditions.push('(u.username = ? COLLATE NOCASE OR u.display_name = ? COLLATE NOCASE)');
+      params.push(filters.from, filters.from);
+    }
+
+    // has: filter
+    if (filters.has) {
+      switch (filters.has) {
+        case 'image':
+          conditions.push("(m.content LIKE '%/uploads/%.png%' ESCAPE '\\' OR m.content LIKE '%/uploads/%.jpg%' ESCAPE '\\' OR m.content LIKE '%/uploads/%.jpeg%' ESCAPE '\\' OR m.content LIKE '%/uploads/%.gif%' ESCAPE '\\' OR m.content LIKE '%/uploads/%.webp%' ESCAPE '\\' OR m.content LIKE '%/uploads/%.svg%' ESCAPE '\\')");
+          break;
+        case 'file':
+          conditions.push("m.content LIKE '%/uploads/%' ESCAPE '\\'");
+          break;
+        case 'link':
+          conditions.push("(m.content LIKE '%http://%' ESCAPE '\\' OR m.content LIKE '%https://%' ESCAPE '\\')");
+          break;
+        case 'video':
+          conditions.push("(m.content LIKE '%/uploads/%.mp4%' ESCAPE '\\' OR m.content LIKE '%/uploads/%.webm%' ESCAPE '\\' OR m.content LIKE '%/uploads/%.mov%' ESCAPE '\\' OR m.content LIKE '%youtube.com%' ESCAPE '\\' OR m.content LIKE '%youtu.be%' ESCAPE '\\')");
+          break;
+      }
+    }
+
     const results = db.prepare(`
       SELECT m.id, m.content, m.created_at,
              COALESCE(u.display_name, u.username, '[Deleted User]') as username, u.id as user_id
       FROM messages m LEFT JOIN users u ON m.user_id = u.id
-      WHERE m.channel_id = ? AND m.content LIKE ? ESCAPE '\\'
-      ORDER BY m.created_at DESC LIMIT 25
-    `).all(channel.id, `%${escapedQuery}%`);
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY m.created_at DESC LIMIT 50
+    `).all(...params);
 
     results.forEach(r => {
       if (r.created_at && !r.created_at.endsWith('Z')) r.created_at = utcStamp(r.created_at);
     });
-    socket.emit('search-results', { results, query });
+    socket.emit('search-results', { results, query: data.query, filters });
   });
 
   // ── Send message ────────────────────────────────────────
@@ -346,7 +405,7 @@ module.exports = function register(socket, ctx) {
 
       if (replyTo) {
         message.replyContext = db.prepare(`
-          SELECT m.id, m.content, COALESCE(u.display_name, u.username, '[Deleted User]') as username FROM messages m
+          SELECT m.id, m.content, m.user_id, COALESCE(u.display_name, u.username, '[Deleted User]') as username FROM messages m
           LEFT JOIN users u ON m.user_id = u.id WHERE m.id = ?
         `).get(replyTo) || null;
       }

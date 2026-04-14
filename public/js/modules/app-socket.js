@@ -154,23 +154,35 @@ _setupSocketListeners() {
       }, 2500);
       // Browsers don't compute layout accurately while a tab is hidden, so
       // scrollToBottom during a background reconnect often undershoots.
-      // Re-scroll now that the tab is visible and layout is correct.
-      if (this._coupledToBottom) this._scrollToBottom(true);
+      // Defer to requestAnimationFrame so the browser recalculates layout
+      // before we read scrollHeight — avoids jumping to wrong position.
+      if (this._coupledToBottom) {
+        this._suppressCoupleCheck = true;
+        requestAnimationFrame(() => {
+          this._scrollToBottom(true);
+          this._suppressCoupleCheck = false;
+        });
+      }
 
       // Skip heavy refresh if we just handled a 'connect' event (avoids doubled emits)
       const sinceLast = Date.now() - (this._lastConnectTime || 0);
       if (sinceLast < 3000) return;
       // Re-fetch current channel messages + member list to catch anything missed
+      // Only do a full reset if coupled to bottom — if the user was browsing
+      // history before the tab switch, preserve their position by skipping the
+      // reset so _renderMessages doesn't yank them to the latest messages.
       if (this.currentChannel && this.socket?.connected) {
-        this._oldestMsgId = null;
-        this._noMoreHistory = false;
-        this._loadingHistory = false;
-        this._historyBefore = null;
-        this._newestMsgId = null;
-        this._noMoreFuture = true;
-        this._loadingFuture = false;
-        this._historyAfter = null;
-        this.socket.emit('get-messages', { code: this.currentChannel });
+        if (this._coupledToBottom) {
+          this._oldestMsgId = null;
+          this._noMoreHistory = false;
+          this._loadingHistory = false;
+          this._historyBefore = null;
+          this._newestMsgId = null;
+          this._noMoreFuture = true;
+          this._loadingFuture = false;
+          this._historyAfter = null;
+          this.socket.emit('get-messages', { code: this.currentChannel });
+        }
         this.socket.emit('get-channel-members', { code: this.currentChannel });
       }
       // Re-fetch channels in case list changed while backgrounded
@@ -521,8 +533,11 @@ _setupSocketListeners() {
           const mentionRegex = new RegExp(`@${this.user.username}\\b`, 'i');
           const _notifCh = this.channels.find(c => c.code === data.channelCode);
           const _isAnnouncement = _notifCh && _notifCh.notification_type === 'announcement';
+          const _isReplyToMe = data.message.replyContext && data.message.replyContext.user_id === this.user.id;
           if (mentionRegex.test(data.message.content)) {
             this.notifications.play('mention');
+          } else if (_isReplyToMe) {
+            this.notifications.play('reply');
           } else {
             this.notifications.play(_isAnnouncement ? 'announcement' : 'message');
           }
@@ -551,8 +566,11 @@ _setupSocketListeners() {
         const mentionRegex = new RegExp(`@${this.user.username}\\b`, 'i');
         const _notifCh2 = this.channels.find(c => c.code === data.channelCode);
         const _isAnnouncement2 = _notifCh2 && _notifCh2.notification_type === 'announcement';
+        const _isReplyToMe2 = data.message.replyContext && data.message.replyContext.user_id === this.user.id;
         if (mentionRegex.test(data.message.content)) {
           this.notifications.play('mention');
+        } else if (_isReplyToMe2) {
+          this.notifications.play('reply');
         } else {
           this.notifications.play(_isAnnouncement2 ? 'announcement' : 'message');
         }
@@ -1181,14 +1199,29 @@ _setupSocketListeners() {
       panel.style.display = 'block';
       return;
     }
-    count.textContent = t(data.results.length === 1 ? 'header.search_results_one' : 'header.search_results_other', { count: data.results.length, query: this._escapeHtml(data.query) });
+
+    // Build header with active filters
+    let filterInfo = '';
+    if (data.filters) {
+      const tags = [];
+      if (data.filters.from) tags.push(`<span class="search-filter-tag">from:${this._escapeHtml(data.filters.from)}</span>`);
+      if (data.filters.in) tags.push(`<span class="search-filter-tag">in:#${this._escapeHtml(data.filters.in)}</span>`);
+      if (data.filters.has) tags.push(`<span class="search-filter-tag">has:${this._escapeHtml(data.filters.has)}</span>`);
+      if (tags.length) filterInfo = `<div class="search-filter-tags">${tags.join(' ')}</div>`;
+    }
+
+    count.innerHTML = t(data.results.length === 1 ? 'header.search_results_one' : 'header.search_results_other', { count: data.results.length, query: this._escapeHtml(data.query) }) + filterInfo;
+
+    // Strip filters from query for highlight
+    const highlightQuery = data.query.replace(/\b(?:from|in|has):\S+/gi, '').trim();
+
     list.innerHTML = data.results.length === 0
       ? `<p class="muted-text" style="padding:12px">${t('header.search_no_results')}</p>`
       : data.results.map(r => `
         <div class="search-result-item" data-msg-id="${r.id}">
           <span class="search-result-author" style="color:${this._getUserColor(r.username)}">${this._escapeHtml(this._getNickname(r.user_id, r.username))}</span>
           <span class="search-result-time">${this._formatTime(r.created_at)}</span>
-          <div class="search-result-content">${this._highlightSearch(this._escapeHtml(r.content), data.query)}</div>
+          <div class="search-result-content">${highlightQuery ? this._highlightSearch(this._escapeHtml(r.content), highlightQuery) : this._escapeHtml(r.content)}</div>
         </div>
       `).join('');
     panel.style.display = 'block';

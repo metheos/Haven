@@ -602,10 +602,10 @@ _createMessageEl(msg, prevMsg) {
   if (msg._e2e) el.dataset.e2e = '1';
   if (msg.poll && msg.poll.anonymous) el.dataset.pollAnonymous = '1';
   el.innerHTML = `
-    ${replyHtml}
     <div class="message-row">
       ${avatarHtml}
       <div class="message-body">
+        ${replyHtml}
         <div class="message-header">
           <span class="message-author" style="color:${authorColor}"${this._nicknames[msg.user_id] ? ` title="${this._escapeHtml(msg.username)}"` : ''}>${this._escapeHtml(this._getNickname(msg.user_id, msg.username))}</span>
           ${botBadge}

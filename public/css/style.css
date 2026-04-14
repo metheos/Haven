@@ -2720,14 +2720,13 @@ html.rgb-cycling *::after {
 
 .auth-page {
   display: flex;
-  align-items: center;
   justify-content: center;
   min-height: 100vh;
   background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
-  overflow: auto;
+  overflow-y: auto;
 }
 
-.auth-container { width: 100%; max-width: 400px; padding: 20px; }
+.auth-container { width: 100%; max-width: 400px; padding: 20px; margin: auto 0; }
 
 .auth-card {
   background: var(--bg-card);
@@ -6481,19 +6480,23 @@ select.cfn-select.cfn-input {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px 4px 56px;
-  font-size: 12px;
+  padding: 5px 10px;
+  font-size: 0.8em;
   color: var(--text-muted);
   cursor: pointer;
   overflow: hidden;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  max-width: fit-content;
 }
 
-.reply-banner:hover { text-decoration: underline; }
+.reply-banner:hover { background: var(--bg-secondary); }
 
 .reply-line {
-  width: 2px;
-  height: 14px;
-  border-radius: 1px;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
@@ -6840,13 +6843,30 @@ select.cfn-select.cfn-input {
   border: none;
   color: var(--text-primary);
   font-size: 13px;
-  width: 160px;
+  width: 260px;
   outline: none;
   padding: 4px 2px;
 }
 
 .search-input::placeholder {
   color: var(--text-muted);
+  font-size: 11px;
+}
+
+.search-filter-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.search-filter-tag {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
 .search-results-panel {
@@ -6867,12 +6887,13 @@ select.cfn-select.cfn-input {
 .search-results-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-light);
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
+  gap: 8px;
 }
 
 .search-results-list {
@@ -7296,18 +7317,16 @@ select.cfn-select.cfn-input {
   gap: 10px;
 }
 
-/* Admin save bar — sticky at bottom of admin section */
+/* Admin save bar — fixed at bottom of settings modal */
 .admin-save-bar {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 24px 20px;
-  position: sticky;
-  bottom: 0;
+  padding: 12px 24px 16px;
   background: var(--bg-card);
   border-top: 1px solid var(--border);
   z-index: 10;
-  margin-top: 10px;
+  flex-shrink: 0;
 }
 .btn-admin-save {
   width: 100%;
@@ -7480,7 +7499,7 @@ select.cfn-select.cfn-input {
 .settings-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 20px 24px 12px;
   position: sticky;
   top: 0;
@@ -7488,6 +7507,34 @@ select.cfn-select.cfn-input {
   z-index: 10;
   border-bottom: 1px solid var(--border);
 }
+
+.settings-tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 8px;
+}
+.settings-tab {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.settings-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.settings-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.settings-close-btn { margin-left: 0; }
 
 .settings-header h3 {
   font-size: 18px;
@@ -7564,6 +7611,13 @@ select.cfn-select.cfn-input {
 .settings-nav-item.active {
   background: var(--accent);
   color: #fff;
+}
+
+.settings-nav-group.settings-nav-admin {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 2px solid var(--accent);
+  color: var(--accent);
 }
 
 .settings-body {
@@ -7714,6 +7768,40 @@ select.cfn-select.cfn-input {
   border-bottom: 1px solid var(--border);
 }
 .settings-section:last-child { border-bottom: none; }
+
+/* ── Admin section divider ── */
+.admin-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+.admin-divider-line {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.admin-divider-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.admin-save-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(var(--accent-rgb, 124,58,237), 0.12);
+  border: 1px solid rgba(var(--accent-rgb, 124,58,237), 0.3);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
 
 .settings-section-title {
   font-size: 14px;
@@ -8773,7 +8861,7 @@ select.cfn-select.cfn-input {
 
   /* Reply bar */
   .reply-bar { padding: 6px 8px; font-size: 12px; }
-  .reply-banner { padding-left: 46px; }
+  .reply-banner { padding: 4px 8px; font-size: 0.75em; }
 
   /* Reaction badges — touch-friendly */
   .reaction-badge { padding: 4px 10px; font-size: 14px; }

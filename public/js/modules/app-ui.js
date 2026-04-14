@@ -1764,6 +1764,8 @@ _setupUI() {
     this._snapshotAdminSettings();
     document.getElementById('settings-modal').style.display = 'flex';
     this._syncSettingsNav();
+    // Always open on User tab
+    this._switchSettingsTab('user');
     // Sync language select with current locale
     const langSelect = document.getElementById('language-select');
     if (langSelect && window.i18n) langSelect.value = i18n.locale;
@@ -1799,6 +1801,46 @@ _setupUI() {
   });
   document.getElementById('admin-save-btn')?.addEventListener('click', () => {
     this._saveAdminSettings();
+  });
+
+  // ── Settings tab switching (User / Admin) ────────────
+  this._switchSettingsTab = (tab) => {
+    const userBody = document.getElementById('settings-body-user');
+    const adminBody = document.getElementById('settings-body-admin');
+    const userNav = document.querySelector('.settings-nav-user');
+    const adminNav = document.querySelector('.settings-nav-admin-group');
+    const saveBar = document.querySelector('.admin-save-bar');
+
+    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.settings-tab[data-tab="${tab}"]`)?.classList.add('active');
+
+    if (tab === 'admin') {
+      if (userBody) userBody.style.display = 'none';
+      if (adminBody) adminBody.style.display = '';
+      if (userNav) userNav.style.display = 'none';
+      if (adminNav) adminNav.style.display = '';
+      if (saveBar) saveBar.style.display = '';
+      // Activate first admin nav item
+      document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+      const firstAdmin = adminNav?.querySelector('.settings-nav-item:not([style*="display: none"])');
+      if (firstAdmin) firstAdmin.classList.add('active');
+    } else {
+      if (userBody) userBody.style.display = '';
+      if (adminBody) adminBody.style.display = 'none';
+      if (userNav) userNav.style.display = '';
+      if (adminNav) adminNav.style.display = 'none';
+      if (saveBar) saveBar.style.display = 'none';
+      // Activate first user nav item
+      document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+      const firstUser = userNav?.querySelector('.settings-nav-item');
+      if (firstUser) firstUser.classList.add('active');
+    }
+  };
+
+  document.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      this._switchSettingsTab(tab.dataset.tab);
+    });
   });
 
   // ── Settings nav click-to-scroll ─────────────────────

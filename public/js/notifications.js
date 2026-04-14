@@ -10,10 +10,12 @@ class NotificationManager {
     this.enabled = this._loadPref('haven_notif_enabled', true);
     this.volume = this._loadPref('haven_notif_volume', 0.5);
     this.mentionVolume = this._loadPref('haven_notif_mention_volume', 0.8);
+    this.replyVolume = this._loadPref('haven_notif_reply_volume', 0.8);
     this.sounds = {
       message: this._loadPref('haven_notif_msg_sound', 'ping'),
       sent: this._loadPref('haven_notif_sent_sound', 'swoosh'),
       mention: this._loadPref('haven_notif_mention_sound', 'bell'),
+      reply: this._loadPref('haven_notif_reply_sound', 'chime'),
       join: this._loadPref('haven_notif_join_sound', 'chime'),
       leave: this._loadPref('haven_notif_leave_sound', 'drop'),
       announcement: this._loadPref('haven_notif_announcement_sound', 'announcement'),
@@ -141,6 +143,8 @@ class NotificationManager {
     const origVol = this.volume;
     if (event === 'mention') {
       this.volume = this.mentionVolume;
+    } else if (event === 'reply') {
+      this.volume = this.replyVolume;
     }
 
     // Custom uploaded sound (format: "custom:soundname")
@@ -148,7 +152,7 @@ class NotificationManager {
       const name = sound.substring(7);
       // Look up URL from any notification select, or from app's custom sounds cache
       let url = null;
-      const selIds = ['notif-msg-sound', 'notif-sent-sound', 'notif-mention-sound', 'notif-join-sound', 'notif-leave-sound'];
+      const selIds = ['notif-msg-sound', 'notif-sent-sound', 'notif-mention-sound', 'notif-reply-sound', 'notif-join-sound', 'notif-leave-sound'];
       for (const id of selIds) {
         const sel = document.getElementById(id);
         if (!sel) continue;
@@ -190,6 +194,11 @@ class NotificationManager {
   setMentionVolume(val) {
     this.mentionVolume = Math.max(0, Math.min(1, val));
     this._savePref('haven_notif_mention_volume', this.mentionVolume);
+  }
+
+  setReplyVolume(val) {
+    this.replyVolume = Math.max(0, Math.min(1, val));
+    this._savePref('haven_notif_reply_volume', this.replyVolume);
   }
 
   setSound(event, sound) {

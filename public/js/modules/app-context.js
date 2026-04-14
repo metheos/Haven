@@ -214,6 +214,8 @@ _setupNotifications() {
   const msgSound = document.getElementById('notif-msg-sound');
   const mentionVolume = document.getElementById('notif-mention-volume');
   const mentionSound = document.getElementById('notif-mention-sound');
+  const replyVolume = document.getElementById('notif-reply-volume');
+  const replySound = document.getElementById('notif-reply-sound');
   const sentSound = document.getElementById('notif-sent-sound');
   const joinSound = document.getElementById('notif-join-sound');
   const leaveSound = document.getElementById('notif-leave-sound');
@@ -224,6 +226,8 @@ _setupNotifications() {
   if (sentSound) sentSound.value = this.notifications.sounds.sent;
   mentionVolume.value = this.notifications.mentionVolume * 100;
   mentionSound.value = this.notifications.sounds.mention;
+  if (replyVolume) replyVolume.value = this.notifications.replyVolume * 100;
+  if (replySound) replySound.value = this.notifications.sounds.reply;
   if (joinSound) joinSound.value = this.notifications.sounds.join;
   if (leaveSound) leaveSound.value = this.notifications.sounds.leave;
 
@@ -255,6 +259,19 @@ _setupNotifications() {
     this.notifications.setSound('mention', mentionSound.value);
     this.notifications.play('mention'); // Preview the selected sound
   });
+
+  if (replyVolume) {
+    replyVolume.addEventListener('input', () => {
+      this.notifications.setReplyVolume(replyVolume.value / 100);
+    });
+  }
+
+  if (replySound) {
+    replySound.addEventListener('change', () => {
+      this.notifications.setSound('reply', replySound.value);
+      this.notifications.play('reply');
+    });
+  }
 
   if (joinSound) {
     joinSound.addEventListener('change', () => {

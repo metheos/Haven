@@ -293,7 +293,7 @@
             </div>
           </div>
           <div class="search-container" id="search-container" style="display:none">
-            <input type="text" id="search-input" class="search-input" data-i18n-placeholder="header.search_placeholder" placeholder="Search messages..." maxlength="100">
+            <input type="text" id="search-input" class="search-input" data-i18n-placeholder="header.search_placeholder" placeholder="Search... from:user in:#channel has:image" maxlength="200">
             <button id="search-close-btn" class="icon-btn small" title="Close search">&times;</button>
           </div>
           <!-- Update available banner -->
@@ -954,14 +954,18 @@
     <div class="modal modal-settings">
       <div class="settings-header">
         <h3>⚙️ <span data-i18n="settings.title">Settings</span></h3>
+        <div class="settings-tab-bar" id="settings-tab-bar">
+          <button class="settings-tab active" data-tab="user">👤 <span data-i18n="settings.tab.user">User</span></button>
+          <button class="settings-tab settings-tab-admin" data-tab="admin" style="display:none">🛡️ <span data-i18n="settings.tab.admin">Admin</span></button>
+        </div>
         <button class="settings-close-btn" id="close-settings-btn">&times;</button>
       </div>
 
       <div class="settings-layout">
         <nav class="settings-nav" id="settings-nav">
-          <div class="settings-nav-group" data-i18n="settings.nav.user_group">User</div>
-          <div class="settings-nav-item" data-target="section-language">🗣️ <span data-i18n="settings.nav.language">Language</span></div>
-          <div class="settings-nav-item active" data-target="section-density">📐 <span data-i18n="settings.nav.layout">Layout</span></div>
+          <div class="settings-nav-user">
+          <div class="settings-nav-item active" data-target="section-language">🗣️ <span data-i18n="settings.nav.language">Language</span></div>
+          <div class="settings-nav-item" data-target="section-density">📐 <span data-i18n="settings.nav.layout">Layout</span></div>
           <div class="settings-nav-item" data-target="section-sounds">🔔 <span data-i18n="settings.nav.sounds">Sounds</span></div>
           <div class="settings-nav-item" data-target="section-push">📲 <span data-i18n="settings.nav.push">Push</span></div>
           <div class="settings-nav-item" data-target="section-password">🔒 <span data-i18n="settings.nav.password">Password</span></div>
@@ -971,7 +975,8 @@
           <div class="settings-nav-item" data-target="section-plugins">🧩 <span data-i18n="settings.nav.plugins">Plugins & Themes</span></div>
           <div class="settings-nav-item" data-target="section-desktop-shortcuts" id="desktop-shortcuts-nav" style="display:none">⌨️ <span data-i18n="settings.nav.shortcuts">Shortcuts</span></div>
           <div class="settings-nav-item" data-target="section-desktop-app" id="desktop-app-nav" style="display:none">🖥️ <span data-i18n="settings.nav.desktop_app">Desktop App</span></div>
-          <div class="settings-nav-group settings-nav-admin" style="display:none" data-i18n="settings.nav.admin_group">Admin</div>
+          </div>
+          <div class="settings-nav-admin-group" style="display:none">
           <div class="settings-nav-item settings-nav-admin" data-target="section-branding" style="display:none">🏠 <span data-i18n="settings.nav.branding">Branding</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-members" style="display:none">👥 <span data-i18n="settings.nav.members">Members</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-whitelist" style="display:none">🛡️ <span data-i18n="settings.nav.whitelist">Whitelist</span></div>
@@ -985,93 +990,9 @@
           <div class="settings-nav-item settings-nav-admin" data-target="section-bots" style="display:none">🤖 <span data-i18n="settings.nav.bots">Bots</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-import" style="display:none">📦 <span data-i18n="settings.nav.import">Import</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-modmode" style="display:none">🔧 <span data-i18n="settings.nav.mod_mode">Mod Mode</span></div>
+          </div>
         </nav>
-        <div class="settings-body">
-
-      <!-- Desktop Shortcuts Section (only shown in Haven Desktop) -->
-      <div class="settings-section" id="section-desktop-shortcuts" style="display:none">
-        <h5 class="settings-section-title">⌨️ <span data-i18n="settings.desktop_shortcuts_section.title">Desktop Shortcuts</span></h5>
-        <p class="settings-desc" data-i18n="settings.desktop_shortcuts_section.desc">Global keyboard shortcuts — active even when Haven is in the background. Click a row to rebind, or "Clear" to disable.</p>
-        <div class="shortcut-table" id="shortcut-table">
-          <div class="shortcut-row" id="shortcut-row-mute">
-            <span class="shortcut-label" data-i18n="settings.desktop_shortcuts_section.mute_unmute">Mute / Unmute</span>
-            <span class="shortcut-key" id="shortcut-key-mute">—</span>
-            <div class="shortcut-btns">
-              <button class="btn-xs shortcut-record-btn" data-action="mute" data-i18n="settings.desktop_shortcuts_section.change_btn">Change</button>
-              <button class="btn-xs shortcut-clear-btn"  data-action="mute" data-i18n="settings.desktop_shortcuts_section.clear_btn">Clear</button>
-            </div>
-          </div>
-          <div class="shortcut-row" id="shortcut-row-deafen">
-            <span class="shortcut-label" data-i18n="settings.desktop_shortcuts_section.deafen_undeafen">Deafen / Undeafen</span>
-            <span class="shortcut-key" id="shortcut-key-deafen">—</span>
-            <div class="shortcut-btns">
-              <button class="btn-xs shortcut-record-btn" data-action="deafen" data-i18n="settings.desktop_shortcuts_section.change_btn">Change</button>
-              <button class="btn-xs shortcut-clear-btn"  data-action="deafen" data-i18n="settings.desktop_shortcuts_section.clear_btn">Clear</button>
-            </div>
-          </div>
-          <div class="shortcut-row" id="shortcut-row-ptt">
-            <span class="shortcut-label"><span data-i18n="settings.desktop_shortcuts_section.ptt">Push-to-Talk</span> <span class="muted-text" style="font-weight:400;font-size:0.85em" data-i18n="settings.desktop_shortcuts_section.ptt_toggle">(toggle)</span></span>
-            <span class="shortcut-key" id="shortcut-key-ptt" data-i18n="settings.desktop_shortcuts_section.not_set">Not set</span>
-            <div class="shortcut-btns">
-              <button class="btn-xs shortcut-record-btn" data-action="ptt" data-i18n="settings.desktop_shortcuts_section.change_btn">Change</button>
-              <button class="btn-xs shortcut-clear-btn"  data-action="ptt" data-i18n="settings.desktop_shortcuts_section.clear_btn">Clear</button>
-            </div>
-          </div>
-        </div>
-        <p class="settings-hint" id="shortcut-status" style="margin-top:8px"></p>
-      </div>
-
-      <!-- Layout Density Section -->
-
-      <!-- Desktop App Settings Section (only shown in Haven Desktop) -->
-      <div class="settings-section" id="section-desktop-app" style="display:none">
-        <h5 class="settings-section-title">🖥️ <span data-i18n="settings.desktop_app_section.title">Desktop App</span></h5>
-        <p class="settings-desc" data-i18n="settings.desktop_app_section.desc">Settings specific to Haven Desktop.</p>
-
-        <div class="desktop-pref-row">
-          <label class="toggle-row">
-            <input type="checkbox" id="pref-start-on-login">
-            <span class="toggle-label" data-i18n="settings.desktop_app_section.start_on_login">Start on Login</span>
-          </label>
-          <p class="settings-hint" data-i18n="settings.desktop_app_section.start_on_login_hint">Launch Haven Desktop automatically when you log in to your computer.</p>
-        </div>
-
-        <div class="desktop-pref-row" id="pref-start-hidden-row" style="display:none">
-          <label class="toggle-row">
-            <input type="checkbox" id="pref-start-hidden">
-            <span class="toggle-label" data-i18n="settings.desktop_app_section.start_hidden">Start Hidden to Tray</span>
-          </label>
-          <p class="settings-hint" data-i18n="settings.desktop_app_section.start_hidden_hint">When launching on login, start minimized to the system tray instead of showing the window.</p>
-        </div>
-
-        <div class="desktop-pref-row">
-          <label class="toggle-row">
-            <input type="checkbox" id="pref-minimize-to-tray">
-            <span class="toggle-label" data-i18n="settings.desktop_app_section.minimize_to_tray">Minimize to Tray on Close</span>
-          </label>
-          <p class="settings-hint" data-i18n="settings.desktop_app_section.minimize_to_tray_hint">Closing the window hides Haven to the system tray instead of quitting.</p>
-        </div>
-
-        <div class="desktop-pref-row">
-          <label class="toggle-row">
-            <input type="checkbox" id="pref-hide-menu-bar">
-            <span class="toggle-label" data-i18n="settings.desktop_app_section.hide_menu_bar">Hide Menu Bar</span>
-          </label>
-          <p class="settings-hint" data-i18n="settings.desktop_app_section.hide_menu_bar_hint">Hide the File / Edit / View / Window / Help toolbar. Press Alt to temporarily show it.</p>
-        </div>
-
-        <div class="desktop-pref-row">
-          <label class="toggle-row">
-            <input type="checkbox" id="pref-force-sdr">
-            <span class="toggle-label" data-i18n="settings.desktop_app_section.force_sdr">Force SDR (sRGB) Color</span>
-          </label>
-          <p class="settings-hint" data-i18n="settings.desktop_app_section.force_sdr_hint">Fix washed-out or over-saturated colors on HDR monitors. Requires restart.</p>
-        </div>
-
-        <div class="desktop-pref-row" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
-          <span class="settings-hint" id="desktop-version-info" style="opacity:0.6"></span>
-        </div>
-      </div>
+        <div class="settings-body" id="settings-body-user">
 
       <!-- Language Section -->
       <div class="settings-section" id="section-language">
@@ -1255,6 +1176,24 @@
             </select>
           </label>
           <div class="notif-divider"></div>
+          <label class="volume-row">
+            <span data-i18n="settings.sounds_section.reply_vol">Reply Vol</span>
+            <input type="range" id="notif-reply-volume" min="0" max="100" value="80" class="slider-sm">
+          </label>
+          <label class="select-row">
+            <span data-i18n="settings.sounds_section.replies">Replies</span>
+            <select id="notif-reply-sound">
+              <option value="chime">Chime</option>
+              <option value="bell">Bell</option>
+              <option value="alert">Alert</option>
+              <option value="chord">Chord</option>
+              <option value="ping">Ping</option>
+              <option value="blip">Blip</option>
+              <option value="drop">Drop</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+          <div class="notif-divider"></div>
           <label class="select-row">
             <span data-i18n="settings.sounds_section.user_joined">User Joined</span>
             <select id="notif-join-sound">
@@ -1418,9 +1357,96 @@
         <div id="theme-list" class="plugin-list"></div>
       </div>
 
+      <!-- Desktop Shortcuts Section (only shown in Haven Desktop) -->
+      <div class="settings-section" id="section-desktop-shortcuts" style="display:none">
+        <h5 class="settings-section-title">⌨️ <span data-i18n="settings.desktop_shortcuts_section.title">Desktop Shortcuts</span></h5>
+        <p class="settings-desc" data-i18n="settings.desktop_shortcuts_section.desc">Global keyboard shortcuts — active even when Haven is in the background. Click a row to rebind, or "Clear" to disable.</p>
+        <div class="shortcut-table" id="shortcut-table">
+          <div class="shortcut-row" id="shortcut-row-mute">
+            <span class="shortcut-label" data-i18n="settings.desktop_shortcuts_section.mute_unmute">Mute / Unmute</span>
+            <span class="shortcut-key" id="shortcut-key-mute">—</span>
+            <div class="shortcut-btns">
+              <button class="btn-xs shortcut-record-btn" data-action="mute" data-i18n="settings.desktop_shortcuts_section.change_btn">Change</button>
+              <button class="btn-xs shortcut-clear-btn"  data-action="mute" data-i18n="settings.desktop_shortcuts_section.clear_btn">Clear</button>
+            </div>
+          </div>
+          <div class="shortcut-row" id="shortcut-row-deafen">
+            <span class="shortcut-label" data-i18n="settings.desktop_shortcuts_section.deafen_undeafen">Deafen / Undeafen</span>
+            <span class="shortcut-key" id="shortcut-key-deafen">—</span>
+            <div class="shortcut-btns">
+              <button class="btn-xs shortcut-record-btn" data-action="deafen" data-i18n="settings.desktop_shortcuts_section.change_btn">Change</button>
+              <button class="btn-xs shortcut-clear-btn"  data-action="deafen" data-i18n="settings.desktop_shortcuts_section.clear_btn">Clear</button>
+            </div>
+          </div>
+          <div class="shortcut-row" id="shortcut-row-ptt">
+            <span class="shortcut-label"><span data-i18n="settings.desktop_shortcuts_section.ptt">Push-to-Talk</span> <span class="muted-text" style="font-weight:400;font-size:0.85em" data-i18n="settings.desktop_shortcuts_section.ptt_toggle">(toggle)</span></span>
+            <span class="shortcut-key" id="shortcut-key-ptt" data-i18n="settings.desktop_shortcuts_section.not_set">Not set</span>
+            <div class="shortcut-btns">
+              <button class="btn-xs shortcut-record-btn" data-action="ptt" data-i18n="settings.desktop_shortcuts_section.change_btn">Change</button>
+              <button class="btn-xs shortcut-clear-btn"  data-action="ptt" data-i18n="settings.desktop_shortcuts_section.clear_btn">Clear</button>
+            </div>
+          </div>
+        </div>
+        <p class="settings-hint" id="shortcut-status" style="margin-top:8px"></p>
+      </div>
+
+      <!-- Desktop App Settings Section (only shown in Haven Desktop) -->
+      <div class="settings-section" id="section-desktop-app" style="display:none">
+        <h5 class="settings-section-title">🖥️ <span data-i18n="settings.desktop_app_section.title">Desktop App</span></h5>
+        <p class="settings-desc" data-i18n="settings.desktop_app_section.desc">Settings specific to Haven Desktop.</p>
+
+        <div class="desktop-pref-row">
+          <label class="toggle-row">
+            <input type="checkbox" id="pref-start-on-login">
+            <span class="toggle-label" data-i18n="settings.desktop_app_section.start_on_login">Start on Login</span>
+          </label>
+          <p class="settings-hint" data-i18n="settings.desktop_app_section.start_on_login_hint">Launch Haven Desktop automatically when you log in to your computer.</p>
+        </div>
+
+        <div class="desktop-pref-row" id="pref-start-hidden-row" style="display:none">
+          <label class="toggle-row">
+            <input type="checkbox" id="pref-start-hidden">
+            <span class="toggle-label" data-i18n="settings.desktop_app_section.start_hidden">Start Hidden to Tray</span>
+          </label>
+          <p class="settings-hint" data-i18n="settings.desktop_app_section.start_hidden_hint">When launching on login, start minimized to the system tray instead of showing the window.</p>
+        </div>
+
+        <div class="desktop-pref-row">
+          <label class="toggle-row">
+            <input type="checkbox" id="pref-minimize-to-tray">
+            <span class="toggle-label" data-i18n="settings.desktop_app_section.minimize_to_tray">Minimize to Tray on Close</span>
+          </label>
+          <p class="settings-hint" data-i18n="settings.desktop_app_section.minimize_to_tray_hint">Closing the window hides Haven to the system tray instead of quitting.</p>
+        </div>
+
+        <div class="desktop-pref-row">
+          <label class="toggle-row">
+            <input type="checkbox" id="pref-hide-menu-bar">
+            <span class="toggle-label" data-i18n="settings.desktop_app_section.hide_menu_bar">Hide Menu Bar</span>
+          </label>
+          <p class="settings-hint" data-i18n="settings.desktop_app_section.hide_menu_bar_hint">Hide the File / Edit / View / Window / Help toolbar. Press Alt to temporarily show it.</p>
+        </div>
+
+        <div class="desktop-pref-row">
+          <label class="toggle-row">
+            <input type="checkbox" id="pref-force-sdr">
+            <span class="toggle-label" data-i18n="settings.desktop_app_section.force_sdr">Force SDR (sRGB) Color</span>
+          </label>
+          <p class="settings-hint" data-i18n="settings.desktop_app_section.force_sdr_hint">Fix washed-out or over-saturated colors on HDR monitors. Requires restart.</p>
+        </div>
+
+        <div class="desktop-pref-row" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+          <span class="settings-hint" id="desktop-version-info" style="opacity:0.6"></span>
+        </div>
+      </div>
+
+        </div><!-- /settings-body-user -->
+
+        <!-- Admin settings body (separate tab) -->
+        <div class="settings-body" id="settings-body-admin" style="display:none">
+
       <!-- Admin Section (hidden for non-admins) -->
       <div class="settings-section admin-settings-section" id="admin-mod-panel" style="display:none">
-        <h5 class="settings-section-title">🛡️ <span data-i18n="settings.admin.title">Admin</span></h5>
 
         <!-- Server Branding -->
         <div class="admin-settings" id="section-branding">
@@ -1643,14 +1669,14 @@
           <button class="btn-sm btn-full" id="mod-mode-settings-toggle" style="margin-top:6px;">🔧 <span data-i18n="settings.admin.modmode_toggle_btn">Toggle Mod Mode</span></button>
           <button class="btn-sm btn-full" id="mod-mode-reset" data-i18n="settings.admin.modmode_reset_btn" style="margin-top:6px;">↺ Reset Layout</button>
         </div>
-        <!-- Admin save bar — changes only apply when Save is clicked -->
-        <div class="admin-save-bar">
-          <button class="btn-accent btn-admin-save" id="admin-save-btn">💾 <span data-i18n="settings.admin.save_btn">Save Settings</span></button>
-          <small class="settings-hint" style="text-align:center;margin-top:4px" data-i18n="settings.admin.save_hint">Changes only apply when you click Save. Close (✕) to cancel.</small>
-        </div>
       </div>
-        </div><!-- /settings-body -->
+        </div><!-- /settings-body-admin -->
       </div><!-- /settings-layout -->
+      <!-- Admin save bar — changes only apply when Save is clicked -->
+      <div class="admin-save-bar" style="display:none">
+        <button class="btn-accent btn-admin-save" id="admin-save-btn">💾 <span data-i18n="settings.admin.save_btn">Save Settings</span></button>
+        <small class="settings-hint" style="text-align:center;margin-top:4px" data-i18n="settings.admin.save_hint">Changes only apply when you click Save. Close (✕) to cancel.</small>
+      </div>
     </div>
   </div>
 

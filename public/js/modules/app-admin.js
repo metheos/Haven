@@ -418,28 +418,47 @@ _renderWebhooksList(webhooks) {
 
 _syncSettingsNav() {
   const isAdmin = document.getElementById('admin-mod-panel')?.style.display !== 'none';
+  // Show/hide individual admin nav items
   document.querySelectorAll('.settings-nav-admin').forEach(el => {
     el.style.display = isAdmin ? '' : 'none';
   });
+  // Show/hide the admin tab button in settings header
+  const adminTab = document.querySelector('.settings-tab-admin');
+  if (adminTab) adminTab.style.display = isAdmin ? '' : 'none';
+  // Show/hide the admin save bar (only visible when admin tab is active)
+  const saveBar = document.querySelector('.admin-save-bar');
+  if (saveBar) {
+    const adminTabActive = adminTab?.classList.contains('active');
+    saveBar.style.display = (isAdmin && adminTabActive) ? '' : 'none';
+  }
   // Show the Emojis settings tab for users with manage_emojis permission even if not full admin/mod
   const emojiNavItem = document.querySelector('.settings-nav-item[data-target="section-emojis"]');
   if (emojiNavItem && !isAdmin && this._hasPerm('manage_emojis')) {
     emojiNavItem.style.display = '';
+    if (adminTab) adminTab.style.display = '';
   }
   // Show the Sounds admin tab for users with manage_soundboard permission
   const soundsNavItem = document.querySelector('.settings-nav-item[data-target="section-sounds-admin"]');
   if (soundsNavItem && !isAdmin && this._hasPerm('manage_soundboard')) {
     soundsNavItem.style.display = '';
+    if (adminTab) adminTab.style.display = '';
   }
   // Show Roles tab for users with manage_roles permission
   const rolesNavItem = document.querySelector('.settings-nav-item[data-target="section-roles"]');
   if (rolesNavItem && !isAdmin && this._hasPerm('manage_roles')) {
     rolesNavItem.style.display = '';
+    if (adminTab) adminTab.style.display = '';
   }
   // Show Server settings tab for users with manage_server permission
   const serverNavItem = document.querySelector('.settings-nav-item[data-target="section-server"]');
   if (serverNavItem && !isAdmin && this._hasPerm('manage_server')) {
     serverNavItem.style.display = '';
+    if (adminTab) adminTab.style.display = '';
+  }
+  // Also show save bar for users with manage_server perm (when admin tab active)
+  if (saveBar && !isAdmin && this._hasPerm('manage_server')) {
+    const adminTabActive = adminTab?.classList.contains('active');
+    if (adminTabActive) saveBar.style.display = '';
   }
 },
 
