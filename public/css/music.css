@@ -62,8 +62,28 @@
 
 /* Seek slider + time labels */
 .music-seek-slider {
+  -webkit-appearance: none;
+  appearance: none;
   flex: 1; min-width: 60px; max-width: 200px;
-  accent-color: var(--accent, #5865f2);
+  height: 6px;
+  background: transparent;
+}
+.music-seek-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent, #5865f2);
+  cursor: pointer;
+  margin-top: -4px;
+}
+.music-seek-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent, #5865f2);
+  cursor: pointer;
+  border: none;
 }
 .music-time {
   font-size: 10px; color: var(--text-muted, #888);
