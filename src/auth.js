@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const { getDb } = require('./database');
 const OTPAuth = require('otpauth');
 const QRCode = require('qrcode');
+const https = require('https');
+const http = require('http');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -81,6 +83,86 @@ function sanitizeString(str, maxLen = 200) {
   return str.trim().slice(0, maxLen);
 }
 
+// ── SSO Avatar Download ─────────────────────────────────
+// Downloads a profile picture from a remote Haven server and saves it locally.
+// Returns the local /uploads/ path, or throws on failure.
+function downloadSSOAvatar(url) {
+  return new Promise((resolve, reject) => {
+    // Validate URL
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return reject(new Error('Invalid URL'));
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return reject(new Error('Invalid protocol'));
+    }
+
+    const fetcher = parsed.protocol === 'https:' ? https : http;
+    const request = fetcher.get(url, { timeout: 10000 }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`HTTP ${res.statusCode}`));
+      }
+
+      const contentType = (res.headers['content-type'] || '').toLowerCase();
+      const validTypes = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp' };
+      const ext = validTypes[contentType.split(';')[0].trim()];
+      if (!ext) {
+        res.resume();
+        return reject(new Error('Not a supported image type'));
+      }
+
+      // Limit to 2 MB
+      let size = 0;
+      const maxSize = 2 * 1024 * 1024;
+      const chunks = [];
+
+      res.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > maxSize) {
+          res.destroy();
+          return reject(new Error('Image too large'));
+        }
+        chunks.push(chunk);
+      });
+
+      res.on('end', () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+
+          // Validate magic bytes
+          let validMagic = false;
+          if (ext === '.jpg') validMagic = buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+          else if (ext === '.png') validMagic = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+          else if (ext === '.gif') validMagic = buffer.slice(0, 6).toString().startsWith('GIF8');
+          else if (ext === '.webp') validMagic = buffer.slice(0, 4).toString() === 'RIFF' && buffer.slice(8, 12).toString() === 'WEBP';
+          if (!validMagic) return reject(new Error('File content does not match image type'));
+
+          const filename = Date.now() + crypto.randomBytes(8).toString('hex') + ext;
+          const { UPLOADS_DIR } = require('./paths');
+          const path = require('path');
+          const fs = require('fs');
+          const filePath = path.join(UPLOADS_DIR, filename);
+          fs.writeFileSync(filePath, buffer);
+          resolve(`/uploads/${filename}`);
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      res.on('error', reject);
+    });
+
+    request.on('error', reject);
+    request.on('timeout', () => {
+      request.destroy();
+      reject(new Error('Download timed out'));
+    });
+  });
+}
+
 // ── Register ──────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
@@ -131,9 +213,21 @@ router.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 12);
     const isAdmin = username.toLowerCase() === ADMIN_USERNAME ? 1 : 0;
 
+    // SSO profile picture: download from home server if provided
+    const ssoProfilePicture = typeof req.body.ssoProfilePicture === 'string' ? req.body.ssoProfilePicture.trim().slice(0, 500) : null;
+    let avatarPath = null;
+    if (ssoProfilePicture) {
+      try {
+        avatarPath = await downloadSSOAvatar(ssoProfilePicture);
+      } catch (err) {
+        console.warn('[SSO] Avatar download failed:', err.message);
+        // Non-fatal — proceed without avatar
+      }
+    }
+
     const result = db.prepare(
-      'INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)'
-    ).run(username, hash, isAdmin);
+      'INSERT INTO users (username, password_hash, is_admin, avatar) VALUES (?, ?, ?, ?)'
+    ).run(username, hash, isAdmin, avatarPath);
 
     // Auto-assign roles flagged as auto_assign to new users
     try {
@@ -848,6 +942,238 @@ router.put('/user-servers', async (req, res) => {
     console.error('Put user-servers error:', err);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// ── SSO (Sign in with existing Haven server) ───────────
+// Allows other Haven servers to pre-fill registration with this user's profile.
+// Flow: foreign server opens /SSO?authCode=X → user confirms → foreign server
+// calls /SSO/authenticate?authCode=X to retrieve public profile data.
+
+const pendingSSO = new Map();
+
+// Rate limiter for SSO authenticate endpoint (prevents auth code brute-force)
+const ssoRateLimitStore = new Map();
+function ssoAuthLimiter(req, res, next) {
+  const ip = req.ip || req.socket.remoteAddress;
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute
+  const maxAttempts = 5;
+
+  if (!ssoRateLimitStore.has(ip)) ssoRateLimitStore.set(ip, []);
+  const timestamps = ssoRateLimitStore.get(ip).filter(t => now - t < windowMs);
+  ssoRateLimitStore.set(ip, timestamps);
+
+  if (timestamps.length >= maxAttempts) {
+    return res.status(429).json({ error: 'Too many attempts. Try again in a minute.' });
+  }
+  timestamps.push(now);
+  next();
+}
+
+// Clean up SSO rate limit entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, timestamps] of ssoRateLimitStore) {
+    const fresh = timestamps.filter(t => now - t < 60000);
+    if (fresh.length === 0) ssoRateLimitStore.delete(ip);
+    else ssoRateLimitStore.set(ip, fresh);
+  }
+}, 5 * 60 * 1000);
+
+// GET /api/auth/SSO?authCode=X — Consent/authorize page
+// The user must be logged in (valid JWT in localStorage). The page is client-rendered
+// and reads the token from localStorage to make the approve call.
+router.get('/SSO', (req, res) => {
+  const authCode = typeof req.query.authCode === 'string' ? req.query.authCode.trim() : '';
+  const origin = typeof req.query.origin === 'string' ? req.query.origin.trim().slice(0, 200) : '';
+  if (!authCode || authCode.length < 32 || authCode.length > 128) {
+    return res.status(400).send('Invalid or missing auth code.');
+  }
+
+  const safeAuthCode = authCode.replace(/[^a-fA-F0-9]/g, '');
+  const safeOrigin = origin.replace(/[<>"'&]/g, '');
+
+  // Serve a self-contained consent page that reads JWT from localStorage
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Haven SSO</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d1a; color: #e0e0e0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 32px; max-width: 400px; width: 90%; text-align: center; }
+    .card h2 { margin-bottom: 8px; font-size: 20px; }
+    .card p { color: #aaa; font-size: 14px; margin-bottom: 20px; }
+    .origin { color: #6b4fdb; font-weight: 600; word-break: break-all; }
+    .info { background: #12122a; border: 1px solid #2a2a4a; border-radius: 8px; padding: 12px; margin-bottom: 20px; text-align: left; font-size: 13px; }
+    .info-row { display: flex; justify-content: space-between; padding: 4px 0; }
+    .info-label { color: #888; }
+    .info-value { color: #e0e0e0; font-weight: 500; }
+    .btn { display: inline-block; padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin: 4px; transition: opacity 0.2s; }
+    .btn-primary { background: #6b4fdb; color: #fff; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-cancel { background: transparent; color: #888; border: 1px solid #444; }
+    .btn-cancel:hover { color: #fff; border-color: #666; }
+    .success { display: none; color: #4ade80; font-size: 15px; margin-top: 12px; }
+    .not-logged-in { color: #ef4444; }
+    .loading { color: #888; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>⬡ Haven SSO</h2>
+    <div id="loading" class="loading"><p>Checking login status...</p></div>
+    <div id="not-logged-in" style="display:none">
+      <p class="not-logged-in">You are not logged in to this server.</p>
+      <p style="font-size:13px;color:#888;margin-top:8px">Log in first, then try again.</p>
+      <button class="btn btn-primary" onclick="window.location.href='/'">Go to Login</button>
+    </div>
+    <div id="consent" style="display:none">
+      <p>Another Haven server wants to use your identity to pre-fill registration.</p>
+      ${safeOrigin ? `<p>Requesting server: <span class="origin">${safeOrigin}</span></p>` : ''}
+      <div class="info">
+        <div class="info-row"><span class="info-label">Username</span><span class="info-value" id="sso-username">—</span></div>
+        <div class="info-row"><span class="info-label">Profile picture</span><span class="info-value" id="sso-avatar">—</span></div>
+      </div>
+      <p style="font-size:12px;color:#666">Your password is <strong>never</strong> shared. Only your username and profile picture.</p>
+      <div id="buttons">
+        <button class="btn btn-primary" id="approve-btn">Approve</button>
+        <button class="btn btn-cancel" onclick="window.close()">Cancel</button>
+      </div>
+      <p class="success" id="success-msg">✓ Approved! You can close this tab.</p>
+    </div>
+  </div>
+  <script>
+    const authCode = '${safeAuthCode}';
+    const origin = '${safeOrigin}';
+
+    (async function() {
+      const token = localStorage.getItem('haven_token');
+      if (!token) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('not-logged-in').style.display = 'block';
+        return;
+      }
+
+      // Verify token and get user info
+      try {
+        const userStr = localStorage.getItem('haven_user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        if (!user) throw new Error('No user data');
+
+        document.getElementById('sso-username').textContent = user.displayName || user.username || '—';
+        document.getElementById('sso-avatar').textContent = user.avatar ? 'Will be shared' : 'None set';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('consent').style.display = 'block';
+      } catch {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('not-logged-in').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('approve-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('approve-btn');
+        btn.disabled = true;
+        btn.textContent = 'Approving...';
+        try {
+          const res = await fetch('/api/auth/SSO/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ authCode, origin })
+          });
+          if (res.ok) {
+            document.getElementById('buttons').style.display = 'none';
+            document.getElementById('success-msg').style.display = 'block';
+          } else {
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || 'Failed to approve');
+            btn.disabled = false;
+            btn.textContent = 'Approve';
+          }
+        } catch {
+          alert('Connection error');
+          btn.disabled = false;
+          btn.textContent = 'Approve';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>`);
+});
+
+// POST /api/auth/SSO/approve — User clicks Approve on consent page
+router.post('/SSO/approve', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const decoded = token ? verifyToken(token) : null;
+  if (!decoded) return res.status(401).json({ error: 'Unauthorized' });
+
+  const authCode = typeof req.body.authCode === 'string' ? req.body.authCode.trim() : '';
+  const origin = typeof req.body.origin === 'string' ? req.body.origin.trim().slice(0, 200) : '';
+  if (!authCode || authCode.length < 32) {
+    return res.status(400).json({ error: 'Invalid auth code' });
+  }
+
+  // Prevent duplicate approvals
+  if (pendingSSO.has(authCode)) {
+    return res.status(400).json({ error: 'Auth code already used' });
+  }
+
+  pendingSSO.set(authCode, { userId: decoded.id, origin, approvedAt: Date.now() });
+
+  // Auto-expire after 60 seconds
+  setTimeout(() => pendingSSO.delete(authCode), 60000);
+
+  res.json({ ok: true });
+});
+
+// GET /api/auth/SSO/authenticate?authCode=X — Foreign server calls this to retrieve user info
+// This is called by the CLIENT on the foreign server, not server-to-server.
+router.get('/SSO/authenticate', ssoAuthLimiter, (req, res) => {
+  const authCode = typeof req.query.authCode === 'string' ? req.query.authCode.trim() : '';
+  if (!authCode) return res.status(400).json({ error: 'Missing auth code' });
+
+  const pending = pendingSSO.get(authCode);
+  if (!pending) return res.status(404).json({ error: 'Invalid or expired auth code' });
+
+  // One-time use: delete immediately
+  pendingSSO.delete(authCode);
+
+  // Set CORS to allow the requesting origin (if provided during approval)
+  if (pending.origin) {
+    res.set('Access-Control-Allow-Origin', pending.origin);
+    res.set('Access-Control-Allow-Credentials', 'false');
+  }
+
+  const db = getDb();
+  const user = db.prepare('SELECT username, avatar, display_name FROM users WHERE id = ?').get(pending.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Build the avatar URL — if it's a relative path, make it absolute
+  let avatarUrl = user.avatar || null;
+  if (avatarUrl && avatarUrl.startsWith('/')) {
+    // The client will need to construct the full URL using the home server address
+    // We return it as-is (relative) and the client prepends the server URL
+  }
+
+  res.json({
+    username: user.display_name || user.username,
+    profilePicture: avatarUrl
+  });
+});
+
+// CORS preflight for SSO/authenticate (cross-origin requests from foreign Haven clients)
+router.options('/SSO/authenticate', (req, res) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Max-Age', '600');
+  }
+  res.sendStatus(204);
 });
 
 module.exports = { router, verifyToken, generateChannelCode, generateToken, authLimiter };
