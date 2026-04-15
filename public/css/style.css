@@ -1799,7 +1799,7 @@ input[type="range"]:not(.rgb-slider)::-webkit-slider-thumb {
   background: var(--accent, #7c5cfc);
   border: 2px solid rgba(255,255,255,0.3);
   cursor: pointer;
-  margin-top: calc((var(--track-h, 6px) - 14px) / 2);
+  margin-top: calc((var(--track-h, 6px) - 14px) / 2 - 1px);
 }
 input[type="range"]:not(.rgb-slider)::-moz-range-thumb {
   width: 14px;
@@ -3217,7 +3217,6 @@ html.rgb-cycling *::after {
   border-bottom: 1px solid var(--border);
   min-height: 52px;
   gap: 12px;
-  background: var(--bg-primary);
 }
 
 .channel-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -3851,7 +3850,7 @@ select.cfn-select.cfn-input {
 
 /* ── Welcome Screen ────────────────────────────────────── */
 
-.welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); }
+.welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; }
 
 .welcome-content { text-align: center; color: var(--text-secondary); }
 
@@ -3868,7 +3867,7 @@ select.cfn-select.cfn-input {
 
 /* ── Message Area ──────────────────────────────────────── */
 
-.message-area { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; background: var(--bg-primary); }
+.message-area { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
 
 /* ── Jump to Bottom button ───────────────────────────── */
 .jump-to-bottom {
@@ -12745,7 +12744,7 @@ ul.chat-list { list-style-type: disc; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center 0%;
   display: block;
   opacity: 0.8;
 }
@@ -12760,12 +12759,13 @@ ul.chat-list { list-style-type: disc; }
   background: linear-gradient(to bottom, transparent, var(--bg-primary));
   pointer-events: none;
 }
-/* All content layers sit above the banner */
-.main > .channel-header,
-.main > .welcome-screen,
-.main > .message-area {
-  position: relative;
-  z-index: 1;
+
+/* Banner visible (non-overlay): header & topic stay solid to cover it */
+.main.has-banner .channel-header {
+  background: var(--bg-primary);
+}
+.main.has-banner .channel-topic-bar {
+  background: var(--bg-secondary);
 }
 
 /* ── Banner Overlay Mode (opt-in: header becomes transparent) ─── */

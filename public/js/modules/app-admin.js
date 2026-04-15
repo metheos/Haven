@@ -396,11 +396,14 @@ _applyServerSettings() {
   const mainEl = document.querySelector('.main');
   const overlayEnabled = this.serverSettings.banner_overlay_header === 'true';
   const bannerHeight = parseInt(this.serverSettings.banner_height) || 180;
+  const bannerOffset = parseInt(this.serverSettings.banner_offset) || 0;
   if (bannerDisplay && bannerImg) {
     if (this.serverSettings.server_banner) {
       bannerImg.src = this.serverSettings.server_banner;
       bannerDisplay.style.display = '';
       bannerDisplay.style.height = bannerHeight + 'px';
+      bannerImg.style.objectPosition = 'center ' + bannerOffset + '%';
+      mainEl?.classList.add('has-banner');
       if (overlayEnabled) {
         mainEl?.classList.add('has-banner-overlay');
       } else {
@@ -409,7 +412,7 @@ _applyServerSettings() {
     } else {
       bannerDisplay.style.display = 'none';
       bannerImg.src = '';
-      mainEl?.classList.remove('has-banner-overlay');
+      mainEl?.classList.remove('has-banner', 'has-banner-overlay');
     }
   }
   // Banner overlay toggle checkbox
@@ -421,6 +424,13 @@ _applyServerSettings() {
   if (heightSlider) {
     heightSlider.value = bannerHeight;
     if (heightValue) heightValue.textContent = bannerHeight + 'px';
+  }
+  // Banner offset slider
+  const offsetSlider = document.getElementById('banner-offset-slider');
+  const offsetValue = document.getElementById('banner-offset-value');
+  if (offsetSlider) {
+    offsetSlider.value = bannerOffset;
+    if (offsetValue) offsetValue.textContent = bannerOffset + '%';
   }
 
   // Role icon display checkboxes
@@ -883,6 +893,20 @@ _initServerBranding() {
     });
     bannerSlider.addEventListener('change', (e) => {
       this.socket.emit('update-server-setting', { key: 'banner_height', value: e.target.value });
+    });
+  }
+
+  // Banner vertical offset slider
+  const bannerOffsetSlider = document.getElementById('banner-offset-slider');
+  const bannerOffsetLabel = document.getElementById('banner-offset-value');
+  if (bannerOffsetSlider) {
+    bannerOffsetSlider.addEventListener('input', (e) => {
+      if (bannerOffsetLabel) bannerOffsetLabel.textContent = e.target.value + '%';
+      const img = document.getElementById('server-banner-img');
+      if (img) img.style.objectPosition = 'center ' + e.target.value + '%';
+    });
+    bannerOffsetSlider.addEventListener('change', (e) => {
+      this.socket.emit('update-server-setting', { key: 'banner_offset', value: e.target.value });
     });
   }
 

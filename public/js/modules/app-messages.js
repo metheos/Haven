@@ -580,6 +580,15 @@ _createMessageEl(msg, prevMsg) {
     ? `<span class="user-role-badge msg-role-badge" style="color:${this._safeColor(onlineUser.role.color, 'var(--text-muted)')}">${this._escapeHtml(onlineUser.role.name)}</span>`
     : '';
 
+  // Role icon in chat
+  const showIconChat = this.serverSettings.role_icon_chat === 'true';
+  const iconAfterName = this.serverSettings.role_icon_after_name === 'true';
+  const msgRoleIcon = showIconChat && onlineUser && onlineUser.role && onlineUser.role.icon
+    ? `<img class="role-icon" src="${this._escapeHtml(onlineUser.role.icon)}" alt="" title="${this._escapeHtml(onlineUser.role.name)}">`
+    : '';
+  const msgRoleIconBefore = msgRoleIcon && !iconAfterName ? msgRoleIcon : '';
+  const msgRoleIconAfter = msgRoleIcon && iconAfterName ? msgRoleIcon : '';
+
   // Role color display mode: colored-name uses role color for the author name
   const roleDisplayMode = localStorage.getItem('haven-role-display') || 'colored-name';
   const authorColor = (roleDisplayMode === 'colored-name' && onlineUser && onlineUser.role && onlineUser.role.color)
@@ -607,7 +616,9 @@ _createMessageEl(msg, prevMsg) {
       <div class="message-body">
         ${replyHtml}
         <div class="message-header">
+          ${msgRoleIconBefore}
           <span class="message-author" style="color:${authorColor}"${this._nicknames[msg.user_id] ? ` title="${this._escapeHtml(msg.username)}"` : ''}>${this._escapeHtml(this._getNickname(msg.user_id, msg.username))}</span>
+          ${msgRoleIconAfter}
           ${botBadge}
           ${msgRoleBadge}
           <span class="message-time">${this._formatTime(msg.created_at)}</span>
@@ -662,6 +673,15 @@ _promoteCompactToFull(compactEl) {
     ? `<span class="user-role-badge msg-role-badge" style="color:${this._safeColor(onlineUser.role.color, 'var(--text-muted)')}">${this._escapeHtml(onlineUser.role.name)}</span>`
     : '';
 
+  // Role icon in chat (compact-to-full)
+  const showIconChat2 = this.serverSettings.role_icon_chat === 'true';
+  const iconAfterName2 = this.serverSettings.role_icon_after_name === 'true';
+  const msgRoleIcon2 = showIconChat2 && onlineUser && onlineUser.role && onlineUser.role.icon
+    ? `<img class="role-icon" src="${this._escapeHtml(onlineUser.role.icon)}" alt="" title="${this._escapeHtml(onlineUser.role.name)}">`
+    : '';
+  const msgRoleIconBefore2 = msgRoleIcon2 && !iconAfterName2 ? msgRoleIcon2 : '';
+  const msgRoleIconAfter2 = msgRoleIcon2 && iconAfterName2 ? msgRoleIcon2 : '';
+
   // Replace the compact element in-place
   const wasAnnouncement = compactEl.classList.contains('announcement');
   compactEl.className = 'message' + (isPinned ? ' pinned' : '') + (wasAnnouncement ? ' announcement' : '');
@@ -674,7 +694,9 @@ _promoteCompactToFull(compactEl) {
       ${avatarHtml}
       <div class="message-body">
         <div class="message-header">
+          ${msgRoleIconBefore2}
           <span class="message-author" style="color:${color}"${this._nicknames[userId] ? ` title="${this._escapeHtml(username)}"` : ''}>${this._escapeHtml(this._getNickname(userId, username))}</span>
+          ${msgRoleIconAfter2}
           ${msgRoleBadge}
           <span class="message-time">${this._formatTime(time)}</span>
           ${pinnedTag}

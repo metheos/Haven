@@ -782,6 +782,27 @@ function initDatabase() {
     }
   } catch { /* non-critical */ }
 
+  // ── Migration: role icon column ─────────────────────────
+  try {
+    db.prepare("SELECT icon FROM roles LIMIT 0").get();
+  } catch {
+    db.exec("ALTER TABLE roles ADD COLUMN icon TEXT DEFAULT NULL");
+  }
+
+  // ── Migration: bot_commands table for extensible slash commands ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bot_commands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      webhook_id INTEGER NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+      command TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(webhook_id, command)
+    );
+    CREATE INDEX IF NOT EXISTS idx_bot_commands_command ON bot_commands(command);
+    CREATE INDEX IF NOT EXISTS idx_bot_commands_webhook ON bot_commands(webhook_id);
+  `);
+
   return db;
 }
 

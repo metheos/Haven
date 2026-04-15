@@ -85,6 +85,9 @@ class HavenApp {
       { cmd: 'poll',       args: '[question]',       desc: 'Open the poll creator' },
     ];
 
+    // Load bot-registered slash commands for autocomplete
+    this._loadBotCommands();
+
     // Emoji palette organized by category
     this.emojiCategories = {
       'Smileys':  ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','🙂','🤗','🤩','🤔','😐','🙄','😏','😣','😥','😮','😯','😴','😛','😜','😝','😒','😔','🙃','😲','😤','😭','😢','😱','🥺','😠','😡','🤬','😈','💀','💩','🤡','👻','😺','😸','🫠','🫣','🫢','🫥','🫤','🥹','🥲','😶‍🌫️','🤭','🫡','🤫','🤥','😬','🫨','😵','😵‍💫','🥴','😮‍💨','😤','🥱','😇','🤠','🤑','🤓','😈','👿','🫶','🤧','😷','🤒','🤕','💅'],
@@ -225,6 +228,24 @@ class HavenApp {
     if (organizeBtn) organizeBtn.style.display = '';
 
     document.getElementById('mod-mode-settings-toggle')?.addEventListener('click', () => this.modMode?.toggle());
+  }
+
+  async _loadBotCommands() {
+    try {
+      const res = await fetch('/api/bot-commands');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.commands || !data.commands.length) return;
+      const builtInCmds = new Set(this.slashCommands.map(c => c.cmd));
+      for (const bc of data.commands) {
+        if (builtInCmds.has(bc.command)) continue;
+        this.slashCommands.push({
+          cmd: bc.command,
+          args: '<...>',
+          desc: `${bc.description || 'Bot command'}  [${bc.bot_name || 'Bot'}]`
+        });
+      }
+    } catch { /* non-critical */ }
   }
 
 }

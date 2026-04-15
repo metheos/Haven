@@ -289,6 +289,17 @@ _setupSocketListeners() {
     // (covers cases where initial push arrived before DOM was ready)
     this.socket.emit('get-voice-counts');
 
+    // Auto-join via invite link (vanity code or channel code in query param)
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get('invite');
+    if (inviteCode && !this._inviteHandled) {
+      this._inviteHandled = true;
+      this.socket.emit('join-channel', { code: inviteCode });
+      // Clean up the URL
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+
     // Re-evaluate input area visibility for the current channel (read-only, text/media toggles may have changed)
     if (this.currentChannel) {
       const curCh = this.channels.find(c => c.code === this.currentChannel);
@@ -534,16 +545,21 @@ _setupSocketListeners() {
           const _notifCh = this.channels.find(c => c.code === data.channelCode);
           const _isAnnouncement = _notifCh && _notifCh.notification_type === 'announcement';
           const _isReplyToMe = data.message.replyContext && data.message.replyContext.user_id === this.user.id;
-          if (mentionRegex.test(data.message.content)) {
-            this.notifications.play('mention');
+          const _isDm = _notifCh && _notifCh.is_dm;
+          const _isMention = mentionRegex.test(data.message.content);
+          const _notifOpts = _isMention ? { isMention: true } : _isReplyToMe ? { isReply: true } : _isDm ? { isDm: true } : null;
+          if (_isMention) {
+            this.notifications.play('mention', { isMention: true });
           } else if (_isReplyToMe) {
-            this.notifications.play('reply');
+            this.notifications.play('reply', { isReply: true });
+          } else if (_isDm) {
+            this.notifications.play('message', { isDm: true });
           } else {
             this.notifications.play(_isAnnouncement ? 'announcement' : 'message');
           }
           // Fire native OS notification if tab is hidden (alt-tabbed, minimised, etc.)
           if (document.hidden) {
-            this._fireNativeNotification(data.message, data.channelCode);
+            this._fireNativeNotification(data.message, data.channelCode, _notifOpts);
           }
         }
       }
@@ -567,15 +583,20 @@ _setupSocketListeners() {
         const _notifCh2 = this.channels.find(c => c.code === data.channelCode);
         const _isAnnouncement2 = _notifCh2 && _notifCh2.notification_type === 'announcement';
         const _isReplyToMe2 = data.message.replyContext && data.message.replyContext.user_id === this.user.id;
-        if (mentionRegex.test(data.message.content)) {
-          this.notifications.play('mention');
+        const _isDm2 = _notifCh2 && _notifCh2.is_dm;
+        const _isMention2 = mentionRegex.test(data.message.content);
+        const _notifOpts2 = _isMention2 ? { isMention: true } : _isReplyToMe2 ? { isReply: true } : _isDm2 ? { isDm: true } : null;
+        if (_isMention2) {
+          this.notifications.play('mention', { isMention: true });
         } else if (_isReplyToMe2) {
-          this.notifications.play('reply');
+          this.notifications.play('reply', { isReply: true });
+        } else if (_isDm2) {
+          this.notifications.play('message', { isDm: true });
         } else {
           this.notifications.play(_isAnnouncement2 ? 'announcement' : 'message');
         }
         // Fire native OS notification when tab/window is not visible
-        this._fireNativeNotification(data.message, data.channelCode);
+        this._fireNativeNotification(data.message, data.channelCode, _notifOpts2);
       }
     }
 

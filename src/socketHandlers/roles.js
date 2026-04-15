@@ -108,7 +108,7 @@ module.exports = function register(socket, ctx) {
     if (memberIds.length > 0) {
       const placeholders = memberIds.map(() => '?').join(',');
       const roleRows = db.prepare(`
-        SELECT ur.user_id, r.id as role_id, r.name, r.level, r.color, ur.channel_id
+        SELECT ur.user_id, r.id as role_id, r.name, r.level, r.color, r.icon, ur.channel_id
         FROM user_roles ur
         JOIN roles r ON ur.role_id = r.id
         WHERE ur.user_id IN (${placeholders})
@@ -119,7 +119,7 @@ module.exports = function register(socket, ctx) {
         if (!userRolesMap[row.user_id]) userRolesMap[row.user_id] = [];
         userRolesMap[row.user_id].push({
           roleId: row.role_id, name: row.name, level: row.level,
-          color: row.color, scope: row.channel_id ? 'channel' : 'server'
+          color: row.color, icon: row.icon, scope: row.channel_id ? 'channel' : 'server'
         });
       });
     }
@@ -148,14 +148,15 @@ module.exports = function register(socket, ctx) {
     const scope = data.scope === 'channel' ? 'channel' : 'server';
     const color = isString(data.color, 4, 7) && /^#[0-9a-fA-F]{3,6}$/.test(data.color) ? data.color : null;
     const autoAssign = data.autoAssign ? 1 : 0;
+    const icon = isString(data.icon, 1, 512) && /^\/uploads\//i.test(data.icon) ? data.icon : null;
 
     try {
       if (autoAssign) {
         db.prepare('UPDATE roles SET auto_assign = 0').run();
       }
       const result = db.prepare(
-        'INSERT INTO roles (name, level, scope, color, auto_assign) VALUES (?, ?, ?, ?, ?)'
-      ).run(name, level, scope, color, autoAssign);
+        'INSERT INTO roles (name, level, scope, color, auto_assign, icon) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(name, level, scope, color, autoAssign, icon);
 
       const perms = Array.isArray(data.permissions) ? data.permissions : [];
       const adminOnlyPerms = ['transfer_admin', 'manage_roles', 'manage_server', 'delete_channel'];
@@ -196,6 +197,10 @@ module.exports = function register(socket, ctx) {
       if (data.color !== undefined) {
         const safeColor = (isString(data.color, 4, 7) && /^#[0-9a-fA-F]{3,6}$/.test(data.color)) ? data.color : null;
         updates.push('color = ?'); values.push(safeColor);
+      }
+      if (data.icon !== undefined) {
+        const safeIcon = (isString(data.icon, 1, 512) && /^\/uploads\//i.test(data.icon)) ? data.icon : null;
+        updates.push('icon = ?'); values.push(safeIcon);
       }
       if (data.autoAssign !== undefined) {
         if (data.autoAssign) {

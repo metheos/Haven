@@ -176,6 +176,13 @@ _renderUserItem(u, scoreLookup) {
   // Role display mode
   const roleDisplayMode = localStorage.getItem('haven-role-display') || 'colored-name';
   const roleColor = u.role ? this._safeColor(u.role.color, 'var(--text-muted)') : '';
+  const showIconSidebar = (this.serverSettings.role_icon_sidebar || 'true') === 'true';
+  const iconAfterName = this.serverSettings.role_icon_after_name === 'true';
+  const roleIconHtml = showIconSidebar && u.role && u.role.icon
+    ? `<img class="role-icon" src="${this._escapeHtml(u.role.icon)}" alt="" title="${this._escapeHtml(u.role.name)}">`
+    : '';
+  const roleIconBefore = roleIconHtml && !iconAfterName ? roleIconHtml : '';
+  const roleIconAfter = roleIconHtml && iconAfterName ? roleIconHtml : '';
   const roleDot = (roleDisplayMode === 'dot' && u.role)
     ? `<span class="user-role-dot" style="background:${roleColor}" title="${this._escapeHtml(u.role.name)}"></span>`
     : '';
@@ -213,8 +220,9 @@ _renderUserItem(u, scoreLookup) {
   return `
     <div class="user-item${onlineClass}" data-user-id="${u.id}">
       ${avatarHtml}
-      ${roleDot}
+      ${roleDot}${roleIconBefore}
       <span class="user-item-name"${nameStyle}${this._nicknames[u.id] ? ` title="${this._escapeHtml(u.username)}"` : ''}>${this._escapeHtml(this._getNickname(u.id, u.username))}</span>
+      ${roleIconAfter}
       ${roleBadge}
       ${statusTextHtml}
       ${scoreBadge}
@@ -250,9 +258,10 @@ _showProfilePopup(profile) {
 
   // Roles
   const rolesHtml = (profile.roles && profile.roles.length > 0)
-    ? profile.roles.map(r =>
-        `<span class="profile-popup-role" style="border-color:${this._safeColor(r.color, 'var(--border-light)')}; color:${this._safeColor(r.color, 'var(--text-secondary)')}"><span class="profile-role-dot" style="background:${this._safeColor(r.color, 'var(--text-muted)')}"></span>${this._escapeHtml(r.name)}</span>`
-      ).join('')
+    ? profile.roles.map(r => {
+        const rIcon = r.icon ? `<img class="role-icon" src="${this._escapeHtml(r.icon)}" alt="">` : `<span class="profile-role-dot" style="background:${this._safeColor(r.color, 'var(--text-muted)')}"></span>`;
+        return `<span class="profile-popup-role" style="border-color:${this._safeColor(r.color, 'var(--border-light)')}; color:${this._safeColor(r.color, 'var(--text-secondary)')}">${rIcon}${this._escapeHtml(r.name)}</span>`;
+      }).join('')
     : '';
 
   // Status text badge

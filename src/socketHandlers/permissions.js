@@ -147,10 +147,10 @@ module.exports = function createPermissions(db) {
 
   function getUserHighestRole(userId, channelId = null) {
     const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(userId);
-    if (user && user.is_admin) return { name: 'Admin', level: 100, color: '#e74c3c' };
+    if (user && user.is_admin) return { name: 'Admin', level: 100, color: '#e74c3c', icon: null };
 
     let role = db.prepare(`
-      SELECT r.name, COALESCE(ur.custom_level, r.level) as level, r.color FROM roles r
+      SELECT r.name, COALESCE(ur.custom_level, r.level) as level, r.color, r.icon FROM roles r
       JOIN user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ? AND ur.channel_id IS NULL
       ORDER BY COALESCE(ur.custom_level, r.level) DESC LIMIT 1
@@ -161,7 +161,7 @@ module.exports = function createPermissions(db) {
       if (chain.length > 0) {
         const placeholders = chain.map(() => '?').join(',');
         const chRole = db.prepare(`
-          SELECT r.name, COALESCE(ur.custom_level, r.level) as level, r.color FROM roles r
+          SELECT r.name, COALESCE(ur.custom_level, r.level) as level, r.color, r.icon FROM roles r
           JOIN user_roles ur ON r.id = ur.role_id
           WHERE ur.user_id = ? AND ur.channel_id IN (${placeholders})
           ORDER BY COALESCE(ur.custom_level, r.level) DESC LIMIT 1

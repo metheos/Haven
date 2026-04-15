@@ -498,6 +498,34 @@ Planned features — roughly in priority order:
 
 ---
 
+## FAQ
+
+**Is there an iOS app?**
+We'd love to build one, but we don't currently have the capability to develop a native iOS app. It's on the list, but there's no timeline. In the meantime, Haven works great as a PWA — open your server URL in Safari and tap **Add to Home Screen** for an app-like experience.
+
+**Is there an Android app?**
+Yes! [Amni-Haven Android](https://play.google.com/store/apps/details?id=com.havenapp.mobile&gl=US) is available on Google Play, built from the ground up by Amnibro.
+
+**Is there a desktop app?**
+Yes — [Haven Desktop](https://github.com/ancsemi/Haven-Desktop) is available for Windows, macOS, and Linux with features like per-app audio sharing, native notifications, and system tray support.
+
+**Can I use Haven without self-hosting?**
+Yes. You can join someone else's Haven server if they share an invite link with you. You only need to self-host if you want to run your own server.
+
+**Is Haven end-to-end encrypted?**
+Haven supports optional E2EE for direct messages (ECDH P-256 + AES-256-GCM). Channel messages are stored on your server, so your data security depends on your hosting setup.
+
+**Can I create bots for Haven?**
+Yes. Haven supports webhooks with a REST API — bots can send messages, register custom slash commands, and receive message callbacks with HMAC-signed payloads. Set up webhooks in your server's admin settings.
+
+**Does Haven have moderation tools?**
+Yes — role-based permissions, kick/ban/mute, slow mode, read-only announcement channels, IP banning, and a full moderation REST API for bot-driven moderation.
+
+**How do I report a bug or request a feature?**
+Open an issue on [GitHub](https://github.com/ancsemi/Haven/issues). PRs are always welcome.
+
+---
+
 ## License
 
 AGPL-3.0 — free to use, modify, and share. Any modified version you deploy as a network service must release its source code. See [LICENSE](LICENSE).

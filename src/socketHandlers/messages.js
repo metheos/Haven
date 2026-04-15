@@ -342,7 +342,11 @@ module.exports = function register(socket, ctx) {
     if (slashMatch) {
       const cmd = slashMatch[1].toLowerCase();
       const arg = (slashMatch[2] || '').trim();
-      const slashResult = processSlashCommand(cmd, arg, socket.user.displayName, socket.user.id);
+      const slashResult = processSlashCommand(cmd, arg, socket.user.displayName, channel.id, code);
+      if (slashResult && slashResult.botCommand) {
+        // Bot command fired — bot will respond via webhook endpoint
+        return;
+      }
       if (slashResult) {
         const finalContent = slashResult.content;
 

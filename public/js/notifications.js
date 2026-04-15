@@ -7,7 +7,10 @@
 class NotificationManager {
   constructor() {
     this.audioCtx = null;
-    this.enabled = this._loadPref('haven_notif_enabled', true);
+    this.enabled = this._loadPref('haven_notif_enabled', false);
+    this.mentionsEnabled = this._loadPref('haven_notif_mentions_enabled', true);
+    this.repliesEnabled = this._loadPref('haven_notif_replies_enabled', true);
+    this.dmEnabled = this._loadPref('haven_notif_dm_enabled', true);
     this.volume = this._loadPref('haven_notif_volume', 0.5);
     this.mentionVolume = this._loadPref('haven_notif_mention_volume', 0.8);
     this.replyVolume = this._loadPref('haven_notif_reply_volume', 0.8);
@@ -135,7 +138,13 @@ class NotificationManager {
 
   // ── Public API ──────────────────────────────────────────
 
-  play(event) {
+  play(event, opts) {
+    // Per-type opt-in check: mentions, replies, DMs always play if their toggle is on
+    if (opts && opts.isMention && this.mentionsEnabled) { /* allowed */ }
+    else if (opts && opts.isReply && this.repliesEnabled) { /* allowed */ }
+    else if (opts && opts.isDm && this.dmEnabled) { /* allowed */ }
+    else if (!this.enabled) return;
+
     const sound = this.sounds[event];
     if (!sound || sound === 'none') return;
 

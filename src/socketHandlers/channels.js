@@ -146,7 +146,44 @@ module.exports = function register(socket, ctx) {
   socket.on('join-channel', (data) => {
     if (!data || typeof data !== 'object') return;
     const code = typeof data.code === 'string' ? data.code.trim() : '';
-    if (!code || !/^[a-f0-9]{8}$/i.test(code)) {
+    if (!code) return socket.emit('error-msg', 'Invalid channel code');
+
+    // Check if this is a vanity invite code first
+    const vanityRow = db.prepare("SELECT value FROM server_settings WHERE key = 'vanity_code'").get();
+    const isVanity = vanityRow && vanityRow.value && vanityRow.value === code;
+
+    // For vanity codes, resolve to the actual server code
+    if (isVanity) {
+      const serverCodeRow = db.prepare("SELECT value FROM server_settings WHERE key = 'server_code'").get();
+      const actualServerCode = serverCodeRow ? serverCodeRow.value : null;
+
+      // Join all channels (same as server code logic)
+      const allParents = db.prepare('SELECT id, code FROM channels WHERE parent_channel_id IS NULL AND is_dm = 0').all();
+      const insertMember = db.prepare('INSERT OR IGNORE INTO channel_members (channel_id, user_id) VALUES (?, ?)');
+      let joinedCount = 0;
+
+      const txn = db.transaction(() => {
+        for (const parent of allParents) {
+          insertMember.run(parent.id, socket.user.id);
+          socket.join(`channel:${parent.code}`);
+          joinedCount++;
+          const subs = db.prepare('SELECT id, code FROM channels WHERE parent_channel_id = ? AND is_private = 0').all(parent.id);
+          for (const sub of subs) {
+            insertMember.run(sub.id, socket.user.id);
+            socket.join(`channel:${sub.code}`);
+            joinedCount++;
+          }
+        }
+      });
+      txn();
+
+      socket.emit('channels-list', getEnrichedChannels(socket.user.id, socket.user.isAdmin, (room) => socket.join(room)));
+      socket.emit('error-msg', `Invite accepted — joined ${joinedCount} channel${joinedCount !== 1 ? 's' : ''}`);
+      return;
+    }
+
+    // Standard 8-char hex code
+    if (!/^[a-f0-9]{8}$/i.test(code)) {
       return socket.emit('error-msg', 'Invalid channel code format');
     }
 
