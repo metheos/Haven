@@ -8786,9 +8786,10 @@ select.cfn-select.cfn-input {
   .message-time { font-size: 10px; }
   .message-compact { padding-left: 46px; }
 
-  /* Chat images — full width on mobile */
-  .chat-image { max-width: 140px; max-height: 140px; }
-  .image-mode-full .chat-image { max-width: 100%; max-height: 250px; }
+  /* Chat images — scale down for mobile, preserve aspect ratio */
+  .chat-image { max-width: 60%; max-height: 200px; object-fit: contain; width: auto; height: auto; }
+  .image-mode-full .chat-image { max-width: 100%; max-height: 280px; }
+  .message-compact .chat-image { margin-top: 4px; }
 
   /* Input area — single-row inline layout */
   .message-input-area {
