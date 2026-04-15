@@ -1110,6 +1110,31 @@
         </div>
       </div>
 
+      <!-- Banner Display (client-side) -->
+      <div class="settings-section" id="section-banner-display" style="border-top: 1px solid var(--border-light); padding-top: 16px; margin-top: 8px; display:none;">
+        <h5 class="settings-section-title">🏞️ Banner Display</h5>
+        <label style="margin-top:4px;display:flex;align-items:center;gap:8px;font-size:12px">
+          <span style="white-space:nowrap">Banner height</span>
+          <input type="range" id="banner-height-slider" min="80" max="400" step="10" value="180" style="flex:1">
+          <span id="banner-height-value" style="min-width:36px;text-align:right;font-variant-numeric:tabular-nums">180px</span>
+        </label>
+        <label style="margin-top:4px;display:flex;align-items:center;gap:8px;font-size:12px">
+          <span style="white-space:nowrap">Vertical offset</span>
+          <input type="range" id="banner-offset-slider" min="0" max="100" step="1" value="0" style="flex:1">
+          <span id="banner-offset-value" style="min-width:30px;text-align:right;font-variant-numeric:tabular-nums">0%</span>
+        </label>
+        <label class="select-row" style="margin-top:8px">
+          <span>Header style</span>
+          <select id="banner-header-mode" style="max-width:160px">
+            <option value="full">Full Header (opaque)</option>
+            <option value="shaded">Shaded Header</option>
+            <option value="minimal">Minimal Header</option>
+            <option value="transparent">Transparent Header</option>
+          </select>
+        </label>
+        <small class="settings-hint">How the banner interacts with the channel header area. These settings are per-device.</small>
+      </div>
+
       <!-- Sounds Section -->
       <div class="settings-section" id="section-sounds">
         <h5 class="settings-section-title">🔔 <span data-i18n="settings.sounds_section.title">Sounds</span></h5>
@@ -1512,26 +1537,7 @@
                 </div>
               </div>
             </div>
-            <label style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:12px">
-              <span style="white-space:nowrap">Banner height</span>
-              <input type="range" id="banner-height-slider" min="80" max="400" step="10" value="180" style="flex:1">
-              <span id="banner-height-value" style="min-width:36px;text-align:right;font-variant-numeric:tabular-nums">180px</span>
-            </label>
-            <label style="margin-top:4px;display:flex;align-items:center;gap:8px;font-size:12px">
-              <span style="white-space:nowrap">Vertical offset</span>
-              <input type="range" id="banner-offset-slider" min="0" max="100" step="1" value="0" style="flex:1">
-              <span id="banner-offset-value" style="min-width:30px;text-align:right;font-variant-numeric:tabular-nums">0%</span>
-            </label>
-            <label class="select-row" style="margin-top:8px">
-              <span>Header style</span>
-              <select id="banner-header-mode" style="max-width:160px">
-                <option value="full">Full Header (opaque)</option>
-                <option value="shaded">Shaded Header</option>
-                <option value="minimal">Minimal Header</option>
-                <option value="transparent">Transparent Header</option>
-              </select>
-            </label>
-            <small class="settings-hint">How the banner interacts with the channel header area</small>
+            <small class="settings-hint">Banner display settings (height, offset, header style) are in User Settings.</small>
           </div>
 
           <!-- Theme & Welcome -->

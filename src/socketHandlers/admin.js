@@ -34,7 +34,7 @@ module.exports = function register(socket, ctx) {
 
     const allowedKeys = [
       'member_visibility', 'cleanup_enabled', 'cleanup_max_age_days', 'cleanup_max_size_mb',
-      'giphy_api_key', 'server_name', 'server_title', 'server_icon', 'server_banner', 'banner_overlay_header', 'banner_height', 'banner_offset', 'banner_header_mode', 'permission_thresholds',
+      'giphy_api_key', 'server_name', 'server_title', 'server_icon', 'server_banner', 'permission_thresholds',
       'tunnel_enabled', 'tunnel_provider', 'server_code', 'max_upload_mb', 'max_poll_options',
       'max_sound_kb', 'max_emoji_kb', 'setup_wizard_complete', 'update_banner_admin_only',
       'default_theme', 'channel_sort_mode', 'channel_cat_order', 'channel_cat_sort',
@@ -59,10 +59,6 @@ module.exports = function register(socket, ctx) {
     if (key === 'tunnel_provider' && !['localtunnel', 'cloudflared'].includes(value)) return;
     if (key === 'setup_wizard_complete' && !['true', 'false'].includes(value)) return;
     if (key === 'update_banner_admin_only' && !['true', 'false'].includes(value)) return;
-    if (key === 'banner_overlay_header' && !['true', 'false'].includes(value)) return;
-    if (key === 'banner_height') { const n = parseInt(value); if (isNaN(n) || n < 80 || n > 400) return; }
-    if (key === 'banner_offset') { const n = parseInt(value); if (isNaN(n) || n < 0 || n > 100) return; }
-    if (key === 'banner_header_mode' && !['full', 'shaded', 'minimal', 'transparent'].includes(value)) return;
     if (key === 'role_icon_sidebar' && !['true', 'false'].includes(value)) return;
     if (key === 'role_icon_chat' && !['true', 'false'].includes(value)) return;
     if (key === 'role_icon_after_name' && !['true', 'false'].includes(value)) return;

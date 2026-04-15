@@ -389,16 +389,20 @@ _applyServerSettings() {
     if (vanityInput) vanityInput.value = this.serverSettings.vanity_code || '';
   }
 
-  // Server banner — always update display
+  // Server banner — always update display (display prefs from localStorage)
   const bannerDisplay = document.getElementById('server-banner-display');
   const bannerImg = document.getElementById('server-banner-img');
   const bannerPreview = document.getElementById('server-banner-preview');
   const mainEl = document.querySelector('.main');
-  const headerMode = this.serverSettings.banner_header_mode || (this.serverSettings.banner_overlay_header === 'true' ? 'shaded' : 'full');
-  const bannerHeight = parseInt(this.serverSettings.banner_height) || 180;
-  const bannerOffset = parseInt(this.serverSettings.banner_offset) || 0;
+  const headerMode = localStorage.getItem('haven_banner_header_mode') || 'full';
+  const bannerHeight = parseInt(localStorage.getItem('haven_banner_height')) || 180;
+  const bannerOffset = parseInt(localStorage.getItem('haven_banner_offset')) || 0;
+  const hasBanner = !!this.serverSettings.server_banner;
+  // Show/hide the banner display section in user settings
+  const bannerSection = document.getElementById('section-banner-display');
+  if (bannerSection) bannerSection.style.display = hasBanner ? '' : 'none';
   if (bannerDisplay && bannerImg) {
-    if (this.serverSettings.server_banner) {
+    if (hasBanner) {
       bannerImg.src = this.serverSettings.server_banner;
       bannerDisplay.style.display = '';
       bannerDisplay.style.height = bannerHeight + 'px';
@@ -414,17 +418,17 @@ _applyServerSettings() {
       mainEl?.classList.remove('has-banner', 'banner-mode-shaded', 'banner-mode-minimal', 'banner-mode-transparent');
     }
   }
-  // Banner header mode dropdown
+  // Banner header mode dropdown (user settings)
   const headerModeSelect = document.getElementById('banner-header-mode');
   if (headerModeSelect) headerModeSelect.value = headerMode;
-  // Banner height slider
+  // Banner height slider (user settings)
   const heightSlider = document.getElementById('banner-height-slider');
   const heightValue = document.getElementById('banner-height-value');
   if (heightSlider) {
     heightSlider.value = bannerHeight;
     if (heightValue) heightValue.textContent = bannerHeight + 'px';
   }
-  // Banner offset slider
+  // Banner offset slider (user settings)
   const offsetSlider = document.getElementById('banner-offset-slider');
   const offsetValue = document.getElementById('banner-offset-value');
   if (offsetSlider) {
@@ -875,14 +879,15 @@ _initServerBranding() {
     this._showToast('Server banner removed', 'success');
   });
 
-  // Banner header mode dropdown
+  // Banner header mode dropdown (client-side / localStorage)
   document.getElementById('banner-header-mode')?.addEventListener('change', (e) => {
-    this.socket.emit('update-server-setting', { key: 'banner_header_mode', value: e.target.value });
+    localStorage.setItem('haven_banner_header_mode', e.target.value);
+    this._applyServerSettings();
     const labels = { full: 'Full header (opaque)', shaded: 'Shaded header', minimal: 'Minimal header', transparent: 'Transparent header' };
     this._showToast(labels[e.target.value] || 'Header mode updated', 'success');
   });
 
-  // Banner height slider
+  // Banner height slider (client-side / localStorage)
   const bannerSlider = document.getElementById('banner-height-slider');
   const bannerSliderLabel = document.getElementById('banner-height-value');
   if (bannerSlider) {
@@ -892,11 +897,11 @@ _initServerBranding() {
       if (bd) bd.style.height = e.target.value + 'px';
     });
     bannerSlider.addEventListener('change', (e) => {
-      this.socket.emit('update-server-setting', { key: 'banner_height', value: e.target.value });
+      localStorage.setItem('haven_banner_height', e.target.value);
     });
   }
 
-  // Banner vertical offset slider
+  // Banner vertical offset slider (client-side / localStorage)
   const bannerOffsetSlider = document.getElementById('banner-offset-slider');
   const bannerOffsetLabel = document.getElementById('banner-offset-value');
   if (bannerOffsetSlider) {
@@ -906,7 +911,7 @@ _initServerBranding() {
       if (img) img.style.objectPosition = 'center ' + e.target.value + '%';
     });
     bannerOffsetSlider.addEventListener('change', (e) => {
-      this.socket.emit('update-server-setting', { key: 'banner_offset', value: e.target.value });
+      localStorage.setItem('haven_banner_offset', e.target.value);
     });
   }
 
