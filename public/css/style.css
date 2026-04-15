@@ -1934,6 +1934,60 @@ html.rgb-cycling *::after {
   display: flex !important;
 }
 
+/* User preference: hide status bar everywhere */
+[data-hide-statusbar] .status-bar,
+[data-hide-statusbar] #haven-desktop-footer { display: none !important; }
+[data-hide-statusbar] .status-bar-toggle-tab { display: flex; }
+
+/* ── Status bar toggle tab (shows when bar is hidden) ── */
+.status-bar-toggle-tab {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  right: 12px;
+  z-index: 50;
+  width: 32px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary, #1e2035);
+  border: 1px solid var(--border, #333);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+.status-bar-toggle-tab:hover { opacity: 1; }
+/* Desktop app has its own footer — never show the toggle tab */
+[data-desktop-app] .status-bar-toggle-tab { display: none !important; }
+
+/* ── Server URL in status bar ── */
+.status-url-text {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  font-size: 10px;
+}
+.status-url-text:hover { opacity: 1; }
+.status-url-text.url-hidden { letter-spacing: 2px; }
+.status-url-toggle {
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  font-size: 11px;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0 4px;
+  line-height: 1;
+}
+.status-url-toggle:hover { opacity: 1; }
+
 
 /* ═══════════════════════════════════════════════════════════
    SIDEBAR BOTTOM BAR & THEME POPUP
@@ -3917,6 +3971,7 @@ select.cfn-select.cfn-input {
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
 .message:hover {
@@ -4198,6 +4253,7 @@ select.cfn-select.cfn-input {
   border-radius: var(--radius-sm);
   transition: background var(--transition);
   box-shadow: var(--msg-glow);
+  flex-shrink: 0;
 }
 
 .message-compact:hover { background: rgba(255,255,255,0.02); }
@@ -8704,6 +8760,10 @@ select.cfn-select.cfn-input {
   /* Messages area */
   .messages { padding: 12px; }
   .message-input-area { padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px)); gap: 6px; }
+  .message-content { word-break: break-word; overflow-wrap: break-word; }
+  .message-header { flex-wrap: wrap; }
+  .reply-banner { max-width: 100%; flex-wrap: wrap; }
+  .reply-preview { white-space: normal; word-break: break-word; }
 
   /* GIF picker — constrained on tablet */
   .gif-picker { max-width: 360px; }
@@ -8714,9 +8774,8 @@ select.cfn-select.cfn-input {
   .webcam-container { max-height: 160px; }
   .webcam-tile { width: 120px; height: 90px; }
 
-  /* Status bar — hidden on mobile to save vertical space */
-  .status-bar { display: none; }
-  [data-desktop-app] .status-bar { display: flex !important; }
+  /* Status bar — condense on small tablets but keep visible */
+  .status-bar .status-item:nth-child(n+5) { display: none; }
 
   /* Server banner — smaller on mobile */
   .server-banner-display { height: 120px; }
@@ -8782,12 +8841,17 @@ select.cfn-select.cfn-input {
   .user-avatar-wrapper { width: 20px; height: 20px; }
   .user-status-dot { width: 8px; height: 8px; bottom: -2px; right: -2px; }
   .message-author { font-size: 13px; }
-  .message-content { font-size: 14px; line-height: 1.45; word-break: break-word; }
+  .message-content { font-size: 14px; line-height: 1.45; word-break: break-word; overflow-wrap: break-word; }
   .message-time { font-size: 10px; }
   .message-compact { padding-left: 46px; }
+  .message-header { flex-wrap: wrap; }
+
+  /* Reply banners — allow wrapping on mobile */
+  .reply-banner { max-width: 100%; flex-wrap: wrap; }
+  .reply-preview { white-space: normal; word-break: break-word; }
 
   /* Chat images — scale down for mobile, preserve aspect ratio */
-  .chat-image { max-width: 60%; max-height: 200px; object-fit: contain; width: auto; height: auto; }
+  .chat-image { display: block; max-width: min(80%, 280px); max-height: 300px; object-fit: contain; width: auto; height: auto; }
   .image-mode-full .chat-image { max-width: 100%; max-height: 280px; }
   .message-compact .chat-image { margin-top: 4px; }
 
@@ -8888,7 +8952,8 @@ select.cfn-select.cfn-input {
 
   /* Reply bar */
   .reply-bar { padding: 6px 8px; font-size: 12px; }
-  .reply-banner { padding: 4px 8px; font-size: 0.75em; }
+  .reply-banner { padding: 4px 8px; font-size: 0.75em; max-width: 100%; flex-wrap: wrap; }
+  .reply-preview { white-space: normal; word-break: break-word; }
 
   /* Reaction badges — touch-friendly */
   .reaction-badge { padding: 4px 10px; font-size: 14px; }
@@ -8904,9 +8969,8 @@ select.cfn-select.cfn-input {
   .webcam-container { max-height: 130px; }
   .webcam-tile { width: 100px; height: 75px; }
 
-  /* Status bar — hidden on phones */
-  .status-bar { display: none; }
-  [data-desktop-app] .status-bar { display: flex !important; }
+  /* Status bar — condense on phones */
+  .status-bar .status-item:nth-child(n+3) { display: none; }
 
   /* Welcome screen */
   .welcome-icon { font-size: 48px; }
@@ -8953,6 +9017,7 @@ select.cfn-select.cfn-input {
   .message-compact { padding-left: 40px; }
   .message-row { gap: 6px; }
   .message-content { font-size: 13px; }
+  .chat-image { max-width: min(90%, 240px); }
 
   /* Hide non-critical status items */
   .status-bar .status-item:nth-child(n+3) { display: none; }
@@ -9065,8 +9130,7 @@ select.cfn-select.cfn-input {
    ═══════════════════════════════════════════════════════════ */
 
 @media (max-height: 500px) and (orientation: landscape) {
-  .status-bar { display: none; }
-  [data-desktop-app] .status-bar { display: flex !important; }
+  .status-bar .status-item:nth-child(n+3) { display: none; }
   .channel-header { min-height: 40px; padding: 4px 8px; }
   .messages { padding: 4px 8px; }
   .message-input-area { padding: 4px 8px 6px; }
@@ -13708,7 +13772,7 @@ ul.chat-list { list-style-type: disc; }
   .message-compact {
     min-height: 32px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
   }
   /* Give message rows right padding so text doesn't flow under the ⋯ button */
   .message .message-row,
