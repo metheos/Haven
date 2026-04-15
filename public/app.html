@@ -634,7 +634,7 @@
     </div>
 
     <!-- ─── Status Bar (bottom) ───────────────────────── -->
-    <div class="status-bar" id="status-bar">
+    <div class="status-bar" id="status-bar" style="display:none">
       <div class="status-item">
         <span class="led on" id="status-server-led"></span>
         <span class="label" data-i18n="status_bar.server">Server</span>
@@ -657,6 +657,11 @@
         <span class="value" id="status-online-count">0</span>
       </div>
       <span class="spacer"></span>
+      <div class="status-item status-url-item" id="status-url-item">
+        <span class="value status-url-text" id="status-url-text" title="Click to copy server address"></span>
+        <button class="status-url-toggle" id="status-url-toggle" title="Show/hide server address">👁</button>
+      </div>
+      <div class="divider"></div>
       <div class="status-item">
         <span class="value" id="status-clock"></span>
       </div>
@@ -665,6 +670,8 @@
         <span class="value" id="status-version"></span>
       </div>
     </div>
+    <!-- Status bar toggle tab (visible when bar is hidden) -->
+    <button class="status-bar-toggle-tab" id="status-bar-toggle" title="Toggle status bar (debug footer)">📊</button>
 
     <!-- Online users overlay (floats above status bar) -->
     <div id="online-overlay" class="online-overlay" style="display:none">
@@ -1133,6 +1140,16 @@
           </select>
         </label>
         <small class="settings-hint">How the banner interacts with the channel header area. These settings are per-device.</small>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="settings-section" id="section-statusbar" style="border-top: 1px solid var(--border-light); padding-top: 16px; margin-top: 8px;">
+        <h5 class="settings-section-title">📊 Status Bar</h5>
+        <label class="toggle-row">
+          <span>Show Status Bar</span>
+          <input type="checkbox" id="show-status-bar">
+        </label>
+        <small class="settings-hint" style="display:block;margin-bottom:6px">Show the status bar at the bottom of the screen with server, ping, channel, and online info.</small>
       </div>
 
       <!-- Sounds Section -->

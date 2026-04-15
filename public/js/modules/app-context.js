@@ -331,6 +331,84 @@ _setupNotifications() {
       }
     });
   }
+
+  // Show status bar (opt-in — hidden by default, but Desktop always shows its own footer)
+  const showStatusBarToggle = document.getElementById('show-status-bar');
+  const statusBarToggleTab = document.getElementById('status-bar-toggle');
+  const _hasDesktopFooter = !!document.getElementById('haven-desktop-footer');
+  if (showStatusBarToggle) {
+    showStatusBarToggle.checked = localStorage.getItem('haven_show_statusbar') === 'true';
+    const applyStatusBar = () => {
+      // On Desktop the preload's own footer is always visible; don't touch it
+      if (_hasDesktopFooter) return;
+      const show = showStatusBarToggle.checked;
+      if (show) {
+        document.documentElement.removeAttribute('data-hide-statusbar');
+        const sb = document.getElementById('status-bar');
+        if (sb) sb.style.setProperty('display', 'flex', 'important');
+      } else {
+        document.documentElement.setAttribute('data-hide-statusbar', '1');
+      }
+    };
+    showStatusBarToggle.addEventListener('change', () => {
+      localStorage.setItem('haven_show_statusbar', String(showStatusBarToggle.checked));
+      applyStatusBar();
+    });
+    applyStatusBar();
+  }
+  // Toggle tab (visible when bar is hidden) — click to show bar
+  if (statusBarToggleTab) {
+    statusBarToggleTab.addEventListener('click', () => {
+      if (showStatusBarToggle) {
+        showStatusBarToggle.checked = true;
+        showStatusBarToggle.dispatchEvent(new Event('change'));
+      } else {
+        // Fallback: toggle directly
+        document.documentElement.removeAttribute('data-hide-statusbar');
+        const sb = document.getElementById('status-bar');
+        if (sb) sb.style.setProperty('display', 'flex', 'important');
+        localStorage.setItem('haven_show_statusbar', 'true');
+      }
+    });
+  }
+
+  // ── Server URL in status bar (copyable, privacy toggle) ──
+  const statusUrlEl = document.getElementById('status-url-text');
+  const statusUrlToggle = document.getElementById('status-url-toggle');
+  if (statusUrlEl && statusUrlToggle) {
+    const origin = window.location.origin;
+    let urlVisible = localStorage.getItem('haven_statusbar_show_url') !== 'false';
+
+    const applyUrlVis = () => {
+      if (urlVisible) {
+        statusUrlEl.textContent = origin;
+        statusUrlEl.classList.remove('url-hidden');
+        statusUrlToggle.textContent = '👁';
+        statusUrlToggle.title = 'Hide server address';
+      } else {
+        statusUrlEl.textContent = '••••••••';
+        statusUrlEl.classList.add('url-hidden');
+        statusUrlToggle.textContent = '👁\u200d🗨';
+        statusUrlToggle.title = 'Show server address';
+      }
+    };
+    applyUrlVis();
+
+    statusUrlToggle.addEventListener('click', () => {
+      urlVisible = !urlVisible;
+      localStorage.setItem('haven_statusbar_show_url', String(urlVisible));
+      applyUrlVis();
+    });
+
+    // Click to copy — works even when URL is hidden
+    statusUrlEl.addEventListener('click', () => {
+      navigator.clipboard.writeText(origin).then(() => {
+        const orig = statusUrlEl.textContent;
+        statusUrlEl.textContent = 'Copied!';
+        setTimeout(() => { statusUrlEl.textContent = urlVisible ? origin : '••••••••'; }, 1500);
+      }).catch(() => {});
+    });
+  }
 },
 
 // ── Push Notifications (Web Push API) ──────────────────
@@ -890,6 +968,27 @@ _startStatusBar() {
   // CSS responsive breakpoints or DPI-scaled viewport width.
   const isDesktop = !!(window.havenDesktop?.isDesktopApp ||
                        navigator.userAgent.includes('Electron'));
+
+  const _forceWebStatusBar = () => {
+    const sb = document.getElementById('status-bar');
+    if (!sb) return;
+    sb.style.setProperty('display', 'flex', 'important');
+    // Verify the bar is inside the visible viewport.  If clipped by
+    // Electron BrowserView (100dvh mismatch), fall back to fixed positioning.
+    requestAnimationFrame(() => {
+      const rect = sb.getBoundingClientRect();
+      if (rect.height === 0 || rect.bottom > window.innerHeight + 2) {
+        sb.style.setProperty('position', 'fixed', 'important');
+        sb.style.setProperty('bottom', '0', 'important');
+        sb.style.setProperty('left', '0', 'important');
+        sb.style.setProperty('right', '0', 'important');
+        sb.style.setProperty('z-index', '50', 'important');
+        const appBody = document.getElementById('app-body');
+        if (appBody) appBody.style.paddingBottom = sb.offsetHeight + 'px';
+      }
+    });
+  };
+
   if (isDesktop) {
     // Belt-and-suspenders: ensure the CSS attribute is present (preload
     // sets this on DOMContentLoaded, but reinforce here in case of timing)
@@ -897,25 +996,26 @@ _startStatusBar() {
     // If the Desktop preload already injected its own fixed footer bar,
     // don't force the original status bar visible (that causes duplicates)
     const hasDesktopFooter = !!document.getElementById('haven-desktop-footer');
+    if (!hasDesktopFooter) {
+      _forceWebStatusBar();
+    }
+    // Delayed fallback: if after 600 ms neither footer is visible (e.g. old
+    // Desktop build whose preload hides the web bar but doesn't create its
+    // own), force-show the web status bar regardless.
+    setTimeout(() => {
+      const hdf = document.getElementById('haven-desktop-footer');
+      const sb  = document.getElementById('status-bar');
+      if (!hdf && sb && getComputedStyle(sb).display === 'none') {
+        _forceWebStatusBar();
+      }
+    }, 600);
+  } else {
+    // Browser / mobile: respect the user's opt-in preference (default hidden).
+    // The settings toggle in _initSettings applies the attribute + display;
+    // here we just honour it in case _startStatusBar runs first.
     const sb = document.getElementById('status-bar');
-    if (sb && !hasDesktopFooter) {
+    if (sb && localStorage.getItem('haven_show_statusbar') === 'true') {
       sb.style.setProperty('display', 'flex', 'important');
-      // Safety net: after one frame, verify the bar is actually inside the
-      // visible viewport.  If Electron's BrowserView clips it (100dvh
-      // mismatch), fall back to fixed positioning so the user always sees it.
-      requestAnimationFrame(() => {
-        const rect = sb.getBoundingClientRect();
-        if (rect.height === 0 || rect.bottom > window.innerHeight + 2) {
-          sb.style.setProperty('position', 'fixed', 'important');
-          sb.style.setProperty('bottom', '0', 'important');
-          sb.style.setProperty('left', '0', 'important');
-          sb.style.setProperty('right', '0', 'important');
-          sb.style.setProperty('z-index', '50', 'important');
-          // Prevent content underneath from being hidden behind the bar
-          const appBody = document.getElementById('app-body');
-          if (appBody) appBody.style.paddingBottom = sb.offsetHeight + 'px';
-        }
-      });
     }
   }
   this._updateClock();
