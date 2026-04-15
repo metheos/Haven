@@ -8684,6 +8684,7 @@ select.cfn-select.cfn-input {
     transition: transform 0.25s ease;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
     /* Safe area for notched phones + Android gesture bar */
+    padding-top: constant(safe-area-inset-top); /* iOS 11.0-11.1 */
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 28px);
   }
@@ -8737,6 +8738,7 @@ select.cfn-select.cfn-input {
   /* Channel header adjustments — safe-area-inset-top prevents
      underlapping the iOS status bar / Dynamic Island */
   .channel-header {
+    padding: calc(8px + constant(safe-area-inset-top)) 12px 8px; /* iOS 11.0-11.1 */
     padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
     min-height: calc(48px + env(safe-area-inset-top, 0px));
     gap: 8px;
@@ -8929,15 +8931,20 @@ select.cfn-select.cfn-input {
 
   .gif-picker-grid { max-height: 40vh; }
 
-  /* Emoji picker — full width on phone */
+  /* Emoji picker — fixed positioning on phone so it doesn't push layout */
   .emoji-picker {
+    position: fixed;
     left: 4px;
     right: 4px;
+    bottom: 56px;
+    top: auto;
     max-width: none;
     width: auto;
+    max-height: 45vh;
+    margin-bottom: 0;
   }
 
-  .emoji-grid { max-height: 200px; }
+  .emoji-grid { max-height: min(200px, 30vh); }
   .emoji-item { width: 40px; height: 40px; font-size: 22px; }
 
   /* Mention dropdown — wider */
@@ -9041,6 +9048,16 @@ select.cfn-select.cfn-input {
   padding-bottom: 6px !important;
 }
 
+/* When iOS keyboard is open, constrain emoji/gif pickers to the visible area */
+.ios-keyboard-open .emoji-picker,
+.ios-keyboard-open .gif-picker {
+  max-height: 40vh;
+}
+
+.ios-keyboard-open .emoji-grid {
+  max-height: 25vh;
+}
+
 
 /* ═══════════════════════════════════════════════════════════
    TOUCH & ACCESSIBILITY
@@ -9049,6 +9066,26 @@ select.cfn-select.cfn-input {
 @media (hover: none) and (pointer: coarse) {
   /* Prevent pull-to-refresh on chat app */
   html, body { overscroll-behavior-y: contain; }
+
+  /* Eliminate iOS double-tap delay on interactive elements */
+  .channel-item,
+  .user-item,
+  .status-option,
+  .sidebar-bottom-btn,
+  .mobile-server-item,
+  .dm-toggle,
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  /* Disable hover effects on touch — prevents iOS "sticky hover" requiring
+     double-tap (first tap activates :hover, second fires click) */
+  .channel-item:hover { background: transparent; }
+  .channel-item:hover .channel-name { color: var(--text-secondary); }
+  .channel-item.active:hover { background: var(--bg-active); }
+  .channel-item.active:hover .channel-name { color: var(--text-primary); }
+  .status-option:hover { background: transparent; }
 
   /* Prevent browser text-selection / callout on long-press of messages;
      our JS handles the ⋯ button → toolbar instead. */
@@ -9111,6 +9148,11 @@ select.cfn-select.cfn-input {
   /* Smoother scrolling on touch */
   .messages, .sidebar, .right-sidebar, .modal {
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent overscroll bounce on chat container (iOS rubber-banding) */
+  .messages {
+    overscroll-behavior: contain;
   }
 }
 

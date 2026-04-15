@@ -1674,15 +1674,33 @@ _toggleStatusPicker() {
   // Position the fixed picker relative to the status dot
   if (dot) {
     const rect = dot.getBoundingClientRect();
-    picker.style.left = rect.left + 'px';
-    // Open above or below depending on space
-    const spaceBelow = window.innerHeight - rect.bottom;
-    if (spaceBelow > 220) {
-      picker.style.top = (rect.bottom + 4) + 'px';
-      picker.style.bottom = 'auto';
-    } else {
+    const isMobile = window.innerWidth <= 480;
+    // On mobile, center horizontally and open above the user bar
+    if (isMobile) {
+      picker.style.left = '10px';
+      picker.style.right = '10px';
+      picker.style.width = 'auto';
       picker.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
       picker.style.top = 'auto';
+      // Clamp so it doesn't go above the safe area
+      const maxBottom = window.innerHeight - 10;
+      const computedBottom = window.innerHeight - rect.top + 4;
+      if (computedBottom > maxBottom) {
+        picker.style.bottom = maxBottom + 'px';
+      }
+    } else {
+      picker.style.left = rect.left + 'px';
+      picker.style.right = 'auto';
+      picker.style.width = '220px';
+      // Open above or below depending on space
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow > 220) {
+        picker.style.top = (rect.bottom + 4) + 'px';
+        picker.style.bottom = 'auto';
+      } else {
+        picker.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        picker.style.top = 'auto';
+      }
     }
   }
   picker.style.display = 'block';

@@ -577,6 +577,19 @@ _toggleEmojiPicker() {
   });
 
   renderGrid();
+
+  // On mobile with the iOS keyboard open, dynamically position the picker
+  // above the input area using the visual viewport so it doesn't push
+  // content off-screen.
+  if (window.innerWidth <= 480 && window.visualViewport) {
+    const vvHeight = window.visualViewport.height;
+    const inputArea = document.getElementById('message-input-area');
+    if (inputArea) {
+      const inputRect = inputArea.getBoundingClientRect();
+      picker.style.bottom = (window.innerHeight - inputRect.top) + 'px';
+    }
+  }
+
   picker.style.display = 'flex';
   searchInput.focus();
 },
