@@ -12760,47 +12760,120 @@ ul.chat-list { list-style-type: disc; }
   pointer-events: none;
 }
 
-/* Banner visible (non-overlay): header & topic above banner, fully opaque */
-.main.has-banner .channel-header {
-  position: relative;
-  z-index: 1;
-  background: var(--bg-primary);
-}
+/* Banner visible — base: header & topic above banner */
+.main.has-banner .channel-header,
 .main.has-banner .channel-topic-bar {
   position: relative;
   z-index: 1;
+}
+
+/* ── Full Header (default): opaque backgrounds ─── */
+.main.has-banner .channel-header {
+  background: var(--bg-primary);
+}
+.main.has-banner .channel-topic-bar {
   background: var(--bg-secondary);
 }
 
-/* ── Banner Overlay Mode (header becomes see-through with dark tint) ─── */
-.main.has-banner-overlay .channel-header {
+/* ── Shaded Header: translucent dark tint ─── */
+.main.banner-mode-shaded .channel-header {
   background: rgba(0,0,0,0.45) !important;
   border-bottom-color: transparent !important;
 }
-.main.has-banner-overlay .channel-topic-bar {
+.main.banner-mode-shaded .channel-topic-bar {
   background: rgba(0,0,0,0.35) !important;
   border-bottom-color: transparent !important;
 }
-.main.has-banner-overlay .channel-header,
-.main.has-banner-overlay .channel-topic-bar {
+.main.banner-mode-shaded .channel-header,
+.main.banner-mode-shaded .channel-topic-bar {
   text-shadow: 0 1px 4px rgba(0,0,0,0.7);
 }
-.main.has-banner-overlay .header-actions-box {
+.main.banner-mode-shaded .header-actions-box {
   background: rgba(0,0,0,0.35);
   border-color: rgba(255,255,255,0.12);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-.main.has-banner-overlay .channel-code-tag {
+
+/* ── Minimal Header: transparent bar, pill backgrounds on elements ─── */
+.main.banner-mode-minimal .channel-header {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+}
+.main.banner-mode-minimal .channel-topic-bar {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+}
+.main.banner-mode-minimal .channel-header,
+.main.banner-mode-minimal .channel-topic-bar {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+}
+.main.banner-mode-minimal .channel-info {
+  background: rgba(0,0,0,0.35);
+  border-radius: 8px;
+  padding: 4px 10px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.main.banner-mode-minimal .header-actions-box {
+  background: rgba(0,0,0,0.35);
+  border-color: rgba(255,255,255,0.12);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.main.banner-mode-minimal .btn-voice,
+.main.banner-mode-minimal .voice-active-indicator {
+  background: rgba(0,0,0,0.35);
+  border-radius: 8px;
+  padding: 4px 10px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   text-shadow: none;
 }
-.main.has-banner-overlay .btn-voice,
-.main.has-banner-overlay .voice-active-indicator {
+.main.banner-mode-minimal .channel-topic-bar {
+  margin: 0 12px;
+  border-radius: 0 0 8px 8px;
+  padding: 3px 12px;
+  background: rgba(0,0,0,0.3) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: inline-block;
+  width: auto;
+}
+
+/* ── Transparent Header: fully clear, no shading ─── */
+.main.banner-mode-transparent .channel-header {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+}
+.main.banner-mode-transparent .channel-topic-bar {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+}
+.main.banner-mode-transparent .channel-header,
+.main.banner-mode-transparent .channel-topic-bar {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+}
+.main.banner-mode-transparent .header-actions-box {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ── Shared overlay-mode overrides (shaded/minimal/transparent) ─── */
+.main.banner-mode-shaded .channel-code-tag,
+.main.banner-mode-minimal .channel-code-tag,
+.main.banner-mode-transparent .channel-code-tag {
   text-shadow: none;
 }
-.main.has-banner-overlay .update-banner,
-.main.has-banner-overlay .desktop-app-banner,
-.main.has-banner-overlay .android-beta-banner {
+.main.banner-mode-shaded .update-banner,
+.main.banner-mode-shaded .desktop-app-banner,
+.main.banner-mode-shaded .android-beta-banner,
+.main.banner-mode-minimal .update-banner,
+.main.banner-mode-minimal .desktop-app-banner,
+.main.banner-mode-minimal .android-beta-banner,
+.main.banner-mode-transparent .update-banner,
+.main.banner-mode-transparent .desktop-app-banner,
+.main.banner-mode-transparent .android-beta-banner {
   text-shadow: none;
 }
 

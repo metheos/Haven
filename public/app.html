@@ -1522,11 +1522,16 @@
               <input type="range" id="banner-offset-slider" min="0" max="100" step="1" value="0" style="flex:1">
               <span id="banner-offset-value" style="min-width:30px;text-align:right;font-variant-numeric:tabular-nums">0%</span>
             </label>
-            <label class="toggle-row" style="margin-top:8px">
-              <span>Banner overlays header</span>
-              <input type="checkbox" id="banner-overlay-header">
+            <label class="select-row" style="margin-top:8px">
+              <span>Header style</span>
+              <select id="banner-header-mode" style="max-width:160px">
+                <option value="full">Full Header (opaque)</option>
+                <option value="shaded">Shaded Header</option>
+                <option value="minimal">Minimal Header</option>
+                <option value="transparent">Transparent Header</option>
+              </select>
             </label>
-            <small class="settings-hint">When enabled, the banner extends behind the channel header and topic bar (Discord-style)</small>
+            <small class="settings-hint">How the banner interacts with the channel header area</small>
           </div>
 
           <!-- Theme & Welcome -->

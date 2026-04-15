@@ -394,7 +394,7 @@ _applyServerSettings() {
   const bannerImg = document.getElementById('server-banner-img');
   const bannerPreview = document.getElementById('server-banner-preview');
   const mainEl = document.querySelector('.main');
-  const overlayEnabled = this.serverSettings.banner_overlay_header === 'true';
+  const headerMode = this.serverSettings.banner_header_mode || (this.serverSettings.banner_overlay_header === 'true' ? 'shaded' : 'full');
   const bannerHeight = parseInt(this.serverSettings.banner_height) || 180;
   const bannerOffset = parseInt(this.serverSettings.banner_offset) || 0;
   if (bannerDisplay && bannerImg) {
@@ -404,20 +404,19 @@ _applyServerSettings() {
       bannerDisplay.style.height = bannerHeight + 'px';
       bannerImg.style.objectPosition = 'center ' + bannerOffset + '%';
       mainEl?.classList.add('has-banner');
-      if (overlayEnabled) {
-        mainEl?.classList.add('has-banner-overlay');
-      } else {
-        mainEl?.classList.remove('has-banner-overlay');
+      mainEl?.classList.remove('banner-mode-shaded', 'banner-mode-minimal', 'banner-mode-transparent');
+      if (headerMode !== 'full') {
+        mainEl?.classList.add('banner-mode-' + headerMode);
       }
     } else {
       bannerDisplay.style.display = 'none';
       bannerImg.src = '';
-      mainEl?.classList.remove('has-banner', 'has-banner-overlay');
+      mainEl?.classList.remove('has-banner', 'banner-mode-shaded', 'banner-mode-minimal', 'banner-mode-transparent');
     }
   }
-  // Banner overlay toggle checkbox
-  const overlayCheckbox = document.getElementById('banner-overlay-header');
-  if (overlayCheckbox) overlayCheckbox.checked = overlayEnabled;
+  // Banner header mode dropdown
+  const headerModeSelect = document.getElementById('banner-header-mode');
+  if (headerModeSelect) headerModeSelect.value = headerMode;
   // Banner height slider
   const heightSlider = document.getElementById('banner-height-slider');
   const heightValue = document.getElementById('banner-height-value');
@@ -876,10 +875,11 @@ _initServerBranding() {
     this._showToast('Server banner removed', 'success');
   });
 
-  // Banner overlay header toggle
-  document.getElementById('banner-overlay-header')?.addEventListener('change', (e) => {
-    this.socket.emit('update-server-setting', { key: 'banner_overlay_header', value: e.target.checked ? 'true' : 'false' });
-    this._showToast(e.target.checked ? 'Banner will overlay the header' : 'Banner behind the header', 'success');
+  // Banner header mode dropdown
+  document.getElementById('banner-header-mode')?.addEventListener('change', (e) => {
+    this.socket.emit('update-server-setting', { key: 'banner_header_mode', value: e.target.value });
+    const labels = { full: 'Full header (opaque)', shaded: 'Shaded header', minimal: 'Minimal header', transparent: 'Transparent header' };
+    this._showToast(labels[e.target.value] || 'Header mode updated', 'success');
   });
 
   // Banner height slider
