@@ -757,17 +757,13 @@ _renderPinnedPanel(pins) {
   }
   panel.style.display = 'block';
 
-  // Click to scroll to pinned message
+  // Click to scroll to pinned message (uses _jumpToMessage to handle
+  // messages that have been trimmed from the DOM)
   list.querySelectorAll('.pinned-item').forEach(item => {
     item.addEventListener('click', () => {
-      const msgId = item.dataset.msgId;
-      const msgEl = document.querySelector(`#messages [data-msg-id="${msgId}"]`);
-      if (msgEl) {
-        msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        msgEl.classList.add('highlight-flash');
-        setTimeout(() => msgEl.classList.remove('highlight-flash'), 2000);
-      }
+      const msgId = parseInt(item.dataset.msgId, 10);
       panel.style.display = 'none';
+      if (msgId) this._jumpToMessage(msgId);
     });
   });
 },
