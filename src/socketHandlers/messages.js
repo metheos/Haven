@@ -1079,4 +1079,30 @@ module.exports = function register(socket, ctx) {
       console.error('Mark read error:', err);
     }
   });
+
+  // Mark entire channel as read (context menu action)
+  socket.on('mark-read-channel', (data) => {
+    if (!data || typeof data !== 'object') return;
+    const code = typeof data.code === 'string' ? data.code.trim() : '';
+    if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
+
+    const channel = db.prepare('SELECT id FROM channels WHERE code = ?').get(code);
+    if (!channel) return;
+
+    const member = db.prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?').get(channel.id, socket.user.id);
+    if (!member) return;
+
+    try {
+      const latest = db.prepare('SELECT MAX(id) AS maxId FROM messages WHERE channel_id = ?').get(channel.id);
+      if (!latest || !latest.maxId) return;
+
+      db.prepare(`
+        INSERT INTO read_positions (user_id, channel_id, last_read_message_id)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id, channel_id) DO UPDATE SET last_read_message_id = MAX(last_read_message_id, excluded.last_read_message_id)
+      `).run(socket.user.id, channel.id, latest.maxId);
+    } catch (err) {
+      console.error('Mark read channel error:', err);
+    }
+  });
 };

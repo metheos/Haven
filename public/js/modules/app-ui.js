@@ -167,6 +167,15 @@ _setupUI() {
     if (!confirm('⚠️ ' + t('confirm.delete_channel_sure'))) return;
     this.socket.emit('delete-channel', { code });
   });
+  // Mark channel as read
+  document.querySelector('#channel-ctx-menu [data-action="mark-read"]')?.addEventListener('click', () => {
+    const code = this._ctxMenuChannel;
+    if (!code) return;
+    this._closeChannelCtxMenu();
+    this.unreadCounts[code] = 0;
+    this._updateBadge(code);
+    this.socket.emit('mark-read-channel', { code });
+  });
   // Mute channel toggle
   document.querySelector('#channel-ctx-menu [data-action="mute"]')?.addEventListener('click', () => {
     const code = this._ctxMenuChannel;

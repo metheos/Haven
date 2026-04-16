@@ -260,6 +260,9 @@ _openChannelCtxMenu(code, btnEl) {
   if (cfnPanel) cfnPanel.style.display = 'none';
   const cfnArrow = menu.querySelector('[data-action="channel-functions"] .cfn-arrow');
   if (cfnArrow) cfnArrow.textContent = '▶';
+  // Show/hide "Mark as Read" based on unread count
+  const markReadBtn = menu.querySelector('[data-action="mark-read"]');
+  if (markReadBtn) markReadBtn.style.display = (this.unreadCounts[code] > 0) ? '' : 'none';
   // Show "Create Sub-channel" for mods OR users with create_channel / manage_sub_channels perm
   const ch = this.channels.find(c => c.code === code);
   const createSubBtn = menu.querySelector('[data-action="create-sub-channel"]');
@@ -409,6 +412,16 @@ _initDmContextMenu() {
   this._dmCtxMenuEl = document.getElementById('dm-ctx-menu');
   this._dmCtxMenuCode = null;
 
+  // Mark DM as read
+  document.querySelector('[data-action="dm-mark-read"]')?.addEventListener('click', () => {
+    const code = this._dmCtxMenuCode;
+    if (!code) return;
+    this._closeDmCtxMenu();
+    this.unreadCounts[code] = 0;
+    this._updateBadge(code);
+    this.socket.emit('mark-read-channel', { code });
+  });
+
   // Mute DM
   document.querySelector('[data-action="dm-mute"]')?.addEventListener('click', () => {
     const code = this._dmCtxMenuCode;
@@ -447,6 +460,10 @@ _openDmCtxMenu(code, anchorEl, mouseEvent) {
   const muted = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
   const muteBtn = menu.querySelector('[data-action="dm-mute"]');
   if (muteBtn) muteBtn.textContent = muted.includes(code) ? `🔕 ${t('channels.unmute_dm')}` : `🔔 ${t('channels.mute_dm')}`;
+
+  // Show/hide "Mark as Read" based on unread count
+  const markReadBtn = menu.querySelector('[data-action="dm-mark-read"]');
+  if (markReadBtn) markReadBtn.style.display = (this.unreadCounts[code] > 0) ? '' : 'none';
 
   // Position
   if (mouseEvent) {
