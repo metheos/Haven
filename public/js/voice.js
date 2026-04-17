@@ -1004,14 +1004,21 @@ class VoiceManager {
     return `${framesSent} fr | ${resolution} | ${bitrateKbps}`;
   }
 
-  _startCodecStatsWatch(connection, trackId) {
+  _startCodecStatsWatch(sender, trackId) {
     this._clearCodecStatsWatch(trackId);
 
     const pollStats = async () => {
+      if (!sender || !sender.track || sender.track.readyState === "ended") {
+        this._clearCodecStatsWatch(trackId);
+        return;
+      }
+
       try {
-        const stats = await connection.getStats();
+        const stats = await sender.getStats();
+        let foundVideoReport = false;
         stats.forEach((report) => {
-          if (report.type === "outbound-rtp" && report.kind === "video" && report.trackId === trackId) {
+          if (report.type === "outbound-rtp" && report.kind === "video") {
+            foundVideoReport = true;
             const codec = report.codecId ? stats.get(report.codecId) : null;
             const activeMimeType = codec?.mimeType || "unknown";
             const sample = this._videoStatsSamples.get(trackId);
@@ -1036,8 +1043,17 @@ class VoiceManager {
             });
           }
         });
+        if (!foundVideoReport) {
+          this._updateCodecDebugState({ liveStats: null });
+        }
       } catch (e) {
-        console.warn("[Voice] Could not read live video stats:", e.message);
+        const message = e?.message || String(e);
+        const unusable = /no longer usable|not usable|invalid state|closed/i.test(message);
+        if (unusable) {
+          this._clearCodecStatsWatch(trackId);
+          return;
+        }
+        console.warn("[Voice] Could not read live video stats:", message);
       }
     };
 
@@ -1227,7 +1243,7 @@ class VoiceManager {
             }
 
             const trackId = sender.track.id;
-            this._startCodecStatsWatch(connection, trackId);
+            this._startCodecStatsWatch(sender, trackId);
 
             // Check actual codec being used after a short delay
             setTimeout(async () => {
