@@ -948,8 +948,21 @@ _handleScreenStream(userId, stream, { force = false } = {}) {
     const tile = document.getElementById(tileId);
     if (tile) {
       const vid = tile.querySelector('video');
-      if (vid) vid.srcObject = null;
+      if (vid) {
+        // Exit native PiP if this video is the PiP source
+        if (document.pictureInPictureElement === vid) {
+          document.exitPictureInPicture().catch(() => {});
+        }
+        vid.srcObject = null;
+      }
       tile.remove();
+    }
+    // Close any pop-out PiP overlay for this stream
+    const pipEl = document.getElementById(`stream-pip-${userId || 'self'}`);
+    if (pipEl) {
+      const pipVid = pipEl.querySelector('video');
+      if (pipVid) pipVid.srcObject = null;
+      pipEl.remove();
     }
     // If our OWN stream ended (e.g. browser "Stop sharing" button),
     // reset the screen-share button so it doesn't stay in "stop" state
