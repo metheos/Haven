@@ -55,8 +55,7 @@ class VoiceManager {
     // Screen share quality settings (populated from localStorage)
     const savedRes = localStorage.getItem("haven_screen_res");
     this.screenResolution = savedRes !== null ? parseInt(savedRes, 10) : 1080; // 0 = source
-    this.screenFrameRate =
-      parseInt(localStorage.getItem("haven_screen_fps") || "30", 10) || 30;
+    this.screenFrameRate = parseInt(localStorage.getItem("haven_screen_fps") || "30", 10) || 30;
 
     // Bitrate map: resolution → bits/sec  (sensible defaults per resolution)
     this._screenBitrates = {
@@ -67,10 +66,7 @@ class VoiceManager {
     };
 
     this.rtcConfig = {
-      iceServers: [
-        { urls: "stun:stun.stunprotocol.org:3478" },
-        { urls: "stun:stun.nextcloud.com:3478" },
-      ],
+      iceServers: [{ urls: "stun:stun.stunprotocol.org:3478" }, { urls: "stun:stun.nextcloud.com:3478" }],
     };
 
     // Fetch server-provided ICE config (may include TURN)
@@ -162,9 +158,7 @@ class VoiceManager {
           // Only accept answer if we're actually waiting for one
           // (we may have rolled back our offer due to glare)
           if (peer.connection.signalingState === "have-local-offer") {
-            await peer.connection.setRemoteDescription(
-              new RTCSessionDescription(data.answer),
-            );
+            await peer.connection.setRemoteDescription(new RTCSessionDescription(data.answer));
           }
         } catch (err) {
           console.error("Error handling voice answer:", err);
@@ -177,9 +171,7 @@ class VoiceManager {
       const peer = this.peers.get(data.from.id);
       if (peer && data.candidate) {
         try {
-          await peer.connection.addIceCandidate(
-            new RTCIceCandidate(data.candidate),
-          );
+          await peer.connection.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (err) {
           console.error("Error adding ICE candidate:", err);
         }
@@ -234,7 +226,7 @@ class VoiceManager {
     });
 
     // Kicked from voice because user joined from another client/tab
-    this.socket.on('voice-kicked', (data) => {
+    this.socket.on("voice-kicked", (data) => {
       if (!data || !data.channelCode) return;
       // Only act if we're currently in the channel we got kicked from
       if (this.currentChannel !== data.channelCode) return;
@@ -328,8 +320,7 @@ class VoiceManager {
       // Add webcam track if not already on this peer
       const senders = conn.getSenders();
       const webcamTrack = this.webcamStream.getVideoTracks()[0];
-      const alreadySent =
-        webcamTrack && senders.some((s) => s.track === webcamTrack);
+      const alreadySent = webcamTrack && senders.some((s) => s.track === webcamTrack);
       if (!alreadySent && webcamTrack) {
         conn.addTrack(webcamTrack, this.webcamStream);
         // Enable hardware acceleration for video codec
@@ -355,9 +346,7 @@ class VoiceManager {
 
       // Create/resume AudioContext with user gesture (needed for volume boost)
       if (!this.audioCtx) {
-        this.audioCtx = new (
-          window.AudioContext || window.webkitAudioContext
-        )();
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
       if (this.audioCtx.state === "suspended") await this.audioCtx.resume();
 
@@ -378,10 +367,7 @@ class VoiceManager {
       } catch (deviceErr) {
         if (savedInputId) {
           // Saved device may be stale — retry with default mic
-          console.warn(
-            "Saved mic device failed, falling back to default:",
-            deviceErr.message,
-          );
+          console.warn("Saved mic device failed, falling back to default:", deviceErr.message);
           localStorage.removeItem("haven_input_device");
           delete audioConstraints.deviceId;
           this.rawStream = await navigator.mediaDevices.getUserMedia({
@@ -396,10 +382,7 @@ class VoiceManager {
       // Opt out of Windows audio ducking (Desktop app only).
       // Must be called after getUserMedia so our audio session exists.
       if (window.havenDesktop?.audio?.optOutOfDucking) {
-        setTimeout(
-          () => window.havenDesktop.audio.optOutOfDucking().catch(() => {}),
-          500,
-        );
+        setTimeout(() => window.havenDesktop.audio.optOutOfDucking().catch(() => {}), 500);
       }
 
       // ── Noise Gate via Web Audio ──
@@ -432,10 +415,7 @@ class VoiceManager {
       } else if (this.noiseMode === "off") {
         this.setNoiseSensitivity(0);
       } else if (this.noiseMode === "gate") {
-        const saved = parseInt(
-          localStorage.getItem("haven_ns_value") || "10",
-          10,
-        );
+        const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
         this.setNoiseSensitivity(saved);
       }
 
@@ -663,9 +643,7 @@ class VoiceManager {
     }
     // Mute/unmute screen share audio
     for (const [userId, gainNode] of this.screenGainNodes) {
-      gainNode.gain.value = this.isDeafened
-        ? 0
-        : this._getSavedStreamVolume(userId);
+      gainNode.gain.value = this.isDeafened ? 0 : this._getSavedStreamVolume(userId);
     }
     // Also mute all audio elements as fallback
     document.querySelectorAll("#audio-container audio").forEach((el) => {
@@ -708,9 +686,7 @@ class VoiceManager {
 
       // These options aren't supported in Electron's Chromium — only add them
       // when running in a regular browser to avoid immediate rejection.
-      const isElectron = !!(
-        window.havenDesktop || navigator.userAgent.includes("Electron")
-      );
+      const isElectron = !!(window.havenDesktop || navigator.userAgent.includes("Electron"));
       if (!isElectron) {
         displayMediaOptions.surfaceSwitching = "exclude";
         displayMediaOptions.selfBrowserSurface = "include";
@@ -723,8 +699,7 @@ class VoiceManager {
         }
       }
 
-      this.screenStream =
-        await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
 
       this.isScreenSharing = true;
 
@@ -792,17 +767,12 @@ class VoiceManager {
         }
       });
       // Renegotiate and track the promise so we can wait for completion
-      renegotiations.push(
-        this._renegotiate(userId, peer.connection).catch(() => {}),
-      );
+      renegotiations.push(this._renegotiate(userId, peer.connection).catch(() => {}));
     }
 
     // Wait for all renegotiations to complete (with a timeout so we don't hang forever)
     try {
-      await Promise.race([
-        Promise.all(renegotiations),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ]);
+      await Promise.race([Promise.all(renegotiations), new Promise((resolve) => setTimeout(resolve, 3000))]);
     } catch {
       /* proceed anyway */
     }
@@ -881,16 +851,11 @@ class VoiceManager {
           } catch {}
         }
       });
-      renegotiations.push(
-        this._renegotiate(userId, peer.connection).catch(() => {}),
-      );
+      renegotiations.push(this._renegotiate(userId, peer.connection).catch(() => {}));
     }
 
     try {
-      await Promise.race([
-        Promise.all(renegotiations),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ]);
+      await Promise.race([Promise.all(renegotiations), new Promise((resolve) => setTimeout(resolve, 3000))]);
     } catch {}
 
     tracks.forEach((t) => t.stop());
@@ -928,16 +893,10 @@ class VoiceManager {
     for (const [, peer] of this.peers) {
       const senders = peer.connection.getSenders();
       const camSender = senders.find(
-        (s) =>
-          s.track &&
-          s.track.kind === "video" &&
-          this.webcamStream &&
-          this.webcamStream.getVideoTracks().includes(s.track),
+        (s) => s.track && s.track.kind === "video" && this.webcamStream && this.webcamStream.getVideoTracks().includes(s.track),
       );
       if (camSender) {
-        await camSender
-          .replaceTrack(newTrack)
-          .catch((e) => console.warn("[Voice] replaceTrack (cam) failed:", e));
+        await camSender.replaceTrack(newTrack).catch((e) => console.warn("[Voice] replaceTrack (cam) failed:", e));
       }
     }
 
@@ -995,10 +954,7 @@ class VoiceManager {
     try {
       await videoTrack.applyConstraints(constraints);
     } catch (e) {
-      console.warn(
-        "applyConstraints failed (browser may not support live constraint changes):",
-        e,
-      );
+      console.warn("applyConstraints failed (browser may not support live constraint changes):", e);
     }
 
     // Update bitrate cap on all peer senders
@@ -1016,12 +972,7 @@ class VoiceManager {
     try {
       const senders = connection.getSenders();
       for (const sender of senders) {
-        if (
-          sender.track &&
-          sender.track.kind === "video" &&
-          this.screenStream &&
-          this.screenStream.getVideoTracks().includes(sender.track)
-        ) {
+        if (sender.track && sender.track.kind === "video" && this.screenStream && this.screenStream.getVideoTracks().includes(sender.track)) {
           const params = sender.getParameters();
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
@@ -1035,6 +986,20 @@ class VoiceManager {
     }
   }
 
+  _isPrimaryVideoCodec(codec) {
+    const mime = (codec?.mimeType || "").toLowerCase();
+    if (!mime.startsWith("video/")) return false;
+    // Exclude repair/redundancy codecs from "primary codec" decisions.
+    return !["video/rtx", "video/red", "video/ulpfec", "video/flexfec-03"].includes(mime);
+  }
+
+  _getCodecLabel(codec) {
+    if (!codec) return "unknown";
+    const mime = codec.mimeType || "unknown";
+    const fmtp = codec.sdpFmtpLine ? ` (${codec.sdpFmtpLine})` : "";
+    return `${mime}${fmtp}`;
+  }
+
   /**
    * Enable hardware acceleration for video by prioritizing hardware-accelerated codecs.
    * H.264 is commonly hardware-accelerated on most devices. This should be called
@@ -1046,56 +1011,76 @@ class VoiceManager {
       const transceivers = connection.getTransceivers();
       for (const sender of senders) {
         if (sender.track && sender.track.kind === "video") {
-          const capabilities = RTCRtpSender.getCapabilities("video");
+          const transceiver = transceivers.find((t) => t.sender === sender);
+          if (!transceiver) continue;
+
+          // Use receiver capabilities first as recommended for setCodecPreferences.
+          // Fall back to sender capabilities for older browser implementations.
+          const capabilities =
+            (typeof RTCRtpReceiver !== "undefined" &&
+              typeof RTCRtpReceiver.getCapabilities === "function" &&
+              RTCRtpReceiver.getCapabilities("video")) ||
+            (typeof RTCRtpSender !== "undefined" && typeof RTCRtpSender.getCapabilities === "function" && RTCRtpSender.getCapabilities("video"));
           const capCodecs = capabilities && capabilities.codecs;
-          if (!capCodecs) continue;
+          if (!Array.isArray(capCodecs) || capCodecs.length === 0) continue;
 
           // Log available codecs
-          console.log(
-            "[Voice] Available video codecs:",
-            capCodecs.map((c) => c.mimeType).join(", "),
-          );
+          console.log("[Voice] Available video codecs:", capCodecs.map((c) => c.mimeType).join(", "));
 
-          // Prioritize H.264 as it's commonly hardware-accelerated
-          // Fallback to VP9 or VP8
-          const preferredOrder = ["H264", "h264", "VP9", "vp9", "VP8", "vp8"];
-          const sortedCodecs = [];
+          // Prefer broadest cross-browser interoperability first:
+          // H.264 (widely hardware-accelerated), then VP8 (mandatory in WebRTC),
+          // then VP9/AV1 where available.
+          const codecPriority = {
+            "video/h264": 0,
+            "video/vp8": 1,
+            "video/vp9": 2,
+            "video/av1": 3,
+          };
 
-          // First add preferred codecs in order
-          for (const preferred of preferredOrder) {
-            for (const codec of capCodecs) {
-              if (
-                codec.mimeType.includes(preferred) &&
-                !sortedCodecs.find((c) => c.mimeType === codec.mimeType)
-              ) {
-                sortedCodecs.push(codec);
-              }
+          const h264Score = (codec) => {
+            const fmtp = (codec.sdpFmtpLine || "").toLowerCase();
+            // Prefer non-interleaved mode and constrained baseline profile when present.
+            const packetizationBonus = fmtp.includes("packetization-mode=1") ? -10 : 0;
+            const constrainedBaselineBonus = fmtp.includes("profile-level-id=42e0") || fmtp.includes("profile-level-id=42c0") ? -5 : 0;
+            return packetizationBonus + constrainedBaselineBonus;
+          };
+
+          const sortedCodecs = [...capCodecs].sort((a, b) => {
+            const aMime = (a.mimeType || "").toLowerCase();
+            const bMime = (b.mimeType || "").toLowerCase();
+            const aPri = Object.prototype.hasOwnProperty.call(codecPriority, aMime) ? codecPriority[aMime] : 100;
+            const bPri = Object.prototype.hasOwnProperty.call(codecPriority, bMime) ? codecPriority[bMime] : 100;
+            if (aPri !== bPri) return aPri - bPri;
+            if (aMime === "video/h264" && bMime === "video/h264") {
+              return h264Score(a) - h264Score(b);
             }
-          }
+            return 0;
+          });
 
-          // Then append any remaining codecs
-          for (const codec of capCodecs) {
-            if (!sortedCodecs.find((c) => c.mimeType === codec.mimeType)) {
-              sortedCodecs.push(codec);
-            }
-          }
+          const defaultPrimaryCodec = capCodecs.find((c) => this._isPrimaryVideoCodec(c));
+          const preferredPrimaryCodec = sortedCodecs.find((c) => this._isPrimaryVideoCodec(c));
 
           if (sortedCodecs.length > 0) {
             // setCodecPreferences is the supported way to prioritize codecs.
             // sender.setParameters({ codecs }) expects RTCRtpCodecParameters and
             // fails in Chromium when payloadType is missing.
-            const transceiver = transceivers.find((t) => t.sender === sender);
             const primaryCodec = sortedCodecs[0]?.mimeType || "unknown";
             console.log(`[Voice] Setting preferred codec: ${primaryCodec}`);
-            if (
-              transceiver &&
-              typeof transceiver.setCodecPreferences === "function"
-            ) {
-              transceiver.setCodecPreferences(sortedCodecs);
+            console.log(
+              "[Voice] Codec decision baseline:",
+              "default-order first primary =",
+              this._getCodecLabel(defaultPrimaryCodec),
+              "| preferred-order first primary =",
+              this._getCodecLabel(preferredPrimaryCodec),
+            );
+            if (transceiver && typeof transceiver.setCodecPreferences === "function") {
+              try {
+                transceiver.setCodecPreferences(sortedCodecs);
+              } catch (err) {
+                console.warn("[Voice] setCodecPreferences failed; browser will auto-select codec:", err?.message || err);
+              }
             } else {
-              console.log(
-                "[Voice] Codec preference API unavailable; browser will auto-select codec",
-              );
+              console.log("[Voice] Codec preference API unavailable; browser will auto-select codec");
             }
 
             // Check actual codec being used after a short delay
@@ -1104,20 +1089,15 @@ class VoiceManager {
               try {
                 const stats = await connection.getStats();
                 stats.forEach((report) => {
-                  if (
-                    report.type === "outbound-rtp" &&
-                    report.kind === "video" &&
-                    report.trackId === trackId
-                  ) {
-                    const codec = report.codecId
-                      ? stats.get(report.codecId)
-                      : null;
+                  if (report.type === "outbound-rtp" && report.kind === "video" && report.trackId === trackId) {
+                    const codec = report.codecId ? stats.get(report.codecId) : null;
                     const activeMimeType = codec?.mimeType || "unknown";
-                    const fps =
-                      report.framesPerSecond ?? report.frameRate ?? "n/a";
+                    const fps = report.framesPerSecond ?? report.frameRate ?? "n/a";
                     console.log(
                       "[Voice] Active video codec:",
                       activeMimeType,
+                      `| Default(no intervention): ${this._getCodecLabel(defaultPrimaryCodec)}`,
+                      `| Preferred: ${this._getCodecLabel(preferredPrimaryCodec)}`,
                       `| Frames: ${report.framesSent || 0} | Rate: ${fps}fps`,
                     );
                   }
@@ -1144,12 +1124,7 @@ class VoiceManager {
     try {
       const senders = connection.getSenders();
       for (const sender of senders) {
-        if (
-          sender.track &&
-          sender.track.kind === "audio" &&
-          this.localStream &&
-          this.localStream.getAudioTracks().includes(sender.track)
-        ) {
+        if (sender.track && sender.track.kind === "audio" && this.localStream && this.localStream.getAudioTracks().includes(sender.track)) {
           const params = sender.getParameters();
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
@@ -1230,10 +1205,8 @@ class VoiceManager {
         // - displaySurface is only set on getDisplayMedia tracks
         // - also check our signaling state (webcamUsers vs screenSharers)
         const settings = track.getSettings ? track.getSettings() : {};
-        const isScreenTrack =
-          !!settings.displaySurface || this.screenSharers.has(userId);
-        const isWebcamTrack =
-          !settings.displaySurface && this.webcamUsers.has(userId);
+        const isScreenTrack = !!settings.displaySurface || this.screenSharers.has(userId);
+        const isWebcamTrack = !settings.displaySurface && this.webcamUsers.has(userId);
 
         if (isWebcamTrack && !isScreenTrack) {
           // Route to webcam callback
@@ -1314,13 +1287,9 @@ class VoiceManager {
         // screen-share stops). Give the connection time to recover before
         // tearing it down — Chrome frequently goes disconnected→connected.
         if (!this._disconnectTimers) this._disconnectTimers = {};
-        if (this._disconnectTimers[userId])
-          clearTimeout(this._disconnectTimers[userId]);
+        if (this._disconnectTimers[userId]) clearTimeout(this._disconnectTimers[userId]);
         this._disconnectTimers[userId] = setTimeout(() => {
-          if (
-            connection.connectionState === "disconnected" ||
-            connection.connectionState === "failed"
-          ) {
+          if (connection.connectionState === "disconnected" || connection.connectionState === "failed") {
             this._restartIce(userId, connection);
           }
           delete this._disconnectTimers[userId];
@@ -1359,9 +1328,7 @@ class VoiceManager {
       peer.connection.close();
       const audioEl = document.getElementById(`voice-audio-${userId}`);
       if (audioEl) audioEl.remove();
-      const screenAudioEl = document.getElementById(
-        `voice-audio-screen-${userId}`,
-      );
+      const screenAudioEl = document.getElementById(`voice-audio-screen-${userId}`);
       if (screenAudioEl) screenAudioEl.remove();
       this.screenGainNodes.delete(userId);
       this.gainNodes.delete(userId);
@@ -1408,11 +1375,7 @@ class VoiceManager {
     // Replace our audio track with a silent one for this peer
     const senders = peer.connection.getSenders();
     const audioSender = senders.find(
-      (s) =>
-        s.track &&
-        s.track.kind === "audio" &&
-        (!this.screenStream ||
-          !this.screenStream.getAudioTracks().includes(s.track)),
+      (s) => s.track && s.track.kind === "audio" && (!this.screenStream || !this.screenStream.getAudioTracks().includes(s.track)),
     );
     if (audioSender) {
       // Create a silent audio track
@@ -1432,11 +1395,7 @@ class VoiceManager {
     if (peer._originalAudioTrack) {
       const senders = peer.connection.getSenders();
       const audioSender = senders.find(
-        (s) =>
-          s.track &&
-          s.track.kind === "audio" &&
-          (!this.screenStream ||
-            !this.screenStream.getAudioTracks().includes(s.track)),
+        (s) => s.track && s.track.kind === "audio" && (!this.screenStream || !this.screenStream.getAudioTracks().includes(s.track)),
       );
       if (audioSender) {
         audioSender.replaceTrack(peer._originalAudioTrack).catch(() => {});
@@ -1451,14 +1410,10 @@ class VoiceManager {
 
   _createSilentAudioTrack() {
     // Reuse cached silent track to avoid creating new AudioContext/oscillator on every deafen
-    if (
-      this._cachedSilentTrack &&
-      this._cachedSilentTrack.readyState === "live"
-    ) {
+    if (this._cachedSilentTrack && this._cachedSilentTrack.readyState === "live") {
       return this._cachedSilentTrack;
     }
-    const ctx =
-      this.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = this.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (!this.audioCtx) this.audioCtx = ctx; // save for reuse
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -1473,9 +1428,7 @@ class VoiceManager {
 
   _getSavedVolume(userId) {
     try {
-      const vols = JSON.parse(
-        localStorage.getItem("haven_voice_volumes") || "{}",
-      );
+      const vols = JSON.parse(localStorage.getItem("haven_voice_volumes") || "{}");
       return (vols[userId] ?? 100) / 100;
     } catch {
       return 1;
@@ -1548,10 +1501,7 @@ class VoiceManager {
       this.setNoiseSensitivity(0);
       this._enableRNNoise();
     } else if (this.noiseMode === "gate") {
-      const saved = parseInt(
-        localStorage.getItem("haven_ns_value") || "10",
-        10,
-      );
+      const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
       this.setNoiseSensitivity(saved);
     } else if (this.noiseMode === "off") {
       this.setNoiseSensitivity(0);
@@ -1562,18 +1512,10 @@ class VoiceManager {
     for (const [, peer] of this.peers) {
       const senders = peer.connection.getSenders();
       const audioSender = senders.find(
-        (s) =>
-          s.track &&
-          s.track.kind === "audio" &&
-          (!this.screenStream ||
-            !this.screenStream.getAudioTracks().includes(s.track)),
+        (s) => s.track && s.track.kind === "audio" && (!this.screenStream || !this.screenStream.getAudioTracks().includes(s.track)),
       );
       if (audioSender) {
-        await audioSender
-          .replaceTrack(newTrack)
-          .catch((e) =>
-            console.warn("[Voice] replaceTrack failed for peer:", e),
-          );
+        await audioSender.replaceTrack(newTrack).catch((e) => console.warn("[Voice] replaceTrack failed for peer:", e));
       }
     }
 
@@ -1610,9 +1552,7 @@ class VoiceManager {
     if (this.audioCtx && typeof this.audioCtx.setSinkId === "function") {
       try {
         await this.audioCtx.setSinkId(deviceId || "");
-        console.log(
-          `[Voice] AudioContext sink switched: ${deviceId || "default"}`,
-        );
+        console.log(`[Voice] AudioContext sink switched: ${deviceId || "default"}`);
       } catch (e) {
         console.warn("[Voice] AudioContext.setSinkId failed:", e);
       }
@@ -1663,17 +1603,11 @@ class VoiceManager {
     }
 
     try {
-      if (!this.audioCtx)
-        this.audioCtx = new (
-          window.AudioContext || window.webkitAudioContext
-        )();
-      if (this.audioCtx.state === "suspended")
-        this.audioCtx.resume().catch(() => {});
+      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.audioCtx.state === "suspended") this.audioCtx.resume().catch(() => {});
       const source = this.audioCtx.createMediaStreamSource(stream);
       const gainNode = this.audioCtx.createGain();
-      gainNode.gain.value = this._getAppliedIncomingVolume(
-        this._getSavedStreamVolume(userId),
-      );
+      gainNode.gain.value = this._getAppliedIncomingVolume(this._getSavedStreamVolume(userId));
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
       this.screenGainNodes.set(userId, gainNode);
@@ -1692,10 +1626,7 @@ class VoiceManager {
 
   setStreamVolume(userId, volume) {
     // Map keys may be number or string depending on caller — try both
-    const gainNode =
-      this.screenGainNodes.get(userId) ||
-      this.screenGainNodes.get(String(userId)) ||
-      this.screenGainNodes.get(Number(userId));
+    const gainNode = this.screenGainNodes.get(userId) || this.screenGainNodes.get(String(userId)) || this.screenGainNodes.get(Number(userId));
     const clampedGain = Math.max(0, Math.min(2, volume));
     const clampedVol = Math.max(0, Math.min(1, volume));
     if (gainNode) {
@@ -1708,9 +1639,7 @@ class VoiceManager {
 
   _getSavedStreamVolume(userId) {
     try {
-      const vols = JSON.parse(
-        localStorage.getItem("haven_stream_volumes") || "{}",
-      );
+      const vols = JSON.parse(localStorage.getItem("haven_stream_volumes") || "{}");
       return (vols[userId] ?? 100) / 100;
     } catch {
       return 1;
@@ -1740,10 +1669,7 @@ class VoiceManager {
     } else if (mode === "gate") {
       // Disable RNNoise, enable noise gate with saved sensitivity
       this._disableRNNoise();
-      const saved = parseInt(
-        localStorage.getItem("haven_ns_value") || "10",
-        10,
-      );
+      const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
       this.setNoiseSensitivity(saved);
     } else {
       // Off — disable both
@@ -1768,8 +1694,7 @@ class VoiceManager {
   }
 
   _enableRNNoise() {
-    if (!this._rnnoiseReady || !this._rnnoiseSource || this._rnnoiseNode)
-      return;
+    if (!this._rnnoiseReady || !this._rnnoiseSource || this._rnnoiseNode) return;
     try {
       const node = new AudioWorkletNode(this.audioCtx, "rnnoise-processor", {
         numberOfInputs: 1,
@@ -1811,11 +1736,7 @@ class VoiceManager {
     this.noiseSensitivity = Math.max(0, Math.min(100, value));
     // Immediately open gate if set to 0
     if (this.noiseSensitivity === 0 && this._noiseGateGain) {
-      this._noiseGateGain.gain.setTargetAtTime(
-        1,
-        this.audioCtx.currentTime,
-        0.01,
-      );
+      this._noiseGateGain.gain.setTargetAtTime(1, this.audioCtx.currentTime, 0.01);
     }
     return this.noiseSensitivity;
   }
@@ -1950,9 +1871,7 @@ class VoiceManager {
     if (!this.rawStream || this._localTalkInterval) return;
     try {
       if (!this.audioCtx) {
-        this.audioCtx = new (
-          window.AudioContext || window.webkitAudioContext
-        )();
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
       if (this.audioCtx.state === "suspended") this.audioCtx.resume();
 
@@ -1977,8 +1896,7 @@ class VoiceManager {
               clearTimeout(holdTimer);
               holdTimer = null;
             }
-            if (this.socket && this.inVoice)
-              this.socket.emit("voice-speaking", { speaking: false });
+            if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: false });
           }
           return;
         }
@@ -1995,16 +1913,10 @@ class VoiceManager {
           }
           if (!wasTalking) {
             wasTalking = true;
-            if (this.socket && this.inVoice)
-              this.socket.emit("voice-speaking", { speaking: true });
+            if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: true });
           }
           // Notify server of voice activity for AFK tracking (throttled to once per 15s)
-          if (
-            this.socket &&
-            this.inVoice &&
-            (!this._lastVoiceSpeakPing ||
-              Date.now() - this._lastVoiceSpeakPing > 15000)
-          ) {
+          if (this.socket && this.inVoice && (!this._lastVoiceSpeakPing || Date.now() - this._lastVoiceSpeakPing > 15000)) {
             this._lastVoiceSpeakPing = Date.now();
             this.socket.emit("voice-activity");
           }
@@ -2012,8 +1924,7 @@ class VoiceManager {
           holdTimer = setTimeout(() => {
             wasTalking = false;
             holdTimer = null;
-            if (this.socket && this.inVoice)
-              this.socket.emit("voice-speaking", { speaking: false });
+            if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: false });
           }, HOLD_MS);
         }
       }, 60);
@@ -2027,8 +1938,7 @@ class VoiceManager {
       clearInterval(this._localTalkInterval);
       this._localTalkInterval = null;
       this._localTalkAnalyser = null;
-      if (this.socket && this.inVoice)
-        this.socket.emit("voice-speaking", { speaking: false });
+      if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: false });
       if (this.onTalkingChange) this.onTalkingChange("self", false);
     }
   }
@@ -2063,9 +1973,7 @@ class VoiceManager {
     // browsers muting the stream when multiple sources compete.
     try {
       if (!this.audioCtx) {
-        this.audioCtx = new (
-          window.AudioContext || window.webkitAudioContext
-        )();
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
       if (this.audioCtx.state === "suspended") this.audioCtx.resume();
 
@@ -2081,9 +1989,7 @@ class VoiceManager {
 
       // Gain branch (source → gain → destination)
       const gainNode = this.audioCtx.createGain();
-      gainNode.gain.value = this._getAppliedIncomingVolume(
-        this._getSavedVolume(userId),
-      );
+      gainNode.gain.value = this._getAppliedIncomingVolume(this._getSavedVolume(userId));
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
       this.gainNodes.set(userId, gainNode);
