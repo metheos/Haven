@@ -5,71 +5,72 @@
 class VoiceManager {
   constructor(socket) {
     this.socket = socket;
-    this.localStream = null;        // Processed stream (sent to peers)
-    this.rawStream = null;          // Raw mic stream (for local talk detection)
-    this.screenStream = null;       // Screen share MediaStream
-    this.webcamStream = null;       // Webcam video MediaStream
+    this.localStream = null; // Processed stream (sent to peers)
+    this.rawStream = null; // Raw mic stream (for local talk detection)
+    this.screenStream = null; // Screen share MediaStream
+    this.webcamStream = null; // Webcam video MediaStream
     this.isScreenSharing = false;
     this.isWebcamActive = false;
-    this.peers = new Map();         // userId → { connection, stream, username }
+    this.peers = new Map(); // userId → { connection, stream, username }
     this.currentChannel = null;
     this.isMuted = false;
     this.isDeafened = false;
     this.inVoice = false;
-    this.noiseSensitivity = 10;     // Noise gate sensitivity 0 (off) to 100 (aggressive)
-    this.currentMicLevel = 0;       // Real-time mic input level 0-100 for UI meter
-    this.audioCtx = null;           // Web Audio context for volume boost
-    this.gainNodes = new Map();     // userId → GainNode
-    this.localUserId = null;        // set by app.js so stopScreenShare can reference own tile
-    this.onScreenStream = null;     // callback(userId, stream|null) — set by app.js
-    this.onWebcamStream = null;     // callback(userId, stream|null) — set by app.js
-    this.onVoiceJoin = null;        // callback(userId, username)
-    this.onVoiceLeave = null;       // callback(userId, username)
-    this.onTalkingChange = null;    // callback(userId, isTalking)
-    this.screenSharers = new Set();  // userIds currently sharing
-    this.webcamUsers = new Set();    // userIds currently broadcasting webcam
+    this.noiseSensitivity = 10; // Noise gate sensitivity 0 (off) to 100 (aggressive)
+    this.currentMicLevel = 0; // Real-time mic input level 0-100 for UI meter
+    this.audioCtx = null; // Web Audio context for volume boost
+    this.gainNodes = new Map(); // userId → GainNode
+    this.localUserId = null; // set by app.js so stopScreenShare can reference own tile
+    this.onScreenStream = null; // callback(userId, stream|null) — set by app.js
+    this.onWebcamStream = null; // callback(userId, stream|null) — set by app.js
+    this.onVoiceJoin = null; // callback(userId, username)
+    this.onVoiceLeave = null; // callback(userId, username)
+    this.onTalkingChange = null; // callback(userId, isTalking)
+    this.screenSharers = new Set(); // userIds currently sharing
+    this.webcamUsers = new Set(); // userIds currently broadcasting webcam
     this.screenGainNodes = new Map(); // userId → GainNode for screen share audio
-    this.onScreenAudio = null;       // callback(userId) — screen share audio available
-    this.talkingState = new Map();  // userId → boolean
-    this.analysers = new Map();     // userId → { analyser, dataArray, interval }
+    this.onScreenAudio = null; // callback(userId) — screen share audio available
+    this.talkingState = new Map(); // userId → boolean
+    this.analysers = new Map(); // userId → { analyser, dataArray, interval }
     this.onScreenShareStarted = null; // callback(userId, username) — someone started streaming
     this.onWebcamStatusChange = null; // callback() — webcam started/stopped, re-render user list
-    this.deafenedUsers = new Set();   // userIds we've muted our audio towards
+    this.deafenedUsers = new Set(); // userIds we've muted our audio towards
     this._localTalkInterval = null;
     this._noiseGateInterval = null;
     this._noiseGateGain = null;
     this._noiseGateAnalyser = null;
-    this._vcDest = null;             // MediaStreamDestination node for mixing soundboard audio into VC
+    this._vcDest = null; // MediaStreamDestination node for mixing soundboard audio into VC
 
     // Voice audio bitrate cap (0 = auto, otherwise kbps from server)
     this.audioBitrate = 0;
 
     // RNNoise noise suppression state
-    this._rnnoiseNode = null;        // AudioWorkletNode for RNNoise
-    this._rnnoiseReady = false;      // true once WASM is loaded in the worklet
-    this._rnnoiseSource = null;      // MediaStreamSource feeding the chain
+    this._rnnoiseNode = null; // AudioWorkletNode for RNNoise
+    this._rnnoiseReady = false; // true once WASM is loaded in the worklet
+    this._rnnoiseSource = null; // MediaStreamSource feeding the chain
     // Noise mode: 'off' | 'gate' | 'suppress'
-    const savedMode = localStorage.getItem('haven_noise_mode');
-    this.noiseMode = savedMode || 'gate';
+    const savedMode = localStorage.getItem("haven_noise_mode");
+    this.noiseMode = savedMode || "gate";
 
     // Screen share quality settings (populated from localStorage)
-    const savedRes = localStorage.getItem('haven_screen_res');
-    this.screenResolution = savedRes !== null ? parseInt(savedRes, 10) : 1080;  // 0 = source
-    this.screenFrameRate = parseInt(localStorage.getItem('haven_screen_fps') || '30', 10) || 30;
+    const savedRes = localStorage.getItem("haven_screen_res");
+    this.screenResolution = savedRes !== null ? parseInt(savedRes, 10) : 1080; // 0 = source
+    this.screenFrameRate =
+      parseInt(localStorage.getItem("haven_screen_fps") || "30", 10) || 30;
 
     // Bitrate map: resolution → bits/sec  (sensible defaults per resolution)
     this._screenBitrates = {
-      0:    4_000_000,   // 4 Mbps fallback for unconstrained (source)
-      720:  1_500_000,   // 1.5 Mbps
-      1080: 3_000_000,   // 3 Mbps
-      1440: 5_000_000,   // 5 Mbps
+      0: 4_000_000, // 4 Mbps fallback for unconstrained (source)
+      720: 1_500_000, // 1.5 Mbps
+      1080: 3_000_000, // 3 Mbps
+      1440: 5_000_000, // 5 Mbps
     };
 
     this.rtcConfig = {
       iceServers: [
-        { urls: 'stun:stun.stunprotocol.org:3478' },
-        { urls: 'stun:stun.nextcloud.com:3478' }
-      ]
+        { urls: "stun:stun.stunprotocol.org:3478" },
+        { urls: "stun:stun.nextcloud.com:3478" },
+      ],
     };
 
     // Fetch server-provided ICE config (may include TURN)
@@ -82,20 +83,22 @@ class VoiceManager {
 
   async _fetchIceServers() {
     try {
-      const token = localStorage.getItem('haven_token');
+      const token = localStorage.getItem("haven_token");
       if (!token) return;
-      const res = await fetch('/api/ice-servers', {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await fetch("/api/ice-servers", {
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
         if (data.iceServers && data.iceServers.length) {
           this.rtcConfig.iceServers = data.iceServers;
-          console.log(`🧊 ICE servers loaded (${data.iceServers.length} servers${data.iceServers.some(s => String(s.urls).includes('turn:')) ? ', TURN enabled' : ''})`);
+          console.log(
+            `🧊 ICE servers loaded (${data.iceServers.length} servers${data.iceServers.some((s) => String(s.urls).includes("turn:")) ? ", TURN enabled" : ""})`,
+          );
         }
       }
     } catch (err) {
-      console.warn('Could not fetch ICE servers, using defaults:', err.message);
+      console.warn("Could not fetch ICE servers, using defaults:", err.message);
     }
   }
 
@@ -103,7 +106,7 @@ class VoiceManager {
 
   _setupSocketListeners() {
     // We just joined: create peer connections + send offers to all existing users
-    this.socket.on('voice-existing-users', async (data) => {
+    this.socket.on("voice-existing-users", async (data) => {
       // Apply audio bitrate cap from channel settings
       this.audioBitrate = data.voiceBitrate || 0;
       for (const user of data.users) {
@@ -112,7 +115,7 @@ class VoiceManager {
     });
 
     // Someone new joined our voice channel — they'll send us an offer
-    this.socket.on('voice-user-joined', (data) => {
+    this.socket.on("voice-user-joined", (data) => {
       // The new user handles creating offers to existing users,
       // so we just wait for their offer via 'voice-offer'.
       if (this.onVoiceJoin && data && data.user) {
@@ -121,7 +124,7 @@ class VoiceManager {
     });
 
     // Received an offer — create peer & answer
-    this.socket.on('voice-offer', async (data) => {
+    this.socket.on("voice-offer", async (data) => {
       const { from, offer } = data;
 
       let peer = this.peers.get(from.id);
@@ -134,61 +137,65 @@ class VoiceManager {
         const conn = peer.connection;
         // Handle renegotiation glare: if we have a pending local offer,
         // roll it back first so we can accept the incoming one.
-        if (conn.signalingState !== 'stable') {
-          await conn.setLocalDescription({ type: 'rollback' });
+        if (conn.signalingState !== "stable") {
+          await conn.setLocalDescription({ type: "rollback" });
         }
         await conn.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await conn.createAnswer();
         await conn.setLocalDescription(answer);
 
-        this.socket.emit('voice-answer', {
+        this.socket.emit("voice-answer", {
           code: this.currentChannel,
           targetUserId: from.id,
-          answer: answer
+          answer: answer,
         });
       } catch (err) {
-        console.error('Error handling voice offer:', err);
+        console.error("Error handling voice offer:", err);
       }
     });
 
     // Received an answer to our offer
-    this.socket.on('voice-answer', async (data) => {
+    this.socket.on("voice-answer", async (data) => {
       const peer = this.peers.get(data.from.id);
       if (peer) {
         try {
           // Only accept answer if we're actually waiting for one
           // (we may have rolled back our offer due to glare)
-          if (peer.connection.signalingState === 'have-local-offer') {
-            await peer.connection.setRemoteDescription(new RTCSessionDescription(data.answer));
+          if (peer.connection.signalingState === "have-local-offer") {
+            await peer.connection.setRemoteDescription(
+              new RTCSessionDescription(data.answer),
+            );
           }
         } catch (err) {
-          console.error('Error handling voice answer:', err);
+          console.error("Error handling voice answer:", err);
         }
       }
     });
 
     // Received an ICE candidate
-    this.socket.on('voice-ice-candidate', async (data) => {
+    this.socket.on("voice-ice-candidate", async (data) => {
       const peer = this.peers.get(data.from.id);
       if (peer && data.candidate) {
         try {
-          await peer.connection.addIceCandidate(new RTCIceCandidate(data.candidate));
+          await peer.connection.addIceCandidate(
+            new RTCIceCandidate(data.candidate),
+          );
         } catch (err) {
-          console.error('Error adding ICE candidate:', err);
+          console.error("Error adding ICE candidate:", err);
         }
       }
     });
 
     // Server relays speaking state from any voice user (including self)
-    this.socket.on('voice-speaking', (data) => {
+    this.socket.on("voice-speaking", (data) => {
       if (data && data.userId != null) {
-        const uid = data.userId === this.localUserId ? 'self' : data.userId;
+        const uid = data.userId === this.localUserId ? "self" : data.userId;
         if (this.onTalkingChange) this.onTalkingChange(uid, !!data.speaking);
       }
     });
 
     // Someone left voice
-    this.socket.on('voice-user-left', (data) => {
+    this.socket.on("voice-user-left", (data) => {
       if (this.onVoiceLeave && data && data.user) {
         this.onVoiceLeave(data.user.id, data.user.username);
       }
@@ -207,7 +214,7 @@ class VoiceManager {
     });
 
     // Channel voice bitrate was changed mid-session
-    this.socket.on('voice-bitrate-updated', (data) => {
+    this.socket.on("voice-bitrate-updated", (data) => {
       if (data && data.code === this.currentChannel) {
         this.audioBitrate = data.bitrate || 0;
         // Reapply to all existing peer connections
@@ -218,7 +225,7 @@ class VoiceManager {
     });
 
     // AFK auto-move: server says we've been idle too long
-    this.socket.on('voice-afk-move', async (data) => {
+    this.socket.on("voice-afk-move", async (data) => {
       if (!data || !data.channelCode) return;
       // Leave current voice channel
       this.leave();
@@ -236,7 +243,7 @@ class VoiceManager {
     });
 
     // Someone started screen sharing
-    this.socket.on('screen-share-started', (data) => {
+    this.socket.on("screen-share-started", (data) => {
       this.screenSharers.add(data.userId);
       // Play stream start notification sound
       if (this.onScreenShareStarted) {
@@ -249,41 +256,41 @@ class VoiceManager {
     });
 
     // Someone stopped screen sharing
-    this.socket.on('screen-share-stopped', (data) => {
+    this.socket.on("screen-share-stopped", (data) => {
       this.screenSharers.delete(data.userId);
       if (this.onScreenStream) this.onScreenStream(data.userId, null);
     });
 
     // Someone started their webcam
-    this.socket.on('webcam-started', (data) => {
+    this.socket.on("webcam-started", (data) => {
       this.webcamUsers.add(data.userId);
       if (this.onWebcamStatusChange) this.onWebcamStatusChange();
     });
 
     // Someone stopped their webcam
-    this.socket.on('webcam-stopped', (data) => {
+    this.socket.on("webcam-stopped", (data) => {
       this.webcamUsers.delete(data.userId);
       if (this.onWebcamStream) this.onWebcamStream(data.userId, null);
       if (this.onWebcamStatusChange) this.onWebcamStatusChange();
     });
 
     // Late joiner: server tells us about active screen sharers
-    this.socket.on('active-screen-sharers', (data) => {
+    this.socket.on("active-screen-sharers", (data) => {
       if (data && data.sharers) {
-        data.sharers.forEach(s => this.screenSharers.add(s.id));
+        data.sharers.forEach((s) => this.screenSharers.add(s.id));
       }
     });
 
     // Late joiner: server tells us about active webcam users
-    this.socket.on('active-webcam-users', (data) => {
+    this.socket.on("active-webcam-users", (data) => {
       if (data && data.users) {
-        data.users.forEach(u => this.webcamUsers.add(u.id));
+        data.users.forEach((u) => this.webcamUsers.add(u.id));
         if (this.onWebcamStatusChange) this.onWebcamStatusChange();
       }
     });
 
     // Server asks us to renegotiate our screen share with a late joiner
-    this.socket.on('renegotiate-screen', async (data) => {
+    this.socket.on("renegotiate-screen", async (data) => {
       if (!this.screenStream || !this.isScreenSharing) return;
       const peer = this.peers.get(data.targetUserId);
       if (!peer) return;
@@ -291,11 +298,16 @@ class VoiceManager {
 
       // Add screen share tracks if they weren't negotiated in the initial exchange
       const senders = conn.getSenders();
-      const hasVideo = senders.some(s => s.track && s.track.kind === 'video');
+      const hasVideo = senders.some((s) => s.track && s.track.kind === "video");
       if (!hasVideo) {
-        this.screenStream.getTracks().filter(t => t.readyState === 'live').forEach(track => {
-          conn.addTrack(track, this.screenStream);
-        });
+        this.screenStream
+          .getTracks()
+          .filter((t) => t.readyState === "live")
+          .forEach((track) => {
+            conn.addTrack(track, this.screenStream);
+          });
+        // Enable hardware acceleration for video codec
+        this._enableHardwareAcceleration(conn);
         // Cap bitrate for this peer
         const res = this.screenResolution;
         const maxBitrate = this._screenBitrates[res] || this._screenBitrates[0];
@@ -307,7 +319,7 @@ class VoiceManager {
     });
 
     // Server asks us to renegotiate our webcam with a late joiner
-    this.socket.on('renegotiate-webcam', async (data) => {
+    this.socket.on("renegotiate-webcam", async (data) => {
       if (!this.webcamStream || !this.isWebcamActive) return;
       const peer = this.peers.get(data.targetUserId);
       if (!peer) return;
@@ -316,9 +328,12 @@ class VoiceManager {
       // Add webcam track if not already on this peer
       const senders = conn.getSenders();
       const webcamTrack = this.webcamStream.getVideoTracks()[0];
-      const alreadySent = webcamTrack && senders.some(s => s.track === webcamTrack);
+      const alreadySent =
+        webcamTrack && senders.some((s) => s.track === webcamTrack);
       if (!alreadySent && webcamTrack) {
         conn.addTrack(webcamTrack, this.webcamStream);
+        // Enable hardware acceleration for video codec
+        this._enableHardwareAcceleration(conn);
       }
 
       await this._renegotiate(data.targetUserId, conn);
@@ -340,33 +355,38 @@ class VoiceManager {
 
       // Create/resume AudioContext with user gesture (needed for volume boost)
       if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
       }
-      if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
+      if (this.audioCtx.state === "suspended") await this.audioCtx.resume();
 
       // Use saved input device if the user picked one
-      const savedInputId = localStorage.getItem('haven_input_device') || '';
+      const savedInputId = localStorage.getItem("haven_input_device") || "";
       const audioConstraints = {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true
+        autoGainControl: true,
       };
       if (savedInputId) audioConstraints.deviceId = { exact: savedInputId };
 
       try {
         this.rawStream = await navigator.mediaDevices.getUserMedia({
           audio: audioConstraints,
-          video: false
+          video: false,
         });
       } catch (deviceErr) {
         if (savedInputId) {
           // Saved device may be stale — retry with default mic
-          console.warn('Saved mic device failed, falling back to default:', deviceErr.message);
-          localStorage.removeItem('haven_input_device');
+          console.warn(
+            "Saved mic device failed, falling back to default:",
+            deviceErr.message,
+          );
+          localStorage.removeItem("haven_input_device");
           delete audioConstraints.deviceId;
           this.rawStream = await navigator.mediaDevices.getUserMedia({
             audio: audioConstraints,
-            video: false
+            video: false,
           });
         } else {
           throw deviceErr;
@@ -376,7 +396,10 @@ class VoiceManager {
       // Opt out of Windows audio ducking (Desktop app only).
       // Must be called after getUserMedia so our audio session exists.
       if (window.havenDesktop?.audio?.optOutOfDucking) {
-        setTimeout(() => window.havenDesktop.audio.optOutOfDucking().catch(() => {}), 500);
+        setTimeout(
+          () => window.havenDesktop.audio.optOutOfDucking().catch(() => {}),
+          500,
+        );
       }
 
       // ── Noise Gate via Web Audio ──
@@ -398,18 +421,21 @@ class VoiceManager {
       this._noiseGateAnalyser = gateAnalyser;
       this._noiseGateGain = gateGain;
       this._vcDest = dest;
-      this.localStream = dest.stream;   // processed stream → peers
+      this.localStream = dest.stream; // processed stream → peers
       this._startNoiseGate();
 
       // Initialize RNNoise and apply saved noise mode
       await this._initRNNoise();
-      if (this.noiseMode === 'suppress' && this._rnnoiseReady) {
+      if (this.noiseMode === "suppress" && this._rnnoiseReady) {
         this.setNoiseSensitivity(0);
         this._enableRNNoise();
-      } else if (this.noiseMode === 'off') {
+      } else if (this.noiseMode === "off") {
         this.setNoiseSensitivity(0);
-      } else if (this.noiseMode === 'gate') {
-        const saved = parseInt(localStorage.getItem('haven_ns_value') || '10', 10);
+      } else if (this.noiseMode === "gate") {
+        const saved = parseInt(
+          localStorage.getItem("haven_ns_value") || "10",
+          10,
+        );
         this.setNoiseSensitivity(saved);
       }
 
@@ -419,18 +445,20 @@ class VoiceManager {
       this.isDeafened = preservedDeafenState;
 
       this._applyMuteStateToLocalTracks();
-      
-      // Persist voice channel for auto-rejoin after page refresh or server restart
-      try { localStorage.setItem('haven_voice_channel', channelCode); } catch {}
 
-      this.socket.emit('voice-join', { code: channelCode });
+      // Persist voice channel for auto-rejoin after page refresh or server restart
+      try {
+        localStorage.setItem("haven_voice_channel", channelCode);
+      } catch {}
+
+      this.socket.emit("voice-join", { code: channelCode });
 
       // Start local talk indicator (use raw stream for accurate detection)
       this._startLocalTalkDetection();
 
       return true;
     } catch (err) {
-      console.error('Microphone access failed:', err);
+      console.error("Microphone access failed:", err);
       return false;
     }
   }
@@ -458,13 +486,13 @@ class VoiceManager {
       // Use Socket.IO acknowledgment to confirm server received the leave.
       // If no ack within 2s (socket glitch, transport switch), retry.
       let acked = false;
-      this.socket.emit('voice-leave', { code: leavingChannel }, (response) => {
+      this.socket.emit("voice-leave", { code: leavingChannel }, (response) => {
         acked = true;
       });
       setTimeout(() => {
         if (!acked && this.socket.connected) {
-          console.warn('[Voice] voice-leave not acked, retrying...');
-          this.socket.emit('voice-leave', { code: leavingChannel });
+          console.warn("[Voice] voice-leave not acked, retrying...");
+          this.socket.emit("voice-leave", { code: leavingChannel });
         }
       }, 2000);
     }
@@ -477,11 +505,11 @@ class VoiceManager {
 
     // Stop local tracks (both raw and processed)
     if (this.rawStream) {
-      this.rawStream.getTracks().forEach(t => t.stop());
+      this.rawStream.getTracks().forEach((t) => t.stop());
       this.rawStream = null;
     }
     if (this.localStream) {
-      this.localStream.getTracks().forEach(t => t.stop());
+      this.localStream.getTracks().forEach((t) => t.stop());
       this.localStream = null;
     }
 
@@ -502,10 +530,12 @@ class VoiceManager {
     }
     // Clear cached silent track
     this._cachedSilentTrack = null;
-    
+
     // Clear persisted voice channel
-    try { localStorage.removeItem('haven_voice_channel'); } catch {}
-    
+    try {
+      localStorage.removeItem("haven_voice_channel");
+    } catch {}
+
     // Clear any pending disconnect-recovery timers
     if (this._disconnectTimers) {
       for (const key of Object.keys(this._disconnectTimers)) {
@@ -526,12 +556,12 @@ class VoiceManager {
 
     // Stop screen share / webcam (local cleanup only)
     if (this.isScreenSharing && this.screenStream) {
-      this.screenStream.getTracks().forEach(t => t.stop());
+      this.screenStream.getTracks().forEach((t) => t.stop());
       this.screenStream = null;
       this.isScreenSharing = false;
     }
     if (this.isWebcamActive && this.webcamStream) {
-      this.webcamStream.getTracks().forEach(t => t.stop());
+      this.webcamStream.getTracks().forEach((t) => t.stop());
       this.webcamStream = null;
       this.isWebcamActive = false;
     }
@@ -546,11 +576,11 @@ class VoiceManager {
     this.gainNodes.clear();
 
     if (this.rawStream) {
-      this.rawStream.getTracks().forEach(t => t.stop());
+      this.rawStream.getTracks().forEach((t) => t.stop());
       this.rawStream = null;
     }
     if (this.localStream) {
-      this.localStream.getTracks().forEach(t => t.stop());
+      this.localStream.getTracks().forEach((t) => t.stop());
       this.localStream = null;
     }
 
@@ -582,23 +612,27 @@ class VoiceManager {
   playSoundToVC(url, localVolume = 0.5) {
     if (!this.inVoice || !this.audioCtx || !this._vcDest) return false;
     // Use fetch + decodeAudioData for reliable mixing into VC destination
-    fetch(url).then(r => r.arrayBuffer()).then(buf => {
-      return this.audioCtx.decodeAudioData(buf);
-    }).then(audioBuffer => {
-      const bufferSource = this.audioCtx.createBufferSource();
-      bufferSource.buffer = audioBuffer;
-      // Mix into the VC destination so peers hear it
-      const vcGain = this.audioCtx.createGain();
-      vcGain.gain.value = 0.7;
-      bufferSource.connect(vcGain);
-      vcGain.connect(this._vcDest);
-      // Also play locally for the user's own preview
-      const localGain = this.audioCtx.createGain();
-      localGain.gain.value = localVolume;
-      bufferSource.connect(localGain);
-      localGain.connect(this.audioCtx.destination);
-      bufferSource.start(0);
-    }).catch(() => {});
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => {
+        return this.audioCtx.decodeAudioData(buf);
+      })
+      .then((audioBuffer) => {
+        const bufferSource = this.audioCtx.createBufferSource();
+        bufferSource.buffer = audioBuffer;
+        // Mix into the VC destination so peers hear it
+        const vcGain = this.audioCtx.createGain();
+        vcGain.gain.value = 0.7;
+        bufferSource.connect(vcGain);
+        vcGain.connect(this._vcDest);
+        // Also play locally for the user's own preview
+        const localGain = this.audioCtx.createGain();
+        localGain.gain.value = localVolume;
+        bufferSource.connect(localGain);
+        localGain.connect(this.audioCtx.destination);
+        bufferSource.start(0);
+      })
+      .catch(() => {});
     return true;
   }
 
@@ -610,12 +644,12 @@ class VoiceManager {
 
   _applyMuteStateToLocalTracks() {
     if (this.rawStream) {
-      this.rawStream.getAudioTracks().forEach(track => {
+      this.rawStream.getAudioTracks().forEach((track) => {
         track.enabled = !this.isMuted;
       });
     }
     if (this.localStream) {
-      this.localStream.getAudioTracks().forEach(track => {
+      this.localStream.getAudioTracks().forEach((track) => {
         track.enabled = !this.isMuted;
       });
     }
@@ -629,10 +663,12 @@ class VoiceManager {
     }
     // Mute/unmute screen share audio
     for (const [userId, gainNode] of this.screenGainNodes) {
-      gainNode.gain.value = this.isDeafened ? 0 : this._getSavedStreamVolume(userId);
+      gainNode.gain.value = this.isDeafened
+        ? 0
+        : this._getSavedStreamVolume(userId);
     }
     // Also mute all audio elements as fallback
-    document.querySelectorAll('#audio-container audio').forEach(el => {
+    document.querySelectorAll("#audio-container audio").forEach((el) => {
       if (this.isDeafened) {
         el.dataset.prevVolume = el.volume;
         el.volume = 0;
@@ -653,14 +689,14 @@ class VoiceManager {
     if (!this.inVoice || this.isScreenSharing) return false;
     try {
       // Build video constraints from quality settings
-      const videoConstraints = { cursor: 'always' };
-      const res = this.screenResolution;   // 720 | 1080 | 1440 | 0 (source)
-      const fps = this.screenFrameRate;    // 15 | 30 | 60
+      const videoConstraints = { cursor: "always" };
+      const res = this.screenResolution; // 720 | 1080 | 1440 | 0 (source)
+      const fps = this.screenFrameRate; // 15 | 30 | 60
 
       if (res && res !== 0) {
         // 16:9 width from height
         const widths = { 720: 1280, 1080: 1920, 1440: 2560 };
-        videoConstraints.width  = { ideal: widths[res] || 1920 };
+        videoConstraints.width = { ideal: widths[res] || 1920 };
         videoConstraints.height = { ideal: res };
       }
       videoConstraints.frameRate = { ideal: fps };
@@ -672,20 +708,23 @@ class VoiceManager {
 
       // These options aren't supported in Electron's Chromium — only add them
       // when running in a regular browser to avoid immediate rejection.
-      const isElectron = !!(window.havenDesktop || navigator.userAgent.includes('Electron'));
+      const isElectron = !!(
+        window.havenDesktop || navigator.userAgent.includes("Electron")
+      );
       if (!isElectron) {
-        displayMediaOptions.surfaceSwitching = 'exclude';
-        displayMediaOptions.selfBrowserSurface = 'include';
-        displayMediaOptions.monitorTypeSurfaces = 'include';
+        displayMediaOptions.surfaceSwitching = "exclude";
+        displayMediaOptions.selfBrowserSurface = "include";
+        displayMediaOptions.monitorTypeSurfaces = "include";
 
         // Use CaptureController if available to manage the capture session
-        if (typeof CaptureController !== 'undefined') {
+        if (typeof CaptureController !== "undefined") {
           this._captureController = new CaptureController();
           displayMediaOptions.controller = this._captureController;
         }
       }
 
-      this.screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+      this.screenStream =
+        await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
 
       this.isScreenSharing = true;
 
@@ -697,15 +736,19 @@ class VoiceManager {
       // If screen audio track dies independently, update flag
       const screenAudioTrack = this.screenStream.getAudioTracks()[0];
       if (screenAudioTrack) {
-        screenAudioTrack.onended = () => { this.screenHasAudio = false; };
+        screenAudioTrack.onended = () => {
+          this.screenHasAudio = false;
+        };
       }
 
       // Add screen tracks to all existing peer connections and cap bitrate
       const maxBitrate = this._screenBitrates[res] || this._screenBitrates[0];
       for (const [userId, peer] of this.peers) {
-        this.screenStream.getTracks().forEach(track => {
+        this.screenStream.getTracks().forEach((track) => {
           peer.connection.addTrack(track, this.screenStream);
         });
+        // Enable hardware acceleration for video codec
+        this._enableHardwareAcceleration(peer.connection);
         // Cap the video bitrate so WebRTC doesn't starve framerate
         this._applyScreenBitrate(peer.connection, maxBitrate);
         // Renegotiate with each peer
@@ -715,11 +758,14 @@ class VoiceManager {
       // Tell the server we're sharing (include audio availability)
       const hasAudio = this.screenStream.getAudioTracks().length > 0;
       this.screenHasAudio = hasAudio;
-      this.socket.emit('screen-share-started', { code: this.currentChannel, hasAudio });
+      this.socket.emit("screen-share-started", {
+        code: this.currentChannel,
+        hasAudio,
+      });
 
       return true;
     } catch (err) {
-      console.error('Screen share failed:', err);
+      console.error("Screen share failed:", err);
       this.isScreenSharing = false;
       this.screenStream = null;
       return false;
@@ -737,32 +783,38 @@ class VoiceManager {
     const renegotiations = [];
     for (const [userId, peer] of this.peers) {
       const senders = peer.connection.getSenders();
-      tracks.forEach(track => {
-        const sender = senders.find(s => s.track === track);
+      tracks.forEach((track) => {
+        const sender = senders.find((s) => s.track === track);
         if (sender) {
-          try { peer.connection.removeTrack(sender); } catch {}
+          try {
+            peer.connection.removeTrack(sender);
+          } catch {}
         }
       });
       // Renegotiate and track the promise so we can wait for completion
-      renegotiations.push(this._renegotiate(userId, peer.connection).catch(() => {}));
+      renegotiations.push(
+        this._renegotiate(userId, peer.connection).catch(() => {}),
+      );
     }
 
     // Wait for all renegotiations to complete (with a timeout so we don't hang forever)
     try {
       await Promise.race([
         Promise.all(renegotiations),
-        new Promise(resolve => setTimeout(resolve, 3000))
+        new Promise((resolve) => setTimeout(resolve, 3000)),
       ]);
-    } catch { /* proceed anyway */ }
+    } catch {
+      /* proceed anyway */
+    }
 
     // Now safe to stop tracks — all peers have detached them
-    tracks.forEach(t => t.stop());
+    tracks.forEach((t) => t.stop());
 
     this.screenStream = null;
     this.isScreenSharing = false;
     this._captureController = null;
 
-    this.socket.emit('screen-share-stopped', { code: this.currentChannel });
+    this.socket.emit("screen-share-stopped", { code: this.currentChannel });
     // Notify local UI — pass localUserId so tile is found by its real ID
     if (this.onScreenStream) this.onScreenStream(this.localUserId, null);
   }
@@ -772,17 +824,17 @@ class VoiceManager {
   async startWebcam() {
     if (!this.inVoice || this.isWebcamActive) return false;
     try {
-      const savedCamId = localStorage.getItem('haven_cam_device') || '';
+      const savedCamId = localStorage.getItem("haven_cam_device") || "";
       const videoConstraints = {
         width: { ideal: 640 },
         height: { ideal: 480 },
-        frameRate: { ideal: 30 }
+        frameRate: { ideal: 30 },
       };
       if (savedCamId) videoConstraints.deviceId = { exact: savedCamId };
 
       this.webcamStream = await navigator.mediaDevices.getUserMedia({
         video: videoConstraints,
-        audio: false  // mic already captured separately
+        audio: false, // mic already captured separately
       });
 
       this.isWebcamActive = true;
@@ -796,14 +848,16 @@ class VoiceManager {
       const camTrack = this.webcamStream.getVideoTracks()[0];
       for (const [userId, peer] of this.peers) {
         peer.connection.addTrack(camTrack, this.webcamStream);
+        // Enable hardware acceleration for video codec
+        this._enableHardwareAcceleration(peer.connection);
         await this._renegotiate(userId, peer.connection);
       }
 
       // Tell the server
-      this.socket.emit('webcam-started', { code: this.currentChannel });
+      this.socket.emit("webcam-started", { code: this.currentChannel });
       return true;
     } catch (err) {
-      console.error('Webcam access failed:', err);
+      console.error("Webcam access failed:", err);
       this.isWebcamActive = false;
       this.webcamStream = null;
       return false;
@@ -819,28 +873,32 @@ class VoiceManager {
     const renegotiations = [];
     for (const [userId, peer] of this.peers) {
       const senders = peer.connection.getSenders();
-      tracks.forEach(track => {
-        const sender = senders.find(s => s.track === track);
+      tracks.forEach((track) => {
+        const sender = senders.find((s) => s.track === track);
         if (sender) {
-          try { peer.connection.removeTrack(sender); } catch {}
+          try {
+            peer.connection.removeTrack(sender);
+          } catch {}
         }
       });
-      renegotiations.push(this._renegotiate(userId, peer.connection).catch(() => {}));
+      renegotiations.push(
+        this._renegotiate(userId, peer.connection).catch(() => {}),
+      );
     }
 
     try {
       await Promise.race([
         Promise.all(renegotiations),
-        new Promise(resolve => setTimeout(resolve, 3000))
+        new Promise((resolve) => setTimeout(resolve, 3000)),
       ]);
     } catch {}
 
-    tracks.forEach(t => t.stop());
+    tracks.forEach((t) => t.stop());
 
     this.webcamStream = null;
     this.isWebcamActive = false;
 
-    this.socket.emit('webcam-stopped', { code: this.currentChannel });
+    this.socket.emit("webcam-stopped", { code: this.currentChannel });
     if (this.onWebcamStream) this.onWebcamStream(this.localUserId, null);
   }
 
@@ -849,54 +907,67 @@ class VoiceManager {
     const videoConstraints = {
       width: { ideal: 640 },
       height: { ideal: 480 },
-      frameRate: { ideal: 30 }
+      frameRate: { ideal: 30 },
     };
     if (deviceId) videoConstraints.deviceId = { exact: deviceId };
 
     let newStream;
     try {
-      newStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+      newStream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false,
+      });
     } catch (err) {
-      console.error('[Voice] Failed to switch camera:', err);
+      console.error("[Voice] Failed to switch camera:", err);
       return;
     }
 
     const newTrack = newStream.getVideoTracks()[0];
 
-    // Replace track on all peers
+    // Replace track on all peers and re-apply hardware acceleration
     for (const [, peer] of this.peers) {
       const senders = peer.connection.getSenders();
-      const camSender = senders.find(s => s.track && s.track.kind === 'video' &&
-        this.webcamStream && this.webcamStream.getVideoTracks().includes(s.track));
+      const camSender = senders.find(
+        (s) =>
+          s.track &&
+          s.track.kind === "video" &&
+          this.webcamStream &&
+          this.webcamStream.getVideoTracks().includes(s.track),
+      );
       if (camSender) {
-        await camSender.replaceTrack(newTrack).catch(e =>
-          console.warn('[Voice] replaceTrack (cam) failed:', e)
-        );
+        await camSender
+          .replaceTrack(newTrack)
+          .catch((e) => console.warn("[Voice] replaceTrack (cam) failed:", e));
       }
     }
 
     // Stop old tracks and update stream reference
-    this.webcamStream.getTracks().forEach(t => t.stop());
+    this.webcamStream.getTracks().forEach((t) => t.stop());
     this.webcamStream = newStream;
 
     // Re-hook ended
     newTrack.onended = () => this.stopWebcam();
 
-    localStorage.setItem('haven_cam_device', deviceId || '');
-    console.log(`[Voice] Camera switched: ${deviceId || 'default'}`);
+    // Re-apply hardware acceleration with new track
+    for (const [, peer] of this.peers) {
+      this._enableHardwareAcceleration(peer.connection);
+    }
+
+    localStorage.setItem("haven_cam_device", deviceId || "");
+    console.log(`[Voice] Camera switched: ${deviceId || "default"}`);
   }
 
   // ── Screen Share Quality Helpers ───────────────────────
 
   setScreenResolution(h) {
-    this.screenResolution = h;   // 720 | 1080 | 1440 | 0 = source
-    localStorage.setItem('haven_screen_res', h);
+    this.screenResolution = h; // 720 | 1080 | 1440 | 0 = source
+    localStorage.setItem("haven_screen_res", h);
     if (this.isScreenSharing) this._applyLiveQualityChange();
   }
 
   setScreenFrameRate(fps) {
-    this.screenFrameRate = fps;  // 15 | 30 | 60
-    localStorage.setItem('haven_screen_fps', fps);
+    this.screenFrameRate = fps; // 15 | 30 | 60
+    localStorage.setItem("haven_screen_fps", fps);
     if (this.isScreenSharing) this._applyLiveQualityChange();
   }
 
@@ -924,7 +995,10 @@ class VoiceManager {
     try {
       await videoTrack.applyConstraints(constraints);
     } catch (e) {
-      console.warn('applyConstraints failed (browser may not support live constraint changes):', e);
+      console.warn(
+        "applyConstraints failed (browser may not support live constraint changes):",
+        e,
+      );
     }
 
     // Update bitrate cap on all peer senders
@@ -942,8 +1016,12 @@ class VoiceManager {
     try {
       const senders = connection.getSenders();
       for (const sender of senders) {
-        if (sender.track && sender.track.kind === 'video' &&
-            this.screenStream && this.screenStream.getVideoTracks().includes(sender.track)) {
+        if (
+          sender.track &&
+          sender.track.kind === "video" &&
+          this.screenStream &&
+          this.screenStream.getVideoTracks().includes(sender.track)
+        ) {
           const params = sender.getParameters();
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
@@ -952,7 +1030,61 @@ class VoiceManager {
           sender.setParameters(params).catch(() => {});
         }
       }
-    } catch (e) { /* setParameters not supported — adaptive bitrate remains */ }
+    } catch (e) {
+      /* setParameters not supported — adaptive bitrate remains */
+    }
+  }
+
+  /**
+   * Enable hardware acceleration for video by prioritizing hardware-accelerated codecs.
+   * H.264 is commonly hardware-accelerated on most devices. This should be called
+   * after adding video tracks to peer connections.
+   */
+  _enableHardwareAcceleration(connection) {
+    try {
+      const senders = connection.getSenders();
+      for (const sender of senders) {
+        if (sender.track && sender.track.kind === "video") {
+          const capCodecs = RTCRtpSender.getCapabilities("video").codecs;
+          if (!capCodecs) continue;
+
+          // Prioritize H.264 as it's commonly hardware-accelerated
+          // Fallback to VP9 or VP8
+          const preferredOrder = ["H264", "h264", "VP9", "vp9", "VP8", "vp8"];
+          const sortedCodecs = [];
+
+          // First add preferred codecs in order
+          for (const preferred of preferredOrder) {
+            for (const codec of capCodecs) {
+              if (
+                codec.mimeType.includes(preferred) &&
+                !sortedCodecs.find((c) => c.mimeType === codec.mimeType)
+              ) {
+                sortedCodecs.push(codec);
+              }
+            }
+          }
+
+          // Then append any remaining codecs
+          for (const codec of capCodecs) {
+            if (!sortedCodecs.find((c) => c.mimeType === codec.mimeType)) {
+              sortedCodecs.push(codec);
+            }
+          }
+
+          if (sortedCodecs.length > 0) {
+            const params = sender.getParameters();
+            if (!params.codecs) params.codecs = [];
+            params.codecs = sortedCodecs;
+            sender.setParameters(params).catch(() => {
+              console.warn("[Voice] setParameters (codec prefs) failed");
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Voice] Hardware acceleration setup failed:", e.message);
+    }
   }
 
   /**
@@ -965,8 +1097,12 @@ class VoiceManager {
     try {
       const senders = connection.getSenders();
       for (const sender of senders) {
-        if (sender.track && sender.track.kind === 'audio' &&
-            this.localStream && this.localStream.getAudioTracks().includes(sender.track)) {
+        if (
+          sender.track &&
+          sender.track.kind === "audio" &&
+          this.localStream &&
+          this.localStream.getAudioTracks().includes(sender.track)
+        ) {
           const params = sender.getParameters();
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
@@ -975,20 +1111,22 @@ class VoiceManager {
           sender.setParameters(params).catch(() => {});
         }
       }
-    } catch (e) { /* setParameters not supported */ }
+    } catch (e) {
+      /* setParameters not supported */
+    }
   }
 
   async _renegotiate(userId, connection) {
     try {
       const offer = await connection.createOffer();
       await connection.setLocalDescription(offer);
-      this.socket.emit('voice-offer', {
+      this.socket.emit("voice-offer", {
         code: this.currentChannel,
         targetUserId: userId,
-        offer: offer
+        offer: offer,
       });
     } catch (err) {
-      console.error('Renegotiation failed:', err);
+      console.error("Renegotiation failed:", err);
     }
   }
 
@@ -999,7 +1137,7 @@ class VoiceManager {
 
     // Add our local audio tracks
     if (this.localStream) {
-      this.localStream.getTracks().forEach(track => {
+      this.localStream.getTracks().forEach((track) => {
         connection.addTrack(track, this.localStream);
       });
     }
@@ -1011,9 +1149,12 @@ class VoiceManager {
 
     // If we're screen sharing, add those tracks too
     if (this.screenStream && this.isScreenSharing) {
-      this.screenStream.getTracks().filter(t => t.readyState === 'live').forEach(track => {
-        connection.addTrack(track, this.screenStream);
-      });
+      this.screenStream
+        .getTracks()
+        .filter((t) => t.readyState === "live")
+        .forEach((track) => {
+          connection.addTrack(track, this.screenStream);
+        });
       // Cap bitrate for this new peer
       const res = this.screenResolution;
       const maxBitrate = this._screenBitrates[res] || this._screenBitrates[0];
@@ -1037,13 +1178,15 @@ class VoiceManager {
     connection.ontrack = (event) => {
       const track = event.track;
       const sourceStream = event.streams?.[0];
-      if (track.kind === 'video') {
+      if (track.kind === "video") {
         // Distinguish webcam from screen share:
         // - displaySurface is only set on getDisplayMedia tracks
         // - also check our signaling state (webcamUsers vs screenSharers)
         const settings = track.getSettings ? track.getSettings() : {};
-        const isScreenTrack = !!settings.displaySurface || this.screenSharers.has(userId);
-        const isWebcamTrack = !settings.displaySurface && this.webcamUsers.has(userId);
+        const isScreenTrack =
+          !!settings.displaySurface || this.screenSharers.has(userId);
+        const isWebcamTrack =
+          !settings.displaySurface && this.webcamUsers.has(userId);
 
         if (isWebcamTrack && !isScreenTrack) {
           // Route to webcam callback
@@ -1084,11 +1227,11 @@ class VoiceManager {
         }
       } else {
         // Is this audio from a screen share stream?
-        const isScreenAudio = sourceStream && (
-          knownScreenStreamIds.has(sourceStream.id) ||
-          sourceStream.getVideoTracks().length > 0 ||
-          (voiceStreamId && sourceStream.id !== voiceStreamId)
-        );
+        const isScreenAudio =
+          sourceStream &&
+          (knownScreenStreamIds.has(sourceStream.id) ||
+            sourceStream.getVideoTracks().length > 0 ||
+            (voiceStreamId && sourceStream.id !== voiceStreamId));
         if (isScreenAudio) {
           this._playScreenAudio(userId, sourceStream);
         } else if (!voiceStreamId && sourceStream) {
@@ -1106,33 +1249,36 @@ class VoiceManager {
     // Send ICE candidates to the remote peer via server
     connection.onicecandidate = (event) => {
       if (event.candidate) {
-        this.socket.emit('voice-ice-candidate', {
+        this.socket.emit("voice-ice-candidate", {
           code: this.currentChannel,
           targetUserId: userId,
-          candidate: event.candidate
+          candidate: event.candidate,
         });
       }
     };
 
     connection.onconnectionstatechange = () => {
       const state = connection.connectionState;
-      if (state === 'failed') {
+      if (state === "failed") {
         // Try ICE restart before giving up
         this._restartIce(userId, connection);
-      } else if (state === 'disconnected') {
+      } else if (state === "disconnected") {
         // 'disconnected' is often transient during renegotiation (e.g. after
         // screen-share stops). Give the connection time to recover before
         // tearing it down — Chrome frequently goes disconnected→connected.
         if (!this._disconnectTimers) this._disconnectTimers = {};
-        if (this._disconnectTimers[userId]) clearTimeout(this._disconnectTimers[userId]);
+        if (this._disconnectTimers[userId])
+          clearTimeout(this._disconnectTimers[userId]);
         this._disconnectTimers[userId] = setTimeout(() => {
-          if (connection.connectionState === 'disconnected' ||
-              connection.connectionState === 'failed') {
+          if (
+            connection.connectionState === "disconnected" ||
+            connection.connectionState === "failed"
+          ) {
             this._restartIce(userId, connection);
           }
           delete this._disconnectTimers[userId];
         }, 8000);
-      } else if (state === 'connected') {
+      } else if (state === "connected") {
         // Clear any pending disconnect timer — connection recovered
         if (this._disconnectTimers?.[userId]) {
           clearTimeout(this._disconnectTimers[userId]);
@@ -1149,13 +1295,13 @@ class VoiceManager {
         const offer = await connection.createOffer();
         await connection.setLocalDescription(offer);
 
-        this.socket.emit('voice-offer', {
+        this.socket.emit("voice-offer", {
           code: this.currentChannel,
           targetUserId: userId,
-          offer: offer
+          offer: offer,
         });
       } catch (err) {
-        console.error('Error creating voice offer:', err);
+        console.error("Error creating voice offer:", err);
       }
     }
   }
@@ -1166,7 +1312,9 @@ class VoiceManager {
       peer.connection.close();
       const audioEl = document.getElementById(`voice-audio-${userId}`);
       if (audioEl) audioEl.remove();
-      const screenAudioEl = document.getElementById(`voice-audio-screen-${userId}`);
+      const screenAudioEl = document.getElementById(
+        `voice-audio-screen-${userId}`,
+      );
       if (screenAudioEl) screenAudioEl.remove();
       this.screenGainNodes.delete(userId);
       this.gainNodes.delete(userId);
@@ -1178,13 +1326,13 @@ class VoiceManager {
     try {
       const offer = await connection.createOffer({ iceRestart: true });
       await connection.setLocalDescription(offer);
-      this.socket.emit('voice-offer', {
+      this.socket.emit("voice-offer", {
         code: this.currentChannel,
         targetUserId: userId,
-        offer: offer
+        offer: offer,
       });
     } catch (err) {
-      console.error('ICE restart failed for', userId, '— removing peer:', err);
+      console.error("ICE restart failed for", userId, "— removing peer:", err);
       this._removePeer(userId);
     }
   }
@@ -1212,8 +1360,13 @@ class VoiceManager {
 
     // Replace our audio track with a silent one for this peer
     const senders = peer.connection.getSenders();
-    const audioSender = senders.find(s => s.track && s.track.kind === 'audio' &&
-      (!this.screenStream || !this.screenStream.getAudioTracks().includes(s.track)));
+    const audioSender = senders.find(
+      (s) =>
+        s.track &&
+        s.track.kind === "audio" &&
+        (!this.screenStream ||
+          !this.screenStream.getAudioTracks().includes(s.track)),
+    );
     if (audioSender) {
       // Create a silent audio track
       const silentTrack = this._createSilentAudioTrack();
@@ -1231,8 +1384,13 @@ class VoiceManager {
     // Restore the original audio track
     if (peer._originalAudioTrack) {
       const senders = peer.connection.getSenders();
-      const audioSender = senders.find(s => s.track && s.track.kind === 'audio' &&
-        (!this.screenStream || !this.screenStream.getAudioTracks().includes(s.track)));
+      const audioSender = senders.find(
+        (s) =>
+          s.track &&
+          s.track.kind === "audio" &&
+          (!this.screenStream ||
+            !this.screenStream.getAudioTracks().includes(s.track)),
+      );
       if (audioSender) {
         audioSender.replaceTrack(peer._originalAudioTrack).catch(() => {});
       }
@@ -1246,10 +1404,14 @@ class VoiceManager {
 
   _createSilentAudioTrack() {
     // Reuse cached silent track to avoid creating new AudioContext/oscillator on every deafen
-    if (this._cachedSilentTrack && this._cachedSilentTrack.readyState === 'live') {
+    if (
+      this._cachedSilentTrack &&
+      this._cachedSilentTrack.readyState === "live"
+    ) {
       return this._cachedSilentTrack;
     }
-    const ctx = this.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx =
+      this.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (!this.audioCtx) this.audioCtx = ctx; // save for reuse
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -1264,9 +1426,13 @@ class VoiceManager {
 
   _getSavedVolume(userId) {
     try {
-      const vols = JSON.parse(localStorage.getItem('haven_voice_volumes') || '{}');
+      const vols = JSON.parse(
+        localStorage.getItem("haven_voice_volumes") || "{}",
+      );
       return (vols[userId] ?? 100) / 100;
-    } catch { return 1; }
+    } catch {
+      return 1;
+    }
   }
 
   // ── Live Device Switching ────────────────────────────────
@@ -1283,21 +1449,24 @@ class VoiceManager {
     const audioConstraints = {
       echoCancellation: true,
       noiseSuppression: true,
-      autoGainControl: true
+      autoGainControl: true,
     };
     if (deviceId) audioConstraints.deviceId = { exact: deviceId };
 
     let newRawStream;
     try {
-      newRawStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+      newRawStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: false,
+      });
     } catch (err) {
-      console.error('[Voice] Failed to switch input device:', err);
+      console.error("[Voice] Failed to switch input device:", err);
       return;
     }
 
     // Stop old raw tracks
     if (this.rawStream) {
-      this.rawStream.getTracks().forEach(t => t.stop());
+      this.rawStream.getTracks().forEach((t) => t.stop());
     }
     this.rawStream = newRawStream;
 
@@ -1328,13 +1497,16 @@ class VoiceManager {
     this._startLocalTalkDetection();
 
     // Re-enable RNNoise if it was active
-    if (this.noiseMode === 'suppress' && this._rnnoiseReady) {
+    if (this.noiseMode === "suppress" && this._rnnoiseReady) {
       this.setNoiseSensitivity(0);
       this._enableRNNoise();
-    } else if (this.noiseMode === 'gate') {
-      const saved = parseInt(localStorage.getItem('haven_ns_value') || '10', 10);
+    } else if (this.noiseMode === "gate") {
+      const saved = parseInt(
+        localStorage.getItem("haven_ns_value") || "10",
+        10,
+      );
       this.setNoiseSensitivity(saved);
-    } else if (this.noiseMode === 'off') {
+    } else if (this.noiseMode === "off") {
       this.setNoiseSensitivity(0);
     }
 
@@ -1342,29 +1514,40 @@ class VoiceManager {
     const newTrack = this.localStream.getAudioTracks()[0];
     for (const [, peer] of this.peers) {
       const senders = peer.connection.getSenders();
-      const audioSender = senders.find(s => s.track && s.track.kind === 'audio' &&
-        (!this.screenStream || !this.screenStream.getAudioTracks().includes(s.track)));
+      const audioSender = senders.find(
+        (s) =>
+          s.track &&
+          s.track.kind === "audio" &&
+          (!this.screenStream ||
+            !this.screenStream.getAudioTracks().includes(s.track)),
+      );
       if (audioSender) {
-        await audioSender.replaceTrack(newTrack).catch(e =>
-          console.warn('[Voice] replaceTrack failed for peer:', e)
-        );
+        await audioSender
+          .replaceTrack(newTrack)
+          .catch((e) =>
+            console.warn("[Voice] replaceTrack failed for peer:", e),
+          );
       }
     }
 
     // Re-apply mute state
     if (this.isMuted) {
-      this.rawStream.getAudioTracks().forEach(t => { t.enabled = false; });
-      this.localStream.getAudioTracks().forEach(t => { t.enabled = false; });
+      this.rawStream.getAudioTracks().forEach((t) => {
+        t.enabled = false;
+      });
+      this.localStream.getAudioTracks().forEach((t) => {
+        t.enabled = false;
+      });
     }
 
     // Clean up old local stream
     if (oldLocalStream) {
-      oldLocalStream.getTracks().forEach(t => t.stop());
+      oldLocalStream.getTracks().forEach((t) => t.stop());
     }
 
     // Persist preference
-    localStorage.setItem('haven_input_device', deviceId || '');
-    console.log(`[Voice] Input device switched: ${deviceId || 'default'}`);
+    localStorage.setItem("haven_input_device", deviceId || "");
+    console.log(`[Voice] Input device switched: ${deviceId || "default"}`);
   }
 
   /**
@@ -1374,28 +1557,32 @@ class VoiceManager {
    * @param {string} deviceId - MediaDeviceInfo.deviceId (empty = system default)
    */
   async switchOutputDevice(deviceId) {
-    localStorage.setItem('haven_output_device', deviceId || '');
+    localStorage.setItem("haven_output_device", deviceId || "");
 
     // 1. Switch the AudioContext output (this is where voice audio actually plays)
-    if (this.audioCtx && typeof this.audioCtx.setSinkId === 'function') {
+    if (this.audioCtx && typeof this.audioCtx.setSinkId === "function") {
       try {
-        await this.audioCtx.setSinkId(deviceId || '');
-        console.log(`[Voice] AudioContext sink switched: ${deviceId || 'default'}`);
+        await this.audioCtx.setSinkId(deviceId || "");
+        console.log(
+          `[Voice] AudioContext sink switched: ${deviceId || "default"}`,
+        );
       } catch (e) {
-        console.warn('[Voice] AudioContext.setSinkId failed:', e);
+        console.warn("[Voice] AudioContext.setSinkId failed:", e);
       }
     }
 
     // 2. Also switch any HTMLMediaElements (fallback audio, screen share, etc.)
-    const elements = document.querySelectorAll('audio, video');
+    const elements = document.querySelectorAll("audio, video");
     for (const el of elements) {
-      if (typeof el.setSinkId === 'function') {
-        try { await el.setSinkId(deviceId || ''); } catch (e) {
-          console.warn('[Voice] setSinkId failed on element:', e);
+      if (typeof el.setSinkId === "function") {
+        try {
+          await el.setSinkId(deviceId || "");
+        } catch (e) {
+          console.warn("[Voice] setSinkId failed on element:", e);
         }
       }
     }
-    console.log(`[Voice] Output device switched: ${deviceId || 'default'}`);
+    console.log(`[Voice] Output device switched: ${deviceId || "default"}`);
   }
 
   // ── Screen Share Audio ────────────────────────────────
@@ -1404,15 +1591,15 @@ class VoiceManager {
     const key = `screen-${userId}`;
     let audioEl = document.getElementById(`voice-audio-${key}`);
     if (!audioEl) {
-      audioEl = document.createElement('audio');
+      audioEl = document.createElement("audio");
       audioEl.id = `voice-audio-${key}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      document.getElementById('audio-container').appendChild(audioEl);
+      document.getElementById("audio-container").appendChild(audioEl);
 
       // Apply saved output device
-      const savedOutput = localStorage.getItem('haven_output_device');
-      if (savedOutput && typeof audioEl.setSinkId === 'function') {
+      const savedOutput = localStorage.getItem("haven_output_device");
+      if (savedOutput && typeof audioEl.setSinkId === "function") {
         audioEl.setSinkId(savedOutput).catch(() => {});
       }
     }
@@ -1422,16 +1609,24 @@ class VoiceManager {
     // so we rebuild the AudioContext chain for the new source.
     const existingGain = this.screenGainNodes.get(userId);
     if (existingGain) {
-      try { existingGain.disconnect(); } catch {}
+      try {
+        existingGain.disconnect();
+      } catch {}
       this.screenGainNodes.delete(userId);
     }
 
     try {
-      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume().catch(() => {});
+      if (!this.audioCtx)
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      if (this.audioCtx.state === "suspended")
+        this.audioCtx.resume().catch(() => {});
       const source = this.audioCtx.createMediaStreamSource(stream);
       const gainNode = this.audioCtx.createGain();
-      gainNode.gain.value = this._getAppliedIncomingVolume(this._getSavedStreamVolume(userId));
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        this._getSavedStreamVolume(userId),
+      );
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
       this.screenGainNodes.set(userId, gainNode);
@@ -1450,11 +1645,12 @@ class VoiceManager {
 
   setStreamVolume(userId, volume) {
     // Map keys may be number or string depending on caller — try both
-    const gainNode = this.screenGainNodes.get(userId)
-      || this.screenGainNodes.get(String(userId))
-      || this.screenGainNodes.get(Number(userId));
+    const gainNode =
+      this.screenGainNodes.get(userId) ||
+      this.screenGainNodes.get(String(userId)) ||
+      this.screenGainNodes.get(Number(userId));
     const clampedGain = Math.max(0, Math.min(2, volume));
-    const clampedVol  = Math.max(0, Math.min(1, volume));
+    const clampedVol = Math.max(0, Math.min(1, volume));
     if (gainNode) {
       gainNode.gain.value = clampedGain;
     }
@@ -1465,9 +1661,13 @@ class VoiceManager {
 
   _getSavedStreamVolume(userId) {
     try {
-      const vols = JSON.parse(localStorage.getItem('haven_stream_volumes') || '{}');
+      const vols = JSON.parse(
+        localStorage.getItem("haven_stream_volumes") || "{}",
+      );
       return (vols[userId] ?? 100) / 100;
-    } catch { return 1; }
+    } catch {
+      return 1;
+    }
   }
 
   // ── Noise Gate ───────────────────────────────────────────
@@ -1475,9 +1675,9 @@ class VoiceManager {
   setNoiseMode(mode) {
     // mode: 'off' | 'gate' | 'suppress'
     this.noiseMode = mode;
-    localStorage.setItem('haven_noise_mode', mode);
+    localStorage.setItem("haven_noise_mode", mode);
 
-    if (mode === 'suppress') {
+    if (mode === "suppress") {
       // Disable noise gate, enable RNNoise
       if (this.noiseSensitivity !== 0) {
         this.setNoiseSensitivity(0);
@@ -1485,15 +1685,18 @@ class VoiceManager {
       if (!this._rnnoiseReady) {
         this._initRNNoise().then(() => {
           if (this._rnnoiseReady) this._enableRNNoise();
-          else console.warn('[Voice] AI suppression unavailable');
+          else console.warn("[Voice] AI suppression unavailable");
         });
       } else {
         this._enableRNNoise();
       }
-    } else if (mode === 'gate') {
+    } else if (mode === "gate") {
       // Disable RNNoise, enable noise gate with saved sensitivity
       this._disableRNNoise();
-      const saved = parseInt(localStorage.getItem('haven_ns_value') || '10', 10);
+      const saved = parseInt(
+        localStorage.getItem("haven_ns_value") || "10",
+        10,
+      );
       this.setNoiseSensitivity(saved);
     } else {
       // Off — disable both
@@ -1505,40 +1708,46 @@ class VoiceManager {
   async _initRNNoise() {
     if (this._rnnoiseReady || !this.audioCtx) return;
     try {
-      await this.audioCtx.audioWorklet.addModule('/js/rnnoise-processor.js');
-      const wasmResponse = await fetch('/js/rnnoise.wasm');
+      await this.audioCtx.audioWorklet.addModule("/js/rnnoise-processor.js");
+      const wasmResponse = await fetch("/js/rnnoise.wasm");
       const wasmBytes = await wasmResponse.arrayBuffer();
       const wasmModule = await WebAssembly.compile(wasmBytes);
       this._rnnoiseWasmModule = wasmModule;
       this._rnnoiseReady = true;
     } catch (err) {
-      console.warn('[Voice] RNNoise init failed:', err);
+      console.warn("[Voice] RNNoise init failed:", err);
       this._rnnoiseReady = false;
     }
   }
 
   _enableRNNoise() {
-    if (!this._rnnoiseReady || !this._rnnoiseSource || this._rnnoiseNode) return;
+    if (!this._rnnoiseReady || !this._rnnoiseSource || this._rnnoiseNode)
+      return;
     try {
-      const node = new AudioWorkletNode(this.audioCtx, 'rnnoise-processor', {
-        numberOfInputs: 1, numberOfOutputs: 1,
-        outputChannelCount: [1], channelCount: 1
+      const node = new AudioWorkletNode(this.audioCtx, "rnnoise-processor", {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+        channelCount: 1,
       });
-      node.port.postMessage({ type: 'wasm-module', module: this._rnnoiseWasmModule });
+      node.port.postMessage({
+        type: "wasm-module",
+        module: this._rnnoiseWasmModule,
+      });
       // Re-wire: source → rnnoise → gateGain (gate is open since sensitivity=0)
       this._rnnoiseSource.disconnect(this._noiseGateGain);
       this._rnnoiseSource.connect(node);
       node.connect(this._noiseGateGain);
       this._rnnoiseNode = node;
     } catch (err) {
-      console.warn('[Voice] Failed to enable RNNoise:', err);
+      console.warn("[Voice] Failed to enable RNNoise:", err);
     }
   }
 
   _disableRNNoise() {
     if (!this._rnnoiseNode) return;
     try {
-      this._rnnoiseNode.port.postMessage({ type: 'destroy' });
+      this._rnnoiseNode.port.postMessage({ type: "destroy" });
       this._rnnoiseNode.disconnect();
       this._rnnoiseNode = null;
       // Re-wire: source → gateGain directly
@@ -1546,7 +1755,7 @@ class VoiceManager {
         this._rnnoiseSource.connect(this._noiseGateGain);
       }
     } catch (err) {
-      console.warn('[Voice] Failed to disable RNNoise:', err);
+      console.warn("[Voice] Failed to disable RNNoise:", err);
     }
   }
 
@@ -1555,7 +1764,11 @@ class VoiceManager {
     this.noiseSensitivity = Math.max(0, Math.min(100, value));
     // Immediately open gate if set to 0
     if (this.noiseSensitivity === 0 && this._noiseGateGain) {
-      this._noiseGateGain.gain.setTargetAtTime(1, this.audioCtx.currentTime, 0.01);
+      this._noiseGateGain.gain.setTargetAtTime(
+        1,
+        this.audioCtx.currentTime,
+        0.01,
+      );
     }
     return this.noiseSensitivity;
   }
@@ -1567,14 +1780,14 @@ class VoiceManager {
     if (!analyser || !gain) return;
 
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    const ATTACK = 0.015;    // Gate opens fast (seconds, ~15ms)
-    const RELEASE = 0.12;    // Gate closes gently (seconds, ~120ms)
-    const HOLD_MS = 250;     // Keep gate open 250ms after level drops below threshold
-    const OPEN_CONFIRM = 1;  // Require signal above threshold for this many extra polls
-                             // before opening (filters transient clicks/taps, ~20ms at 20ms poll)
+    const ATTACK = 0.015; // Gate opens fast (seconds, ~15ms)
+    const RELEASE = 0.12; // Gate closes gently (seconds, ~120ms)
+    const HOLD_MS = 250; // Keep gate open 250ms after level drops below threshold
+    const OPEN_CONFIRM = 1; // Require signal above threshold for this many extra polls
+    // before opening (filters transient clicks/taps, ~20ms at 20ms poll)
     let gateOpen = false;
     let holdTimeout = null;
-    let aboveCount = 0;      // consecutive polls above threshold
+    let aboveCount = 0; // consecutive polls above threshold
 
     this._noiseGateInterval = setInterval(() => {
       if (this.noiseSensitivity === 0) {
@@ -1582,7 +1795,10 @@ class VoiceManager {
         this.currentMicLevel = 0;
         gateOpen = false;
         aboveCount = 0;
-        if (holdTimeout) { clearTimeout(holdTimeout); holdTimeout = null; }
+        if (holdTimeout) {
+          clearTimeout(holdTimeout);
+          holdTimeout = null;
+        }
         return;
       }
       // Map sensitivity 1-100 → threshold 2-40
@@ -1598,7 +1814,10 @@ class VoiceManager {
       if (avg > threshold) {
         // Signal is above threshold — confirm it sustains before opening
         aboveCount++;
-        if (holdTimeout) { clearTimeout(holdTimeout); holdTimeout = null; }
+        if (holdTimeout) {
+          clearTimeout(holdTimeout);
+          holdTimeout = null;
+        }
         if (!gateOpen && aboveCount > OPEN_CONFIRM) {
           gain.gain.setTargetAtTime(1, this.audioCtx.currentTime, ATTACK);
           gateOpen = true;
@@ -1647,7 +1866,10 @@ class VoiceManager {
       const isTalking = avg > THRESHOLD;
 
       if (isTalking) {
-        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        if (holdTimer) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
         if (!wasTalking) {
           wasTalking = true;
           this.talkingState.set(userId, true);
@@ -1681,9 +1903,11 @@ class VoiceManager {
     if (!this.rawStream || this._localTalkInterval) return;
     try {
       if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
       }
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+      if (this.audioCtx.state === "suspended") this.audioCtx.resume();
 
       const source = this.audioCtx.createMediaStreamSource(this.rawStream);
       const analyser = this.audioCtx.createAnalyser();
@@ -1702,8 +1926,12 @@ class VoiceManager {
         if (this.isMuted) {
           if (wasTalking) {
             wasTalking = false;
-            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-            if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
+            if (holdTimer) {
+              clearTimeout(holdTimer);
+              holdTimer = null;
+            }
+            if (this.socket && this.inVoice)
+              this.socket.emit("voice-speaking", { speaking: false });
           }
           return;
         }
@@ -1714,25 +1942,37 @@ class VoiceManager {
         const isTalking = avg > THRESHOLD;
 
         if (isTalking) {
-          if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+          if (holdTimer) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+          }
           if (!wasTalking) {
             wasTalking = true;
-            if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: true });
+            if (this.socket && this.inVoice)
+              this.socket.emit("voice-speaking", { speaking: true });
           }
           // Notify server of voice activity for AFK tracking (throttled to once per 15s)
-          if (this.socket && this.inVoice && (!this._lastVoiceSpeakPing || Date.now() - this._lastVoiceSpeakPing > 15000)) {
+          if (
+            this.socket &&
+            this.inVoice &&
+            (!this._lastVoiceSpeakPing ||
+              Date.now() - this._lastVoiceSpeakPing > 15000)
+          ) {
             this._lastVoiceSpeakPing = Date.now();
-            this.socket.emit('voice-activity');
+            this.socket.emit("voice-activity");
           }
         } else if (wasTalking && !holdTimer) {
           holdTimer = setTimeout(() => {
             wasTalking = false;
             holdTimer = null;
-            if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
+            if (this.socket && this.inVoice)
+              this.socket.emit("voice-speaking", { speaking: false });
           }, HOLD_MS);
         }
       }, 60);
-    } catch { /* analyser not available */ }
+    } catch {
+      /* analyser not available */
+    }
   }
 
   _stopLocalTalkDetection() {
@@ -1740,23 +1980,24 @@ class VoiceManager {
       clearInterval(this._localTalkInterval);
       this._localTalkInterval = null;
       this._localTalkAnalyser = null;
-      if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
-      if (this.onTalkingChange) this.onTalkingChange('self', false);
+      if (this.socket && this.inVoice)
+        this.socket.emit("voice-speaking", { speaking: false });
+      if (this.onTalkingChange) this.onTalkingChange("self", false);
     }
   }
 
   _playAudio(userId, stream) {
     let audioEl = document.getElementById(`voice-audio-${userId}`);
     if (!audioEl) {
-      audioEl = document.createElement('audio');
+      audioEl = document.createElement("audio");
       audioEl.id = `voice-audio-${userId}`;
       audioEl.autoplay = true;
       audioEl.playsInline = true;
-      document.getElementById('audio-container').appendChild(audioEl);
+      document.getElementById("audio-container").appendChild(audioEl);
 
       // Apply saved output device
-      const savedOutput = localStorage.getItem('haven_output_device');
-      if (savedOutput && typeof audioEl.setSinkId === 'function') {
+      const savedOutput = localStorage.getItem("haven_output_device");
+      if (savedOutput && typeof audioEl.setSinkId === "function") {
         audioEl.setSinkId(savedOutput).catch(() => {});
       }
     }
@@ -1775,9 +2016,11 @@ class VoiceManager {
     // browsers muting the stream when multiple sources compete.
     try {
       if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
       }
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+      if (this.audioCtx.state === "suspended") this.audioCtx.resume();
 
       const source = this.audioCtx.createMediaStreamSource(stream);
 
@@ -1791,7 +2034,9 @@ class VoiceManager {
 
       // Gain branch (source → gain → destination)
       const gainNode = this.audioCtx.createGain();
-      gainNode.gain.value = this._getAppliedIncomingVolume(this._getSavedVolume(userId));
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        this._getSavedVolume(userId),
+      );
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
       this.gainNodes.set(userId, gainNode);
