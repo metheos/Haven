@@ -597,7 +597,7 @@
     "frame_rate": "Частота кадров",
     "codec_preference": "Предпочтение кодека",
     "codec_mode_auto": "Авто (по умолчанию браузера)",
-    "codec_mode_enablehwaccel": "Включить HW-ускорение",
+    "codec_mode_preferhwaccel": "Предпочитать HW-ускорение",
     "codec_debug": "Отладка кодека",
     "codec_debug_mode": "Режим",
     "codec_debug_active": "Активный",

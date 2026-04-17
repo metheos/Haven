@@ -597,7 +597,7 @@
     "frame_rate": "帧率",
     "codec_preference": "编解码器偏好",
     "codec_mode_auto": "自动（浏览器默认）",
-    "codec_mode_enablehwaccel": "启用硬件加速",
+    "codec_mode_preferhwaccel": "优先硬件加速",
     "codec_debug": "编解码器调试",
     "codec_debug_mode": "模式",
     "codec_debug_active": "当前",

@@ -597,7 +597,7 @@
     "frame_rate": "Bildrate",
     "codec_preference": "Codec-Präferenz",
     "codec_mode_auto": "Auto (Browser-Standard)",
-    "codec_mode_enablehwaccel": "HW-Beschleunigung aktivieren",
+    "codec_mode_preferhwaccel": "HW-Beschleunigung bevorzugen",
     "codec_debug": "Codec-Debug",
     "codec_debug_mode": "Modus",
     "codec_debug_active": "Aktiv",

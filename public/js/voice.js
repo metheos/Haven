@@ -58,7 +58,7 @@ class VoiceManager {
     this.screenResolution = savedRes !== null ? parseInt(savedRes, 10) : 1080; // 0 = source
     this.screenFrameRate = parseInt(localStorage.getItem("haven_screen_fps") || "30", 10) || 30;
     const savedCodecMode = localStorage.getItem("haven_video_codec_mode");
-    this.videoCodecMode = savedCodecMode === "auto" ? "auto" : "enablehwaccel";
+    this.videoCodecMode = savedCodecMode === "auto" ? "auto" : "preferhwaccel";
     this._codecDebugState = {
       mode: this.videoCodecMode,
       defaultCodec: null,
@@ -312,7 +312,7 @@ class VoiceManager {
             conn.addTrack(track, this.screenStream);
           });
         // Enable hardware acceleration for video codec
-        this._enableHardwareAcceleration(conn);
+        this._preferHardwareAcceleration(conn);
         // Cap bitrate for this peer
         const res = this.screenResolution;
         const maxBitrate = this._screenBitrates[res] || this._screenBitrates[0];
@@ -337,7 +337,7 @@ class VoiceManager {
       if (!alreadySent && webcamTrack) {
         conn.addTrack(webcamTrack, this.webcamStream);
         // Enable hardware acceleration for video codec
-        this._enableHardwareAcceleration(conn);
+        this._preferHardwareAcceleration(conn);
       }
 
       await this._renegotiate(data.targetUserId, conn);
@@ -750,7 +750,7 @@ class VoiceManager {
           peer.connection.addTrack(track, this.screenStream);
         });
         // Enable hardware acceleration for video codec
-        this._enableHardwareAcceleration(peer.connection);
+        this._preferHardwareAcceleration(peer.connection);
         // Cap the video bitrate so WebRTC doesn't starve framerate
         this._applyScreenBitrate(peer.connection, maxBitrate);
         // Renegotiate with each peer
@@ -850,7 +850,7 @@ class VoiceManager {
       for (const [userId, peer] of this.peers) {
         peer.connection.addTrack(camTrack, this.webcamStream);
         // Enable hardware acceleration for video codec
-        this._enableHardwareAcceleration(peer.connection);
+        this._preferHardwareAcceleration(peer.connection);
         await this._renegotiate(userId, peer.connection);
       }
 
@@ -944,7 +944,7 @@ class VoiceManager {
 
     // Re-apply hardware acceleration with new track
     for (const [, peer] of this.peers) {
-      this._enableHardwareAcceleration(peer.connection);
+      this._preferHardwareAcceleration(peer.connection);
     }
 
     localStorage.setItem("haven_cam_device", deviceId || "");
@@ -1082,7 +1082,7 @@ class VoiceManager {
   }
 
   async setVideoCodecMode(mode) {
-    const nextMode = mode === "auto" ? "auto" : "enablehwaccel";
+    const nextMode = mode === "auto" ? "auto" : "preferhwaccel";
     const modeChanged = this.videoCodecMode !== nextMode;
     this.videoCodecMode = nextMode;
     localStorage.setItem("haven_video_codec_mode", this.videoCodecMode);
@@ -1184,7 +1184,7 @@ class VoiceManager {
    * H.264 is commonly hardware-accelerated on most devices. This should be called
    * after adding video tracks to peer connections.
    */
-  _enableHardwareAcceleration(connection) {
+  _preferHardwareAcceleration(connection) {
     try {
       const senders = connection.getSenders();
       const transceivers = connection.getTransceivers();
@@ -1238,7 +1238,7 @@ class VoiceManager {
 
           const defaultPrimaryCodec = capCodecs.find((c) => this._isPrimaryVideoCodec(c));
           const preferredPrimaryCodec = sortedCodecs.find((c) => this._isPrimaryVideoCodec(c));
-          const codecMode = this.videoCodecMode || "enablehwaccel";
+          const codecMode = this.videoCodecMode || "preferhwaccel";
           this._updateCodecDebugState({
             mode: codecMode,
             defaultCodec: this._getCodecLabel(defaultPrimaryCodec),

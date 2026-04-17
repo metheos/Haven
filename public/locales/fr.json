@@ -597,7 +597,7 @@
     "frame_rate": "Fréquence d'images",
     "codec_preference": "Préférence de codec",
     "codec_mode_auto": "Auto (par défaut du navigateur)",
-    "codec_mode_enablehwaccel": "Activer l'accélération HW",
+    "codec_mode_preferhwaccel": "Préférer l'accélération HW",
     "codec_debug": "Debug codec",
     "codec_debug_mode": "Mode",
     "codec_debug_active": "Actif",

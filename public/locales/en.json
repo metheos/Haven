@@ -611,7 +611,7 @@
     "frame_rate": "Frame Rate",
     "codec_preference": "Codec Preference",
     "codec_mode_auto": "Auto (browser default)",
-    "codec_mode_enablehwaccel": "Enable HW accel",
+    "codec_mode_preferhwaccel": "Prefer HW accel",
     "codec_debug": "Codec Debug",
     "codec_debug_mode": "Mode",
     "codec_debug_active": "Active",
