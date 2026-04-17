@@ -872,6 +872,14 @@ module.exports = function register(socket, ctx) {
     if (!category) category = null;
     const channel = db.prepare('SELECT id FROM channels WHERE code = ? AND is_dm = 0').get(code);
     if (!channel) return socket.emit('error-msg', 'Channel not found');
+    // Case-insensitive dedup: if another channel already uses this tag with
+    // different casing, adopt the existing casing so they group together.
+    if (category) {
+      const existing = db.prepare(
+        'SELECT category FROM channels WHERE category IS NOT NULL AND id != ? AND category COLLATE NOCASE = ?'
+      ).get(channel.id, category);
+      if (existing) category = existing.category;
+    }
     try {
       db.prepare('UPDATE channels SET category = ? WHERE id = ?').run(category, channel.id);
       broadcastChannelLists();

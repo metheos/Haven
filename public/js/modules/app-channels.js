@@ -776,8 +776,13 @@ _renderOrganizeList() {
 
   let displayList = [...(this._organizeList || [])];
 
-  // Collect unique tags (including __untagged__ as a sortable entry)
-  const realTags = [...new Set(displayList.filter(c => c.category).map(c => c.category))];
+  // Collect unique tags (case-insensitive dedup, keep first-seen casing)
+  const _orgTagMap = new Map();
+  displayList.filter(c => c.category).forEach(c => {
+    const key = c.category.toLowerCase();
+    if (!_orgTagMap.has(key)) _orgTagMap.set(key, c.category);
+  });
+  const realTags = [..._orgTagMap.values()];
   const hasUntagged = displayList.some(c => !c.category);
   const hasTags = realTags.length > 0;
   // Build the full ordered keys list: real tags + __untagged__ (if applicable)
@@ -844,7 +849,8 @@ _renderOrganizeList() {
         }
       } else {
         const tagSort = this._organizeTagSorts[key] || globalSort;
-        const tagItems = sortGroup(displayList.filter(c => c.category === key), tagSort);
+        const keyLower = key.toLowerCase();
+        const tagItems = sortGroup(displayList.filter(c => c.category && c.category.toLowerCase() === keyLower), tagSort);
         grouped.push({ tag: key, items: tagItems, sort: tagSort });
       }
     }
@@ -976,9 +982,9 @@ _getOrganizeVisualGroup(ch) {
   const tagKey = ch.category || '__untagged__';
   const effectiveSort = this._organizeTagSorts[tagKey] || globalSort;
 
-  // Collect channels in the same tag group
+  // Collect channels in the same tag group (case-insensitive)
   const group = ch.category
-    ? this._organizeList.filter(c => c.category === ch.category)
+    ? this._organizeList.filter(c => c.category && c.category.toLowerCase() === ch.category.toLowerCase())
     : this._organizeList.filter(c => !c.category);
 
   // Sort by effective mode (mirrors _renderOrganizeList's sortGroup)
@@ -1006,7 +1012,7 @@ _moveCategoryInOrder(direction) {
 
   // Build full ordered keys (real tags + __untagged__) from channel data
   const displayList = [...(this._organizeList || [])];
-  const realTags = [...new Set(displayList.filter(c => c.category).map(c => c.category))];
+  const realTags = [...new Map(displayList.filter(c => c.category).map(c => [c.category.toLowerCase(), c.category])).values()];
   const hasUntagged = displayList.some(c => !c.category);
   const allKeys = [...realTags];
   if (hasUntagged) allKeys.push('__untagged__');
@@ -1257,7 +1263,7 @@ _renderChannels() {
     const tagGroup = (a, b) => {
       const tagA = a.category || '';
       const tagB = b.category || '';
-      if (tagA !== tagB) {
+      if (tagA.toLowerCase() !== tagB.toLowerCase()) {
         const keyA = tagA || '__untagged__';
         const keyB = tagB || '__untagged__';
         if (catSort === 'manual') {
@@ -1339,7 +1345,7 @@ _renderChannels() {
     const tagGroup = (a, b) => {
       const tagA = a.category || '';
       const tagB = b.category || '';
-      if (tagA !== tagB) {
+      if (tagA.toLowerCase() !== tagB.toLowerCase()) {
         const keyA = tagA || '__untagged__';
         const keyB = tagB || '__untagged__';
         if (serverCatSort === 'manual') {
@@ -1513,10 +1519,14 @@ _renderChannels() {
     if (dp) dp.style.flex = '1 1 0';
   }
 
-  // ── Render channels grouped by category ──
+  // ── Render channels grouped by category (case-insensitive) ──
   const categories = new Map();
+  const _catCanonical = new Map(); // lowercase -> first-seen casing
   parentChannels.forEach(ch => {
-    const cat = ch.category || '';
+    const raw = ch.category || '';
+    const key = raw.toLowerCase();
+    if (!_catCanonical.has(key)) _catCanonical.set(key, raw);
+    const cat = _catCanonical.get(key);
     if (!categories.has(cat)) categories.set(cat, []);
     categories.get(cat).push(ch);
   });
@@ -1602,7 +1612,7 @@ _renderChannels() {
       const subHasTags = subs.some(s => s.category);
       let lastSubTag = undefined;
       subs.forEach(sub => {
-        if (subHasTags && sub.category !== lastSubTag) {
+        if (subHasTags && (lastSubTag === undefined || (sub.category || '').toLowerCase() !== (lastSubTag || '').toLowerCase())) {
           const tagName = sub.category || 'Untagged';
           const tagKey = `haven_subtag_collapsed_${ch.code}_${tagName}`;
           const isTagCollapsed = localStorage.getItem(tagKey) === 'true';
