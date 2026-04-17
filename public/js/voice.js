@@ -66,8 +66,9 @@ class VoiceManager {
       activeCodec: null,
       liveStats: null,
     };
-    this._videoStatsWatchers = new Map(); // trackId -> interval id
-    this._videoStatsSamples = new Map(); // trackId -> { bytesSent, timestamp }
+    this._videoStatsWatchers = new Map(); // sender -> interval id
+    this._videoStatsSamples = new Map(); // sender -> { bytesSent, timestamp }
+    this._videoCodecModeSwitchInFlight = null;
 
     // Bitrate map: resolution → bits/sec  (sensible defaults per resolution)
     this._screenBitrates = {
@@ -978,13 +979,13 @@ class VoiceManager {
     }
   }
 
-  _clearCodecStatsWatch(trackId) {
-    const watcher = this._videoStatsWatchers.get(trackId);
+  _clearCodecStatsWatch(sender) {
+    const watcher = this._videoStatsWatchers.get(sender);
     if (watcher) {
       clearInterval(watcher);
-      this._videoStatsWatchers.delete(trackId);
+      this._videoStatsWatchers.delete(sender);
     }
-    this._videoStatsSamples.delete(trackId);
+    this._videoStatsSamples.delete(sender);
   }
 
   _clearAllCodecStatsWatches() {
@@ -1004,12 +1005,12 @@ class VoiceManager {
     return `${framesSent} fr | ${resolution} | ${bitrateKbps}`;
   }
 
-  _startCodecStatsWatch(sender, trackId) {
-    this._clearCodecStatsWatch(trackId);
+  _startCodecStatsWatch(sender) {
+    this._clearCodecStatsWatch(sender);
 
     const pollStats = async () => {
       if (!sender || !sender.track || sender.track.readyState === "ended") {
-        this._clearCodecStatsWatch(trackId);
+        this._clearCodecStatsWatch(sender);
         return;
       }
 
@@ -1021,7 +1022,7 @@ class VoiceManager {
             foundVideoReport = true;
             const codec = report.codecId ? stats.get(report.codecId) : null;
             const activeMimeType = codec?.mimeType || "unknown";
-            const sample = this._videoStatsSamples.get(trackId);
+            const sample = this._videoStatsSamples.get(sender);
             let bitrateBps = 0;
             if (sample && typeof report.bytesSent === "number" && typeof report.timestamp === "number") {
               const bytesDelta = report.bytesSent - sample.bytesSent;
@@ -1031,7 +1032,7 @@ class VoiceManager {
               }
             }
             if (typeof report.bytesSent === "number" && typeof report.timestamp === "number") {
-              this._videoStatsSamples.set(trackId, {
+              this._videoStatsSamples.set(sender, {
                 bytesSent: report.bytesSent,
                 timestamp: report.timestamp,
               });
@@ -1050,7 +1051,7 @@ class VoiceManager {
         const message = e?.message || String(e);
         const unusable = /no longer usable|not usable|invalid state|closed/i.test(message);
         if (unusable) {
-          this._clearCodecStatsWatch(trackId);
+          this._clearCodecStatsWatch(sender);
           return;
         }
         console.warn("[Voice] Could not read live video stats:", message);
@@ -1059,20 +1060,52 @@ class VoiceManager {
 
     pollStats();
     const watcher = setInterval(pollStats, 1500);
-    this._videoStatsWatchers.set(trackId, watcher);
+    this._videoStatsWatchers.set(sender, watcher);
   }
 
-  setVideoCodecMode(mode) {
-    this.videoCodecMode = mode === "auto" ? "auto" : "enablehwaccel";
-    localStorage.setItem("haven_video_codec_mode", this.videoCodecMode);
-    this._updateCodecDebugState({ mode: this.videoCodecMode });
+  async _restartVideoStreamsForCodecModeChange() {
+    const restartScreen = this.isScreenSharing;
+    const restartWebcam = this.isWebcamActive;
 
-    // Re-apply preferences to active video senders so A/B tests can switch live.
-    if (this.isScreenSharing || this.isWebcamActive) {
-      for (const [userId, peer] of this.peers) {
-        this._enableHardwareAcceleration(peer.connection);
-        this._renegotiate(userId, peer.connection);
-      }
+    if (restartScreen) {
+      await this.stopScreenShare();
+    }
+    if (restartWebcam) {
+      await this.stopWebcam();
+    }
+    if (restartScreen) {
+      await this.shareScreen();
+    }
+    if (restartWebcam) {
+      await this.startWebcam();
+    }
+  }
+
+  async setVideoCodecMode(mode) {
+    const nextMode = mode === "auto" ? "auto" : "enablehwaccel";
+    const modeChanged = this.videoCodecMode !== nextMode;
+    this.videoCodecMode = nextMode;
+    localStorage.setItem("haven_video_codec_mode", this.videoCodecMode);
+    this._clearAllCodecStatsWatches();
+    this._updateCodecDebugState({
+      mode: this.videoCodecMode,
+      activeCodec: null,
+      liveStats: null,
+    });
+
+    if (!modeChanged || (!this.isScreenSharing && !this.isWebcamActive)) {
+      return;
+    }
+
+    if (this._videoCodecModeSwitchInFlight) {
+      return this._videoCodecModeSwitchInFlight;
+    }
+
+    this._videoCodecModeSwitchInFlight = this._restartVideoStreamsForCodecModeChange();
+    try {
+      await this._videoCodecModeSwitchInFlight;
+    } finally {
+      this._videoCodecModeSwitchInFlight = null;
     }
   }
 
@@ -1242,15 +1275,17 @@ class VoiceManager {
               console.log("[Voice] Codec preference API unavailable; browser will auto-select codec");
             }
 
-            const trackId = sender.track.id;
-            this._startCodecStatsWatch(sender, trackId);
+            this._startCodecStatsWatch(sender);
 
             // Check actual codec being used after a short delay
             setTimeout(async () => {
               try {
-                const stats = await connection.getStats();
+                if (!sender || !sender.track || sender.track.readyState === "ended") {
+                  return;
+                }
+                const stats = await sender.getStats();
                 stats.forEach((report) => {
-                  if (report.type === "outbound-rtp" && report.kind === "video" && report.trackId === trackId) {
+                  if (report.type === "outbound-rtp" && report.kind === "video") {
                     const codec = report.codecId ? stats.get(report.codecId) : null;
                     const activeMimeType = codec?.mimeType || "unknown";
                     const fps = report.framesPerSecond ?? report.frameRate ?? "n/a";
