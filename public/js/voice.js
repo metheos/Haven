@@ -1084,30 +1084,35 @@ class VoiceManager {
             params.codecs = sortedCodecs;
             const primaryCodec = sortedCodecs[0]?.mimeType || "unknown";
             console.log(`[Voice] Setting preferred codec: ${primaryCodec}`);
-            sender.setParameters(params).catch(() => {
-              console.warn("[Voice] setParameters (codec prefs) failed");
+            sender.setParameters(params).catch((err) => {
+              console.log(
+                "[Voice] Codec preference not fully supported (browser may auto-select):",
+                err.message,
+              );
             });
 
             // Check actual codec being used after a short delay
+            const trackId = sender.track.id;
             setTimeout(async () => {
               try {
-                const stats = await connection.getStats(sender);
+                const stats = await connection.getStats();
                 stats.forEach((report) => {
                   if (
                     report.type === "outbound-rtp" &&
-                    report.kind === "video"
+                    report.kind === "video" &&
+                    report.trackId === trackId
                   ) {
                     console.log(
                       "[Voice] Active video codec:",
                       report.mimeType,
-                      `| Frames: ${report.framesSent} | FPS: ${report.framesPerSecond}`,
+                      `| Frames: ${report.framesSent} | Rate: ${report.frameRate}fps`,
                     );
                   }
                 });
               } catch (e) {
                 console.warn("[Voice] Could not read video stats:", e.message);
               }
-            }, 1000);
+            }, 1500);
           }
         }
       }
