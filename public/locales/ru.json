@@ -595,6 +595,16 @@
     "resolution": "Разрешение",
     "resolution_source": "Источник",
     "frame_rate": "Частота кадров",
+    "codec_preference": "Предпочтение кодека",
+    "codec_mode_auto": "Авто (по умолчанию браузера)",
+    "codec_mode_enablehwaccel": "Включить HW-ускорение",
+    "codec_debug": "Отладка кодека",
+    "codec_debug_mode": "Режим",
+    "codec_debug_active": "Активный",
+    "codec_debug_default": "По умолчанию браузера",
+    "codec_debug_preferred": "Предпочтительный",
+    "codec_debug_stats": "Живая статистика",
+    "codec_debug_unknown": "Неизвестно",
     "camera_fallback": "Камера {{n}}"
   },
   "status_bar": {

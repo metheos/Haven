@@ -34,6 +34,7 @@ class VoiceManager {
     this.analysers = new Map(); // userId → { analyser, dataArray, interval }
     this.onScreenShareStarted = null; // callback(userId, username) — someone started streaming
     this.onWebcamStatusChange = null; // callback() — webcam started/stopped, re-render user list
+    this.onCodecDebugUpdate = null; // callback(state) — codec mode/default/preferred/active for UI readout
     this.deafenedUsers = new Set(); // userIds we've muted our audio towards
     this._localTalkInterval = null;
     this._noiseGateInterval = null;
@@ -56,6 +57,17 @@ class VoiceManager {
     const savedRes = localStorage.getItem("haven_screen_res");
     this.screenResolution = savedRes !== null ? parseInt(savedRes, 10) : 1080; // 0 = source
     this.screenFrameRate = parseInt(localStorage.getItem("haven_screen_fps") || "30", 10) || 30;
+    const savedCodecMode = localStorage.getItem("haven_video_codec_mode");
+    this.videoCodecMode = savedCodecMode === "auto" ? "auto" : "enablehwaccel";
+    this._codecDebugState = {
+      mode: this.videoCodecMode,
+      defaultCodec: null,
+      preferredCodec: null,
+      activeCodec: null,
+      liveStats: null,
+    };
+    this._videoStatsWatchers = new Map(); // trackId -> interval id
+    this._videoStatsSamples = new Map(); // trackId -> { bytesSent, timestamp }
 
     // Bitrate map: resolution → bits/sec  (sensible defaults per resolution)
     this._screenBitrates = {
@@ -502,6 +514,13 @@ class VoiceManager {
     this.screenGainNodes.clear();
     this.webcamUsers.clear();
     this._vcDest = null;
+    this._clearAllCodecStatsWatches();
+    this._updateCodecDebugState({
+      defaultCodec: null,
+      preferredCodec: null,
+      activeCodec: null,
+      liveStats: null,
+    });
 
     // Close AudioContext to free resources
     if (this.audioCtx) {
@@ -572,6 +591,13 @@ class VoiceManager {
     this.screenGainNodes.clear();
     this.webcamUsers.clear();
     this._vcDest = null;
+    this._clearAllCodecStatsWatches();
+    this._updateCodecDebugState({
+      defaultCodec: null,
+      preferredCodec: null,
+      activeCodec: null,
+      liveStats: null,
+    });
 
     if (this.audioCtx) {
       this.audioCtx.close().catch(() => {});
@@ -783,6 +809,10 @@ class VoiceManager {
     this.screenStream = null;
     this.isScreenSharing = false;
     this._captureController = null;
+    this._clearAllCodecStatsWatches();
+    if (!this.isWebcamActive) {
+      this._updateCodecDebugState({ activeCodec: null, liveStats: null });
+    }
 
     this.socket.emit("screen-share-stopped", { code: this.currentChannel });
     // Notify local UI — pass localUserId so tile is found by its real ID
@@ -862,6 +892,10 @@ class VoiceManager {
 
     this.webcamStream = null;
     this.isWebcamActive = false;
+    this._clearAllCodecStatsWatches();
+    if (!this.isScreenSharing) {
+      this._updateCodecDebugState({ activeCodec: null, liveStats: null });
+    }
 
     this.socket.emit("webcam-stopped", { code: this.currentChannel });
     if (this.onWebcamStream) this.onWebcamStream(this.localUserId, null);
@@ -928,6 +962,102 @@ class VoiceManager {
     this.screenFrameRate = fps; // 15 | 30 | 60
     localStorage.setItem("haven_screen_fps", fps);
     if (this.isScreenSharing) this._applyLiveQualityChange();
+  }
+
+  getCodecDebugState() {
+    return { ...this._codecDebugState };
+  }
+
+  _updateCodecDebugState(patch) {
+    this._codecDebugState = {
+      ...this._codecDebugState,
+      ...patch,
+    };
+    if (this.onCodecDebugUpdate) {
+      this.onCodecDebugUpdate(this.getCodecDebugState());
+    }
+  }
+
+  _clearCodecStatsWatch(trackId) {
+    const watcher = this._videoStatsWatchers.get(trackId);
+    if (watcher) {
+      clearInterval(watcher);
+      this._videoStatsWatchers.delete(trackId);
+    }
+    this._videoStatsSamples.delete(trackId);
+  }
+
+  _clearAllCodecStatsWatches() {
+    for (const [, watcher] of this._videoStatsWatchers) {
+      clearInterval(watcher);
+    }
+    this._videoStatsWatchers.clear();
+    this._videoStatsSamples.clear();
+  }
+
+  _formatCodecLiveStats(report, bitrateBps) {
+    const framesSent = report.framesSent ?? 0;
+    const width = report.frameWidth || 0;
+    const height = report.frameHeight || 0;
+    const resolution = width && height ? `${width}x${height}` : "-";
+    const bitrateKbps = bitrateBps > 0 ? `${Math.round(bitrateBps / 1000)} kbps` : "-";
+    return `${framesSent} fr | ${resolution} | ${bitrateKbps}`;
+  }
+
+  _startCodecStatsWatch(connection, trackId) {
+    this._clearCodecStatsWatch(trackId);
+
+    const pollStats = async () => {
+      try {
+        const stats = await connection.getStats();
+        stats.forEach((report) => {
+          if (report.type === "outbound-rtp" && report.kind === "video" && report.trackId === trackId) {
+            const codec = report.codecId ? stats.get(report.codecId) : null;
+            const activeMimeType = codec?.mimeType || "unknown";
+            const sample = this._videoStatsSamples.get(trackId);
+            let bitrateBps = 0;
+            if (sample && typeof report.bytesSent === "number" && typeof report.timestamp === "number") {
+              const bytesDelta = report.bytesSent - sample.bytesSent;
+              const timeDeltaMs = report.timestamp - sample.timestamp;
+              if (bytesDelta >= 0 && timeDeltaMs > 0) {
+                bitrateBps = (bytesDelta * 8 * 1000) / timeDeltaMs;
+              }
+            }
+            if (typeof report.bytesSent === "number" && typeof report.timestamp === "number") {
+              this._videoStatsSamples.set(trackId, {
+                bytesSent: report.bytesSent,
+                timestamp: report.timestamp,
+              });
+            }
+
+            this._updateCodecDebugState({
+              activeCodec: activeMimeType,
+              liveStats: this._formatCodecLiveStats(report, bitrateBps),
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("[Voice] Could not read live video stats:", e.message);
+      }
+    };
+
+    pollStats();
+    const watcher = setInterval(pollStats, 1500);
+    this._videoStatsWatchers.set(trackId, watcher);
+  }
+
+  setVideoCodecMode(mode) {
+    this.videoCodecMode = mode === "auto" ? "auto" : "enablehwaccel";
+    localStorage.setItem("haven_video_codec_mode", this.videoCodecMode);
+    this._updateCodecDebugState({ mode: this.videoCodecMode });
+
+    // Re-apply preferences to active video senders so A/B tests can switch live.
+    if (this.isScreenSharing || this.isWebcamActive) {
+      for (const [userId, peer] of this.peers) {
+        this._enableHardwareAcceleration(peer.connection);
+        this._renegotiate(userId, peer.connection);
+      }
+    }
   }
 
   /**
@@ -1059,6 +1189,13 @@ class VoiceManager {
 
           const defaultPrimaryCodec = capCodecs.find((c) => this._isPrimaryVideoCodec(c));
           const preferredPrimaryCodec = sortedCodecs.find((c) => this._isPrimaryVideoCodec(c));
+          const codecMode = this.videoCodecMode || "enablehwaccel";
+          this._updateCodecDebugState({
+            mode: codecMode,
+            defaultCodec: this._getCodecLabel(defaultPrimaryCodec),
+            preferredCodec: this._getCodecLabel(preferredPrimaryCodec),
+            liveStats: null,
+          });
 
           if (sortedCodecs.length > 0) {
             // setCodecPreferences is the supported way to prioritize codecs.
@@ -1068,6 +1205,7 @@ class VoiceManager {
             console.log(`[Voice] Setting preferred codec: ${primaryCodec}`);
             console.log(
               "[Voice] Codec decision baseline:",
+              `mode = ${codecMode}`,
               "default-order first primary =",
               this._getCodecLabel(defaultPrimaryCodec),
               "| preferred-order first primary =",
@@ -1075,7 +1213,12 @@ class VoiceManager {
             );
             if (transceiver && typeof transceiver.setCodecPreferences === "function") {
               try {
-                transceiver.setCodecPreferences(sortedCodecs);
+                if (codecMode === "auto") {
+                  transceiver.setCodecPreferences([]);
+                  console.log("[Voice] Codec preference mode is auto; using browser default negotiation order");
+                } else {
+                  transceiver.setCodecPreferences(sortedCodecs);
+                }
               } catch (err) {
                 console.warn("[Voice] setCodecPreferences failed; browser will auto-select codec:", err?.message || err);
               }
@@ -1083,8 +1226,10 @@ class VoiceManager {
               console.log("[Voice] Codec preference API unavailable; browser will auto-select codec");
             }
 
-            // Check actual codec being used after a short delay
             const trackId = sender.track.id;
+            this._startCodecStatsWatch(connection, trackId);
+
+            // Check actual codec being used after a short delay
             setTimeout(async () => {
               try {
                 const stats = await connection.getStats();
@@ -1096,10 +1241,12 @@ class VoiceManager {
                     console.log(
                       "[Voice] Active video codec:",
                       activeMimeType,
+                      `| Mode: ${codecMode}`,
                       `| Default(no intervention): ${this._getCodecLabel(defaultPrimaryCodec)}`,
                       `| Preferred: ${this._getCodecLabel(preferredPrimaryCodec)}`,
                       `| Frames: ${report.framesSent || 0} | Rate: ${fps}fps`,
                     );
+                    this._updateCodecDebugState({ activeCodec: activeMimeType });
                   }
                 });
               } catch (e) {

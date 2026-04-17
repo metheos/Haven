@@ -595,6 +595,16 @@
     "resolution": "Auflösung",
     "resolution_source": "Quelle",
     "frame_rate": "Bildrate",
+    "codec_preference": "Codec-Präferenz",
+    "codec_mode_auto": "Auto (Browser-Standard)",
+    "codec_mode_enablehwaccel": "HW-Beschleunigung aktivieren",
+    "codec_debug": "Codec-Debug",
+    "codec_debug_mode": "Modus",
+    "codec_debug_active": "Aktiv",
+    "codec_debug_default": "Browser-Standard",
+    "codec_debug_preferred": "Bevorzugt",
+    "codec_debug_stats": "Live-Statistik",
+    "codec_debug_unknown": "Unbekannt",
     "camera_fallback": "Kamera {{n}}"
   },
   "status_bar": {
