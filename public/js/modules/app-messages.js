@@ -181,7 +181,7 @@ _jumpToMessage(msgId) {
   this.socket.emit('get-messages', { code: this.currentChannel, around: msgId });
 },
 
-_renderMessages(messages) {
+_renderMessages(messages, lastReadMessageId) {
   const container = document.getElementById('messages');
   container.innerHTML = '';
   // Only render the last MAX_DOM_MESSAGES to prevent OOM on large histories
@@ -189,8 +189,30 @@ _renderMessages(messages) {
   const start = messages.length > MAX_DOM_MESSAGES ? messages.length - MAX_DOM_MESSAGES : 0;
   // Use DocumentFragment to batch all DOM inserts into a single reflow
   const frag = document.createDocumentFragment();
+
+  // Determine where to insert the "NEW MESSAGES" divider.
+  // Only show it when there are actually unread messages and the last message
+  // isn't already "read" (i.e. the user isn't fully caught up).
+  let newMsgDividerInserted = false;
+  const showDivider = lastReadMessageId && messages.length > 0
+    && messages[messages.length - 1].id > lastReadMessageId
+    // Don't show divider if ALL messages are unread (nothing before the line)
+    && messages[start]?.id <= lastReadMessageId;
+
   for (let i = start; i < messages.length; i++) {
     const prevMsg = i > start ? messages[i - 1] : null;
+
+    // Insert "NEW MESSAGES" divider before the first unread message
+    if (showDivider && !newMsgDividerInserted && messages[i].id > lastReadMessageId
+        && messages[i].user_id !== this.user?.id) {
+      const divider = document.createElement('div');
+      divider.className = 'new-messages-divider';
+      divider.id = 'new-messages-divider';
+      divider.innerHTML = '<span>NEW MESSAGES</span>';
+      frag.appendChild(divider);
+      newMsgDividerInserted = true;
+    }
+
     frag.appendChild(this._createMessageEl(messages[i], prevMsg));
   }
   container.appendChild(frag);
@@ -210,6 +232,19 @@ _renderMessages(messages) {
     scrollToTarget();
     requestAnimationFrame(scrollToTarget);
     setTimeout(scrollToTarget, 300);
+  } else if (newMsgDividerInserted) {
+    // Scroll to the "NEW MESSAGES" divider so the user sees where they left off
+    this._coupledToBottom = false;
+    const scrollToDivider = () => {
+      const divider = document.getElementById('new-messages-divider');
+      if (divider) divider.scrollIntoView({ block: 'start' });
+    };
+    scrollToDivider();
+    requestAnimationFrame(scrollToDivider);
+    setTimeout(scrollToDivider, 300);
+    // Show jump-to-bottom button since we're not at the bottom
+    const jumpBtn = document.getElementById('jump-to-bottom');
+    if (jumpBtn) jumpBtn.classList.add('visible');
   } else {
     this._scrollToBottom(true);
     // Re-scroll after images load, but only if user hasn't scrolled away

@@ -416,7 +416,7 @@ _setupSocketListeners() {
       } else {
         this._noMoreHistory = true;
       }
-      this._renderMessages(data.messages);
+      this._renderMessages(data.messages, data.lastReadMessageId);
     }
 
     // Re-append any pending E2E notice (survives message re-render after key change)

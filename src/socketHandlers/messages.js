@@ -170,9 +170,17 @@ module.exports = function register(socket, ctx) {
       return obj;
     });
 
+    // Include the user's last-read position so the client can show a
+    // "NEW MESSAGES" divider between read and unread messages.
+    const readPos = db.prepare(
+      'SELECT last_read_message_id FROM read_positions WHERE user_id = ? AND channel_id = ?'
+    ).get(socket.user.id, channel.id);
+    const lastReadMessageId = readPos ? readPos.last_read_message_id : 0;
+
     socket.emit('message-history', {
       channelCode: code,
       messages: (after || around) ? enriched : enriched.reverse(),
+      lastReadMessageId,
       ...(around ? { around } : {})
     });
   });

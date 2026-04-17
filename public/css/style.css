@@ -7028,6 +7028,31 @@ select.cfn-select.cfn-input {
   animation: highlightFlash 2s ease;
 }
 
+/* ── NEW MESSAGES divider ── */
+.new-messages-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 16px;
+  user-select: none;
+  pointer-events: none;
+}
+.new-messages-divider::before,
+.new-messages-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--accent, #5865f2);
+  opacity: 0.6;
+}
+.new-messages-divider span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent, #5865f2);
+  white-space: nowrap;
+}
+
 
 /* ═══════════════════════════════════════════════════════════
    EDITED MESSAGE TAG
