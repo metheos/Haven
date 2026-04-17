@@ -1043,9 +1043,11 @@ class VoiceManager {
   _enableHardwareAcceleration(connection) {
     try {
       const senders = connection.getSenders();
+      const transceivers = connection.getTransceivers();
       for (const sender of senders) {
         if (sender.track && sender.track.kind === "video") {
-          const capCodecs = RTCRtpSender.getCapabilities("video").codecs;
+          const capabilities = RTCRtpSender.getCapabilities("video");
+          const capCodecs = capabilities && capabilities.codecs;
           if (!capCodecs) continue;
 
           // Log available codecs
@@ -1079,17 +1081,22 @@ class VoiceManager {
           }
 
           if (sortedCodecs.length > 0) {
-            const params = sender.getParameters();
-            if (!params.codecs) params.codecs = [];
-            params.codecs = sortedCodecs;
+            // setCodecPreferences is the supported way to prioritize codecs.
+            // sender.setParameters({ codecs }) expects RTCRtpCodecParameters and
+            // fails in Chromium when payloadType is missing.
+            const transceiver = transceivers.find((t) => t.sender === sender);
             const primaryCodec = sortedCodecs[0]?.mimeType || "unknown";
             console.log(`[Voice] Setting preferred codec: ${primaryCodec}`);
-            sender.setParameters(params).catch((err) => {
+            if (
+              transceiver &&
+              typeof transceiver.setCodecPreferences === "function"
+            ) {
+              transceiver.setCodecPreferences(sortedCodecs);
+            } else {
               console.log(
-                "[Voice] Codec preference not fully supported (browser may auto-select):",
-                err.message,
+                "[Voice] Codec preference API unavailable; browser will auto-select codec",
               );
-            });
+            }
 
             // Check actual codec being used after a short delay
             const trackId = sender.track.id;
@@ -1102,10 +1109,16 @@ class VoiceManager {
                     report.kind === "video" &&
                     report.trackId === trackId
                   ) {
+                    const codec = report.codecId
+                      ? stats.get(report.codecId)
+                      : null;
+                    const activeMimeType = codec?.mimeType || "unknown";
+                    const fps =
+                      report.framesPerSecond ?? report.frameRate ?? "n/a";
                     console.log(
                       "[Voice] Active video codec:",
-                      report.mimeType,
-                      `| Frames: ${report.framesSent} | Rate: ${report.frameRate}fps`,
+                      activeMimeType,
+                      `| Frames: ${report.framesSent || 0} | Rate: ${fps}fps`,
                     );
                   }
                 });
