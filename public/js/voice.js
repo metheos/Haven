@@ -1048,6 +1048,12 @@ class VoiceManager {
           const capCodecs = RTCRtpSender.getCapabilities("video").codecs;
           if (!capCodecs) continue;
 
+          // Log available codecs
+          console.log(
+            "[Voice] Available video codecs:",
+            capCodecs.map((c) => c.mimeType).join(", "),
+          );
+
           // Prioritize H.264 as it's commonly hardware-accelerated
           // Fallback to VP9 or VP8
           const preferredOrder = ["H264", "h264", "VP9", "vp9", "VP8", "vp8"];
@@ -1076,9 +1082,32 @@ class VoiceManager {
             const params = sender.getParameters();
             if (!params.codecs) params.codecs = [];
             params.codecs = sortedCodecs;
+            const primaryCodec = sortedCodecs[0]?.mimeType || "unknown";
+            console.log(`[Voice] Setting preferred codec: ${primaryCodec}`);
             sender.setParameters(params).catch(() => {
               console.warn("[Voice] setParameters (codec prefs) failed");
             });
+
+            // Check actual codec being used after a short delay
+            setTimeout(async () => {
+              try {
+                const stats = await connection.getStats(sender);
+                stats.forEach((report) => {
+                  if (
+                    report.type === "outbound-rtp" &&
+                    report.kind === "video"
+                  ) {
+                    console.log(
+                      "[Voice] Active video codec:",
+                      report.mimeType,
+                      `| Frames: ${report.framesSent} | FPS: ${report.framesPerSecond}`,
+                    );
+                  }
+                });
+              } catch (e) {
+                console.warn("[Voice] Could not read video stats:", e.message);
+              }
+            }, 1000);
           }
         }
       }
