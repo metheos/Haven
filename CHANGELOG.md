@@ -11,6 +11,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.4.0] — 2026-04-19
+
+### Added
+- **Quote button** — a quote button in the message toolbar inserts a formatted quote of the selected message into the input box.
+- **Up-arrow to edit last message** — pressing up in an empty message input opens the last message you sent for editing. Toggleable in Settings.
+- **Bot API: delete messages & play soundboard sounds** — bots can now delete messages and trigger soundboard sound playback via the API.
+- **SSO recent-servers dropdown** — the SSO "Link a Server" page now shows a dropdown of recently visited servers for quick selection.
+
+### Fixed
+- **Event sounds decoupled from notifications toggle** — join/leave sounds now play regardless of whether the master notifications toggle is off. (#5264)
+- **Server icon cross-origin loading** — server icons fetched from external origins now include the correct `crossorigin` attribute, preventing CORS errors. (#5240)
+- **Server list hides current server reliably** — the server list sidebar now uses the server fingerprint to identify and hide the host server, fixing cases where it appeared in its own list.
+- **Server list removals persist** — manually removed servers are now normalized by origin and persist across syncs; the Desktop bridge also respects removals.
+- **Server list sync on page refresh / auto-login** — the encrypted server list now syncs correctly when the page reloads or the user auto-logs in.
+- **SSO consent page "Checking login status..."** — the SSO consent page no longer gets stuck in a loading state after a session is already established.
+- **Desktop app promo skipped on mobile/tablet** — the desktop app promotional modal no longer appears on mobile or tablet devices.
+- **Stale socket evicting active voice users** — a stale socket reconnect no longer incorrectly removes an active user from a voice channel.
+
+### Security
+- **Reply-to channel boundary validation** — the server now validates that a reply target belongs to the same channel, preventing cross-channel reply injection.
+- **WebRTC payload size limits** — enforced maximum payload sizes on WebRTC data channel messages to limit potential abuse.
+
+---
+
 ## [3.3.0] — 2026-04-18
 
 ### Added
