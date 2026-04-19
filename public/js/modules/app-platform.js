@@ -92,6 +92,9 @@ _initDesktopAppBanner() {
   // Don't show if already in the desktop app
   if (window.havenDesktop || navigator.userAgent.includes('Electron')) return;
 
+  // Don't show on mobile / tablet — desktop app isn't relevant there
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) return;
+
   // ── Top-bar banner ──
   const bannerDismissed = localStorage.getItem('haven_desktop_banner_dismissed');
   if (!bannerDismissed) {
