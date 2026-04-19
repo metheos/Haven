@@ -83,16 +83,20 @@ class ServerManager {
         // across page reloads and offline periods
         if (discoveredIcon) {
           const entry = this.servers.find(s => s.url === url);
-          if (entry && !entry.icon) {
-            entry.icon = discoveredIcon;
-            this._save();
-          }
-          // Generate a small base64 thumbnail so the icon travels
-          // with the encrypted sync bundle across servers
-          if (entry && !entry.iconData) {
-            this._fetchIconThumbnail(discoveredIcon).then(dataUrl => {
-              if (dataUrl) { entry.iconData = dataUrl; this._save(); }
-            });
+          if (entry) {
+            // Always update the icon URL (server may have changed its icon)
+            if (entry.icon !== discoveredIcon) {
+              entry.icon = discoveredIcon;
+              entry.iconData = null; // clear stale thumbnail
+              this._save();
+            }
+            // Generate a small base64 thumbnail so the icon travels
+            // with the encrypted sync bundle across servers
+            if (!entry.iconData) {
+              this._fetchIconThumbnail(discoveredIcon).then(dataUrl => {
+                if (dataUrl) { entry.iconData = dataUrl; this._save(); }
+              });
+            }
           }
         }
       } else {
