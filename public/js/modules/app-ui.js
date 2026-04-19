@@ -3302,12 +3302,60 @@ _submitPoll() {
 // the message input stays visible above the keyboard.
 
 _setupIOSKeyboard() {
-  if (!window.visualViewport) return;
-
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-  if (!isIOS) return;
+  // ── Safe-area probing (all mobile, but especially iOS) ──
+  // env(safe-area-inset-*) sometimes returns 0 even on notched devices
+  // (e.g. certain iOS versions in browser vs PWA mode, or when CSS env()
+  //  isn't evaluated). We probe the actual value via a hidden element and
+  // set CSS custom properties with a minimum floor as fallback.
+  if (isIOS || /Android/.test(navigator.userAgent)) {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      document.body.classList.add(isIOS ? 'is-ios' : 'is-android');
+
+      // Detect standalone PWA mode
+      if (isIOS && (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches)) {
+        document.body.classList.add('is-ios-pwa');
+      }
+
+      // Probe env(safe-area-inset-top) by measuring a hidden div
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;pointer-events:none;visibility:hidden;'
+        + 'height:env(safe-area-inset-top,0px);height:constant(safe-area-inset-top)';
+      document.body.appendChild(probe);
+
+      requestAnimationFrame(() => {
+        const measuredTop = probe.offsetHeight;
+        probe.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;pointer-events:none;visibility:hidden;'
+          + 'height:env(safe-area-inset-bottom,0px);height:constant(safe-area-inset-bottom)';
+
+        requestAnimationFrame(() => {
+          const measuredBottom = probe.offsetHeight;
+          document.body.removeChild(probe);
+
+          // Determine minimum safe-area for this device
+          let minTop = 0, minBottom = 0;
+          if (isIOS) {
+            const h = window.screen.height;
+            // iPhone X+ / Dynamic Island (screen height >= 812pt)
+            if (h >= 812) { minTop = 47; minBottom = 34; }
+            // Older iPhones
+            else { minTop = 20; minBottom = 0; }
+          }
+
+          const safeTop = Math.max(measuredTop, minTop);
+          const safeBottom = Math.max(measuredBottom, minBottom);
+          const root = document.documentElement;
+          root.style.setProperty('--safe-top', safeTop + 'px');
+          root.style.setProperty('--safe-bottom', safeBottom + 'px');
+        });
+      });
+    }
+  }
+
+  if (!window.visualViewport || !isIOS) return;
 
   const app = document.getElementById('app');
   const messages = document.getElementById('messages');

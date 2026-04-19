@@ -9085,6 +9085,73 @@ select.cfn-select.cfn-input {
 
 
 /* ═══════════════════════════════════════════════════════════
+   iOS / MOBILE SAFE-AREA HARDENING
+   JS probes env(safe-area-inset-*) and sets --safe-top /
+   --safe-bottom as CSS custom properties with device-specific
+   minimum floors.  These override env() when the browser
+   returns 0 despite a notch / Dynamic Island being present.
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* Header: use JS-measured safe-top when available, falling back to env() */
+  body.is-ios .channel-header,
+  body.is-android .channel-header {
+    padding-top: calc(8px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+    min-height: calc(48px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+  }
+
+  /* Left sidebar overlay */
+  body.is-ios .sidebar,
+  body.is-android .sidebar {
+    padding-top: var(--safe-top, env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Right sidebar */
+  body.is-ios .right-sidebar,
+  body.is-android .right-sidebar {
+    padding-top: var(--safe-top, env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Server bar */
+  body.is-ios .server-bar,
+  body.is-android .server-bar {
+    padding-top: calc(8px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+  }
+
+  /* Message input — bottom safe area */
+  body.is-ios .message-input-area,
+  body.is-android .message-input-area {
+    padding-bottom: calc(8px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important;
+  }
+
+  /* Toasts */
+  body.is-ios #toast-container,
+  body.is-android #toast-container {
+    top: calc(8px + var(--safe-top, env(safe-area-inset-top, 0px)));
+  }
+}
+
+@media (max-width: 480px) {
+  body.is-ios .channel-header,
+  body.is-android .channel-header {
+    padding-top: calc(6px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+    min-height: calc(44px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+  }
+
+  body.is-ios .message-input-area,
+  body.is-android .message-input-area {
+    padding-bottom: calc(6px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important;
+  }
+}
+
+/* Remove safe-top padding when iOS keyboard is open (bottom padding already
+   handled by .ios-keyboard-open rule above) */
+body.is-ios.ios-keyboard-open .message-input-area {
+  padding-bottom: 6px !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
    TOUCH & ACCESSIBILITY
    ═══════════════════════════════════════════════════════════ */
 
