@@ -1253,6 +1253,10 @@
             </select>
           </label>
           <div class="notif-divider"></div>
+          <label class="volume-row">
+            <span data-i18n="settings.sounds_section.join_vol">Join Vol</span>
+            <input type="range" id="notif-join-volume" min="0" max="100" value="80" class="slider-sm">
+          </label>
           <label class="select-row">
             <span data-i18n="settings.sounds_section.user_joined">User Joined</span>
             <select id="notif-join-sound">
@@ -1263,6 +1267,11 @@
               <option value="chord">Chord</option>
               <option value="none">None</option>
             </select>
+          </label>
+          <div class="notif-divider"></div>
+          <label class="volume-row">
+            <span data-i18n="settings.sounds_section.leave_vol">Leave Vol</span>
+            <input type="range" id="notif-leave-volume" min="0" max="100" value="80" class="slider-sm">
           </label>
           <label class="select-row">
             <span data-i18n="settings.sounds_section.user_left">User Left</span>

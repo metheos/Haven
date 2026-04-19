@@ -217,7 +217,9 @@ _setupNotifications() {
   const replyVolume = document.getElementById('notif-reply-volume');
   const replySound = document.getElementById('notif-reply-sound');
   const sentSound = document.getElementById('notif-sent-sound');
+  const joinVolume = document.getElementById('notif-join-volume');
   const joinSound = document.getElementById('notif-join-sound');
+  const leaveVolume = document.getElementById('notif-leave-volume');
   const leaveSound = document.getElementById('notif-leave-sound');
 
   toggle.checked = this.notifications.enabled;
@@ -228,7 +230,9 @@ _setupNotifications() {
   mentionSound.value = this.notifications.sounds.mention;
   if (replyVolume) replyVolume.value = this.notifications.replyVolume * 100;
   if (replySound) replySound.value = this.notifications.sounds.reply;
+  if (joinVolume) joinVolume.value = this.notifications.joinVolume * 100;
   if (joinSound) joinSound.value = this.notifications.sounds.join;
+  if (leaveVolume) leaveVolume.value = this.notifications.leaveVolume * 100;
   if (leaveSound) leaveSound.value = this.notifications.sounds.leave;
 
   // Per-type toggles
@@ -281,10 +285,22 @@ _setupNotifications() {
     });
   }
 
+  if (joinVolume) {
+    joinVolume.addEventListener('input', () => {
+      this.notifications.setJoinVolume(joinVolume.value / 100);
+    });
+  }
+
   if (joinSound) {
     joinSound.addEventListener('change', () => {
       this.notifications.setSound('join', joinSound.value);
       this.notifications.play('join');
+    });
+  }
+
+  if (leaveVolume) {
+    leaveVolume.addEventListener('input', () => {
+      this.notifications.setLeaveVolume(leaveVolume.value / 100);
     });
   }
 

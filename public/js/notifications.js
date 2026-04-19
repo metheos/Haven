@@ -14,6 +14,8 @@ class NotificationManager {
     this.volume = this._loadPref('haven_notif_volume', 0.5);
     this.mentionVolume = this._loadPref('haven_notif_mention_volume', 0.8);
     this.replyVolume = this._loadPref('haven_notif_reply_volume', 0.8);
+    this.joinVolume = this._loadPref('haven_notif_join_volume', 0.8);
+    this.leaveVolume = this._loadPref('haven_notif_leave_volume', 0.8);
     this.sounds = {
       message: this._loadPref('haven_notif_msg_sound', 'ping'),
       sent: this._loadPref('haven_notif_sent_sound', 'swoosh'),
@@ -148,12 +150,16 @@ class NotificationManager {
     const sound = this.sounds[event];
     if (!sound || sound === 'none') return;
 
-    // Use mention volume if this is a mention event
+    // Use per-event volume if set
     const origVol = this.volume;
     if (event === 'mention') {
       this.volume = this.mentionVolume;
     } else if (event === 'reply') {
       this.volume = this.replyVolume;
+    } else if (event === 'join') {
+      this.volume = this.joinVolume;
+    } else if (event === 'leave') {
+      this.volume = this.leaveVolume;
     }
 
     // Custom uploaded sound (format: "custom:soundname")
@@ -208,6 +214,16 @@ class NotificationManager {
   setReplyVolume(val) {
     this.replyVolume = Math.max(0, Math.min(1, val));
     this._savePref('haven_notif_reply_volume', this.replyVolume);
+  }
+
+  setJoinVolume(val) {
+    this.joinVolume = Math.max(0, Math.min(1, val));
+    this._savePref('haven_notif_join_volume', this.joinVolume);
+  }
+
+  setLeaveVolume(val) {
+    this.leaveVolume = Math.max(0, Math.min(1, val));
+    this._savePref('haven_notif_leave_volume', this.leaveVolume);
   }
 
   setSound(event, sound) {
