@@ -10,8 +10,8 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <title>Haven</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cG9seWdvbiBwb2ludHM9IjUwLDMgOTMsMjggOTMsNzIgNTAsOTcgNyw3MiA3LDI4IiBmaWxsPSJub25lIiBzdHJva2U9IiM2YjRmZGIiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjx0ZXh0IHg9IjUwIiB5PSI2MyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLEhlbHZldGljYSxzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgZm9udC1zaXplPSIzOCIgZmlsbD0iIzZiNGZkYiIgb3BhY2l0eT0iMC45NSI+SDwvdGV4dD48L3N2Zz4=">
-  <link rel="stylesheet" href="/css/style.css?v=2.7.11">
-  <script src="/js/theme-init.js"></script>
+  <link rel="stylesheet" href="/css/style.css?v=3.4.0">
+  <script src="/js/theme-init.js?v=3.4.0"></script>
 </head>
 <body>
 
@@ -31,6 +31,9 @@
         </button>
         <button class="server-icon manage-servers" id="manage-servers-btn" data-i18n-title="app.sidebar.manage_servers" title="Manage Servers">
           <span class="server-icon-text">⚙</span>
+        </button>
+        <button class="server-icon sync-servers" id="sync-servers-btn" title="Sync Server List">
+          <span class="server-icon-text">⟳</span>
         </button>
       </nav>
 
@@ -1817,7 +1820,7 @@
 
   <!-- Discord Import Modal -->
   <div class="modal-overlay" id="import-modal" style="display:none">
-    <div class="modal" style="max-width:560px">
+    <div class="modal" style="width:560px">
       <h3>📦 <span data-i18n="modals.discord_import.title">Import from Discord</span></h3>
 
       <!-- Step 1: Upload or Connect -->
@@ -1966,7 +1969,7 @@
 
   <!-- Assign Role Modal -->
   <div class="modal-overlay" id="assign-role-modal" style="display:none">
-    <div class="modal" style="max-width:440px">
+    <div class="modal" style="width:440px">
       <h3>👑 <span data-i18n="modals.assign_role.title">Assign Role</span></h3>
       <p id="assign-role-user-label" class="muted-text"></p>
 
@@ -2056,7 +2059,7 @@
 
   <!-- Sound Management Modal (Full Popout) -->
   <div class="modal-overlay" id="sound-modal" style="display:none">
-    <div class="modal" style="max-width:640px;min-height:420px">
+    <div class="modal" style="width:640px;min-height:420px">
       <h3>🔊 <span data-i18n="modals.sound_manager.title">Sound Manager</span></h3>
       <!-- Tabs -->
       <div class="sound-modal-tabs">
@@ -2125,7 +2128,7 @@
 
   <!-- Emoji Management Modal -->
   <div class="modal-overlay" id="emoji-modal" style="display:none">
-    <div class="modal" style="max-width:520px">
+    <div class="modal" style="width:520px">
       <h3>😎 <span data-i18n="modals.emoji_mgmt.title">Emoji Management</span></h3>
       <small class="settings-hint" style="display:block;margin-bottom:12px" data-i18n="settings.admin.emojis_upload_hint">Upload images for custom server emojis (max 256 KB, png/gif/webp). Name must be lowercase, no spaces.</small>
       <div class="whitelist-add-row">
@@ -2155,7 +2158,7 @@
 
   <!-- Emoji Crop Modal -->
   <div class="modal-overlay" id="emoji-crop-modal" style="display:none">
-    <div class="modal" style="max-width:320px;text-align:center">
+    <div class="modal" style="width:320px;text-align:center">
       <h3 style="margin-bottom:6px">✂️ <span data-i18n="modals.emoji_crop.title">Crop Emoji</span></h3>
       <small class="settings-hint" style="display:block;margin-bottom:10px" data-i18n="modals.emoji_crop.hint">Drag to reposition · Slider to zoom</small>
       <canvas id="emoji-crop-canvas" width="256" height="256" style="border-radius:var(--radius);cursor:grab;display:block;margin:0 auto 10px;border:2px solid var(--accent);max-width:100%;touch-action:none"></canvas>
@@ -2272,7 +2275,7 @@
 
   <!-- Manage Servers Modal -->
   <div class="modal-overlay" id="manage-servers-modal" style="display:none">
-    <div class="modal" style="max-width:480px">
+    <div class="modal manage-servers-modal-inner">
       <h3>⚙ <span data-i18n="modals.manage_servers.title">Manage Servers</span></h3>
       <p class="modal-desc" data-i18n="modals.manage_servers.desc">Edit or remove your linked servers</p>
       <div id="manage-servers-list" class="manage-servers-list"></div>
@@ -2376,7 +2379,7 @@
 
   <!-- Organize Sub-channels Modal -->
   <div class="modal-overlay" id="organize-modal" style="display:none">
-    <div class="modal" style="max-width:500px">
+    <div class="modal" style="width:500px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <button id="organize-back-btn" class="btn-sm" style="display:none;padding:3px 8px;font-size:0.8rem" data-i18n-title="modals.organize.back_title" title="Back to channel list"><span data-i18n="modals.organize.back_btn">← Back</span></button>
         <h3 id="organize-modal-title" style="margin:0">📋 <span data-i18n="modals.organize.title">Organize</span></h3>
@@ -2437,7 +2440,7 @@
 
   <!-- DM Organize Modal -->
   <div class="modal-overlay" id="dm-organize-modal" style="display:none">
-    <div class="modal" style="max-width:460px">
+    <div class="modal" style="width:460px">
       <h3>📋 <span data-i18n="modals.dm_organize.title">Organize DMs</span></h3>
       <p class="modal-desc" data-i18n="modals.dm_organize.desc">Tag your conversations into collapsible categories</p>
 
@@ -2473,7 +2476,7 @@
 
   <!-- Poll Creation Modal -->
   <div class="modal-overlay" id="poll-modal" style="display:none">
-    <div class="modal" style="max-width:440px">
+    <div class="modal" style="width:440px">
       <h3>📊 <span data-i18n="modals.poll.title">Create Poll</span></h3>
       <div class="form-group">
         <label data-i18n="modals.poll.question_label">Question</label>
@@ -2546,7 +2549,7 @@
   </div>
 
   <div class="modal-overlay" id="webhook-modal" style="display:none">
-    <div class="modal" style="max-width:520px">
+    <div class="modal" style="width:520px">
       <h3>🤖 <span data-i18n="modals.webhook.title">Webhooks</span></h3>
       <p class="modal-desc" id="webhook-modal-channel-name"></p>
 
@@ -2579,7 +2582,7 @@
 
   <!-- Sub-channel Subscriptions Panel -->
   <div class="modal-overlay" id="sub-panel-modal" style="display:none">
-    <div class="modal" style="max-width:520px;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal" style="width:520px;max-height:80vh;display:flex;flex-direction:column">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <h3 style="margin:0;flex:1">📡 <span data-i18n="modals.sub_panel.title">Sub-channel Subscriptions</span></h3>
         <button class="btn-sm" id="sub-panel-close-btn" data-i18n="modals.common.close" style="font-size:1rem;padding:4px 10px">&times;</button>
@@ -2652,7 +2655,7 @@
   </div>
 
   <div class="modal-overlay" id="push-error-modal" style="display:none">
-    <div class="modal" style="max-width:420px;text-align:center;padding:28px 24px;">
+    <div class="modal" style="width:420px;text-align:center;padding:28px 24px;">
       <div style="font-size:48px;margin-bottom:12px;">🔕</div>
       <h3 style="margin:0 0 12px;color:var(--text-primary)" data-i18n="modals.push_error.title">Push Notifications Unavailable</h3>
       <p id="push-error-reason" style="color:var(--text-secondary);font-size:14px;line-height:1.5;margin:0 0 16px;"></p>
@@ -2777,13 +2780,13 @@
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
     </button>
   </div>
-  <script src="/js/theme.js?v=2.7.3"></script>
-  <script src="/js/notifications.js?v=2.6.0"></script>
-  <script src="/js/servers.js?v=2.6.0"></script>
-  <script src="/js/voice.js?v=2.6.0"></script>
-  <script src="/js/modmode.js?v=2.6.0"></script>
-  <script src="/js/e2e.js?v=2.6.0"></script>
-  <script type="module" src="/js/app.js?v=2.7.11"></script>
-  <script src="/js/plugin-loader.js?v=2.6.0"></script>
+  <script src="/js/theme.js?v=3.4.0"></script>
+  <script src="/js/notifications.js?v=3.4.0"></script>
+  <script src="/js/servers.js?v=3.4.0"></script>
+  <script src="/js/voice.js?v=3.4.0"></script>
+  <script src="/js/modmode.js?v=3.4.0"></script>
+  <script src="/js/e2e.js?v=3.4.0"></script>
+  <script type="module" src="/js/app.js?v=3.4.0"></script>
+  <script src="/js/plugin-loader.js?v=3.4.0"></script>
 </body>
 </html>

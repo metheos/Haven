@@ -539,7 +539,12 @@ app.get('/', (req, res) => {
 
 app.get('/app', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
-  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+  // Inject current version into cache-busting query strings so client
+  // assets are never served stale after an update (especially in Electron).
+  const ver = require('./package.json').version;
+  let html = fs.readFileSync(path.join(__dirname, 'public', 'app.html'), 'utf8');
+  html = html.replace(/(\?v=)[^"']*/g, `$1${ver}`);
+  res.type('html').send(html);
 });
 
 // ── Vanity invite link (/invite/:code) ────────────────
