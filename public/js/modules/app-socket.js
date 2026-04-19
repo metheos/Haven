@@ -232,6 +232,7 @@ _setupSocketListeners() {
     if (err.message === 'Invalid token' || err.message === 'Authentication required' || err.message === 'Session expired') {
       localStorage.removeItem('haven_token');
       localStorage.removeItem('haven_user');
+      localStorage.removeItem('haven_sync_key');
       window.location.href = '/';
     }
     this._setLed('connection-led', 'danger');
@@ -1004,6 +1005,13 @@ _setupSocketListeners() {
         }
         msgEl.remove();
       }
+    }
+  });
+
+  // ── Bot soundboard trigger ───────────────────────
+  this.socket.on('play-sound', (data) => {
+    if (data.channelCode === this.currentChannel && data.soundUrl) {
+      this._playSoundFile(data.soundUrl);
     }
   });
 

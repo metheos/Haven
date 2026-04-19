@@ -159,7 +159,10 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
   setHeaders: (res, filePath) => {
     // Force download for non-image files (prevents HTML/SVG execution in browser)
     const ext = path.extname(filePath).toLowerCase();
-    if (!['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+      // Allow cross-origin access for images (needed for server icon pulling)
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else {
       res.setHeader('Content-Disposition', 'attachment');
     }
   }
@@ -1783,6 +1786,89 @@ app.post('/api/webhooks/:token', webhookLimiter, express.json({ limit: '64kb' })
   }
 
   res.status(200).json({ success: true, message_id: result.lastInsertRowid });
+});
+
+// ── Bot: Delete a message in the webhook's channel ──────
+app.delete('/api/webhooks/:token/messages/:messageId', webhookLimiter, (req, res) => {
+  const { getDb } = require('./src/database');
+  const db = getDb();
+  const { token, messageId } = req.params;
+
+  const webhook = getWebhookByToken(token);
+  if (!webhook) return res.status(404).json({ error: 'Webhook not found or inactive' });
+
+  const mid = parseInt(messageId, 10);
+  if (!Number.isInteger(mid) || mid < 1) return res.status(400).json({ error: 'Invalid message ID' });
+
+  const msg = db.prepare('SELECT id, content, channel_id FROM messages WHERE id = ? AND channel_id = ?').get(mid, webhook.channel_id);
+  if (!msg) return res.status(404).json({ error: 'Message not found in this channel' });
+
+  try {
+    db.prepare('DELETE FROM pinned_messages WHERE message_id = ?').run(mid);
+    db.prepare('DELETE FROM reactions WHERE message_id = ?').run(mid);
+    db.prepare('DELETE FROM messages WHERE id = ?').run(mid);
+  } catch (err) {
+    console.error('Bot delete message error:', err);
+    return res.status(500).json({ error: 'Failed to delete message' });
+  }
+
+  // Move any uploaded attachments to the deleted folder
+  const uploadRe = /\/uploads\/((?!deleted-attachments)[\w\-.]+)/g;
+  let m;
+  while ((m = uploadRe.exec(msg.content || '')) !== null) {
+    const src = path.join(uploadDir, m[1]);
+    const dst = path.join(DELETED_ATTACHMENTS_DIR, m[1]);
+    if (fs.existsSync(src)) {
+      try { fs.renameSync(src, dst); } catch { /* file locked or already moved */ }
+    }
+  }
+
+  // Find channel code for broadcasting
+  const channel = db.prepare('SELECT code FROM channels WHERE id = ?').get(webhook.channel_id);
+  if (channel && io) {
+    io.to(`channel:${channel.code}`).emit('message-deleted', {
+      channelCode: channel.code,
+      messageId: mid
+    });
+  }
+
+  res.json({ success: true });
+});
+
+// ── Bot: Play a soundboard sound in the webhook's channel ──
+app.post('/api/webhooks/:token/sounds', webhookLimiter, express.json({ limit: '16kb' }), (req, res) => {
+  const webhook = getWebhookByToken(req.params.token);
+  if (!webhook) return res.status(404).json({ error: 'Webhook not found or inactive' });
+
+  const soundName = typeof req.body.sound === 'string' ? req.body.sound.trim() : '';
+  if (!soundName) return res.status(400).json({ error: 'sound name required' });
+
+  // Verify the sound exists
+  const { getDb } = require('./src/database');
+  const builtin = BUILTIN_SOUNDS.find(s => s.name === soundName);
+  let soundUrl;
+  if (builtin) {
+    soundUrl = builtin.url;
+  } else {
+    const custom = getDb().prepare('SELECT filename FROM custom_sounds WHERE name = ?').get(soundName);
+    if (!custom) return res.status(404).json({ error: 'Sound not found' });
+    soundUrl = `/uploads/${custom.filename}`;
+  }
+
+  // Find the channel code and broadcast the sound event
+  const channel = getDb().prepare('SELECT code FROM channels WHERE id = ?').get(webhook.channel_id);
+  if (!channel) return res.status(404).json({ error: 'Channel not found' });
+
+  if (io) {
+    io.to(`channel:${channel.code}`).emit('play-sound', {
+      channelCode: channel.code,
+      soundUrl,
+      soundName,
+      botName: webhook.name
+    });
+  }
+
+  res.json({ success: true });
 });
 
 // ═══════════════════════════════════════════════════════════
