@@ -481,6 +481,35 @@ async _initE2E() {
     if (syncKey && this.serverManager) {
       await this.serverManager.syncWithServer(this.token, syncKey);
       this._renderServerBar();
+
+      // Re-sync periodically (every 5 min) so cross-device changes propagate
+      // without requiring a full page reload or re-login
+      if (!this._serverSyncInterval) {
+        this._serverSyncInterval = setInterval(async () => {
+          const key = this._e2eWrappingKey || sessionStorage.getItem('haven_e2e_wrap') || null;
+          if (key && this.serverManager && this.token) {
+            try {
+              await this.serverManager.syncWithServer(this.token, key);
+              this._renderServerBar();
+            } catch { /* silent — best-effort background sync */ }
+          }
+        }, 5 * 60 * 1000);
+      }
+
+      // Also sync when the tab becomes visible (user switching back from another server)
+      if (!this._serverSyncVisibility) {
+        this._serverSyncVisibility = true;
+        document.addEventListener('visibilitychange', async () => {
+          if (document.visibilityState !== 'visible') return;
+          const key = this._e2eWrappingKey || sessionStorage.getItem('haven_e2e_wrap') || null;
+          if (key && this.serverManager && this.token) {
+            try {
+              await this.serverManager.syncWithServer(this.token, key);
+              this._renderServerBar();
+            } catch { /* silent */ }
+          }
+        });
+      }
     }
   } catch (err) {
     console.warn('[ServerSync] Post-login sync failed:', err.message);
