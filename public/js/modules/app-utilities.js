@@ -1365,6 +1365,38 @@ _clearReply() {
   if (bar) bar.style.display = 'none';
 },
 
+_quoteMessage(msgEl) {
+  // Get the raw text content of the message
+  const rawContent = msgEl.dataset.rawContent || msgEl.querySelector('.message-content')?.textContent || '';
+  // Get the author name
+  let author = msgEl.querySelector('.message-author')?.textContent;
+  if (!author) {
+    let prev = msgEl.previousElementSibling;
+    while (prev) {
+      const authorEl = prev.querySelector('.message-author');
+      if (authorEl) { author = authorEl.textContent; break; }
+      prev = prev.previousElementSibling;
+    }
+  }
+  author = author || 'someone';
+
+  // Build the blockquote text — each line prefixed with >
+  const quotedLines = rawContent.split('\n').map(l => `> ${l}`).join('\n');
+  const quoteText = `${quotedLines}\n@${author} `;
+
+  const input = document.getElementById('message-input');
+  // If there's already text, add a newline before the quote
+  if (input.value) {
+    input.value += '\n' + quoteText;
+  } else {
+    input.value = quoteText;
+  }
+
+  input.focus();
+  // Trigger input event so textarea auto-resizes
+  input.dispatchEvent(new Event('input'));
+},
+
 // ═══════════════════════════════════════════════════════
 // EDIT MESSAGE
 // ═══════════════════════════════════════════════════════

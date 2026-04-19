@@ -201,6 +201,7 @@
   "msg_toolbar": {
     "react": "Reaccionar",
     "reply": "Responder",
+    "quote": "Citar",
     "pin": "Fijar",
     "unpin": "Desfijar",
     "edit": "Editar",

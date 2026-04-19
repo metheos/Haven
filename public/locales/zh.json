@@ -201,6 +201,7 @@
   "msg_toolbar": {
     "react": "回应",
     "reply": "回复",
+    "quote": "引用",
     "pin": "置顶",
     "unpin": "取消置顶",
     "edit": "编辑",

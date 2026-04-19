@@ -537,7 +537,7 @@ _createMessageEl(msg, prevMsg) {
   const e2eTag = msg._e2e ? `<span class="e2e-tag" title="${t('app.messages.e2e_encrypted')}">🔒</span>` : '';
 
   // Build toolbar with context-aware buttons
-  let toolbarBtns = `<button data-action="react" title="${t('msg_toolbar.react')}">😀</button><button data-action="reply" title="${t('msg_toolbar.reply')}">↩️</button>`;
+  let toolbarBtns = `<button data-action="react" title="${t('msg_toolbar.react')}">😀</button><button data-action="reply" title="${t('msg_toolbar.reply')}">↩️</button><button data-action="quote" title="${t('msg_toolbar.quote')}">💬</button>`;
   const canPin = this.user.isAdmin || this._canModerate();
   const canArchive = this.user.isAdmin || this._hasPerm('archive_messages');
   const canDelete = msg.user_id === this.user.id || this.user.isAdmin || this._canModerate();
