@@ -2492,6 +2492,21 @@ _pushServerListToServer() {
   }
 },
 
+/** Push all ServerManager entries to Desktop's global server history.
+ *  This ensures servers discovered via encrypted sync propagate to
+ *  OTHER Haven servers the next time the user switches. */
+_pushServersToDesktopHistory() {
+  if (!window.havenDesktop?.addServerHistory || !window.havenDesktop?.getServerHistory) return;
+  window.havenDesktop.getServerHistory().then(history => {
+    const historyUrls = new Set((history || []).map(h => h.url));
+    for (const s of this.serverManager.getAll()) {
+      if (!historyUrls.has(s.url)) {
+        window.havenDesktop.addServerHistory(s.url, s.name).catch(() => {});
+      }
+    }
+  }).catch(() => {});
+},
+
 _setupServerBar() {
   this.serverManager.startPolling(30000);
 
@@ -2592,6 +2607,47 @@ _setupServerBar() {
   document.getElementById('manage-servers-add-btn')?.addEventListener('click', () => {
     document.getElementById('manage-servers-modal').style.display = 'none';
     document.getElementById('add-server-btn').click();
+  });
+
+  // ── Sync Servers button ─────────────────────────────
+  document.getElementById('sync-servers-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('sync-servers-btn');
+    btn.classList.add('spinning');
+    try {
+      // 1. Pull from Desktop history (cross-server bridge)
+      if (window.havenDesktop?.getServerHistory) {
+        const history = await window.havenDesktop.getServerHistory();
+        const removed = this.serverManager._loadRemoved();
+        let added = false;
+        for (const h of (history || [])) {
+          if (!h.url) continue;
+          let normalizedUrl;
+          try { normalizedUrl = new URL(h.url).origin; } catch { normalizedUrl = h.url; }
+          if (removed.has(h.url) || removed.has(normalizedUrl)) continue;
+          if (this.serverManager.add(h.name || h.url, h.url)) added = true;
+        }
+        if (added) this._renderServerBar();
+      }
+
+      // 2. Pull from server-side encrypted backup
+      const syncKey = this._e2eWrappingKey || sessionStorage.getItem('haven_e2e_wrap') || null;
+      if (syncKey && this.serverManager && this.token) {
+        await this.serverManager.syncWithServer(this.token, syncKey);
+      }
+
+      // 3. Push merged list back to Desktop history + encrypted backup
+      this._pushServersToDesktopHistory();
+      this._pushServerListToServer();
+
+      // 4. Health-check all servers
+      await this.serverManager.checkAll();
+      this._renderServerBar();
+      this._showToast('Server list synced', 'success');
+    } catch {
+      this._showToast('Sync failed', 'error');
+    } finally {
+      btn.classList.remove('spinning');
+    }
   });
 
   // ── Channel Code Settings Modal ─────────────────────
@@ -2787,9 +2843,13 @@ _renderManageServersList() {
   container.innerHTML = '';
   if (servers.length === 0) return;  // CSS :empty handles empty state
 
+  let dragSrcRow = null;
+
   servers.forEach(s => {
     const row = document.createElement('div');
     row.className = 'manage-server-row';
+    row.draggable = true;
+    row.dataset.url = s.url;
 
     const online = s.status.online;
     const statusClass = online === true ? 'online' : online === false ? 'offline' : 'unknown';
@@ -2801,6 +2861,7 @@ _renderManageServersList() {
       : initial;
 
     row.innerHTML = `
+      <div class="manage-server-drag-handle" title="Drag to reorder">⠿</div>
       <div class="manage-server-icon">${iconContent}</div>
       <div class="manage-server-info">
         <div class="manage-server-name">${this._escapeHtml(s.name)}</div>
@@ -2813,6 +2874,48 @@ _renderManageServersList() {
         <button class="manage-server-delete danger-action" title="${t('servers.remove')}">🗑️</button>
       </div>
     `;
+
+    // ── Drag-and-drop handlers ──
+    row.addEventListener('dragstart', (e) => {
+      dragSrcRow = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', s.url);
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      container.querySelectorAll('.manage-server-row').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+      dragSrcRow = null;
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (dragSrcRow === row) return;
+      const rect = row.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      row.classList.toggle('drag-over-above', e.clientY < mid);
+      row.classList.toggle('drag-over-below', e.clientY >= mid);
+    });
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over-above', 'drag-over-below');
+    });
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over-above', 'drag-over-below');
+      if (!dragSrcRow || dragSrcRow === row) return;
+      const rect = row.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (e.clientY < mid) {
+        container.insertBefore(dragSrcRow, row);
+      } else {
+        container.insertBefore(dragSrcRow, row.nextSibling);
+      }
+      // Persist the new order
+      const orderedUrls = [...container.querySelectorAll('.manage-server-row')].map(r => r.dataset.url);
+      this.serverManager.reorder(orderedUrls);
+      this._renderServerBar();
+      this._pushServerListToServer();
+    });
 
     row.querySelector('.manage-server-visit').addEventListener('click', () => {
       if (window.havenDesktop?.switchServer) {
@@ -2876,7 +2979,7 @@ _renderServerBar() {
     // Use custom icon, auto-pulled icon from health check, or letter initial
     const iconUrl = s.icon || (s.status.icon || null);
     const iconContent = iconUrl
-      ? `<img src="${this._escapeHtml(iconUrl)}" class="server-icon-img"${s.iconData ? ` data-fallback-src="${this._escapeHtml(s.iconData)}"` : ''} alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
+      ? `<img src="${this._escapeHtml(iconUrl)}" class="server-icon-img" crossorigin="anonymous"${s.iconData ? ` data-fallback-src="${this._escapeHtml(s.iconData)}"` : ''} alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
       : (s.iconData
         ? `<img src="${this._escapeHtml(s.iconData)}" class="server-icon-img" alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
         : `<span class="server-icon-text">${this._escapeHtml(initial)}</span>`);
