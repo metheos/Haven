@@ -3357,6 +3357,18 @@ _updateServerBadgeDots(badges) {
   });
 },
 
+// Append a stable cache-buster query param to icon URLs. This forces the
+// browser to bypass any pre-CORS cached response for the same image (which
+// causes "No Access-Control-Allow-Origin" errors when a non-crossorigin
+// load was cached without the proper Vary: Origin header). See #5240.
+_withCacheBust(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  // 'cors2' marks the post-Vary/CORP header fix; bump if the cache invariant changes again.
+  const tag = 'cors2';
+  return url + (url.includes('?') ? '&' : '?') + '_cb=' + tag;
+},
+
 _renderServerBar() {
   const list = document.getElementById('server-list');
   const currentOrigin = window.location.origin;
@@ -3373,8 +3385,12 @@ _renderServerBar() {
     const statusText = online === true ? '● ' + t('servers.online') : online === false ? '○ ' + t('servers.offline') : '◌ ' + t('servers.checking');
     // Use custom icon, auto-pulled icon from health check, or letter initial
     const iconUrl = s.icon || (s.status.icon || null);
-    const iconContent = iconUrl
-      ? `<img src="${this._escapeHtml(iconUrl)}" class="server-icon-img" crossorigin="anonymous"${s.iconData ? ` data-fallback-src="${this._escapeHtml(s.iconData)}"` : ''} alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
+    // Append a stable cache-buster so browsers don't reuse a bad pre-CORS
+    // cached response (which causes "No Access-Control-Allow-Origin" errors
+    // on icons that were loaded once without the crossorigin attribute). See #5240.
+    const bustedIcon = iconUrl ? this._withCacheBust(iconUrl) : null;
+    const iconContent = bustedIcon
+      ? `<img src="${this._escapeHtml(bustedIcon)}" class="server-icon-img" crossorigin="anonymous"${s.iconData ? ` data-fallback-src="${this._escapeHtml(s.iconData)}"` : ''} alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
       : (s.iconData
         ? `<img src="${this._escapeHtml(s.iconData)}" class="server-icon-img" alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
         : `<span class="server-icon-text">${this._escapeHtml(initial)}</span>`);
@@ -3727,8 +3743,9 @@ _renderMobileServerList() {
     const online = s.status.online;
     const dotClass = online === true ? 'online' : online === false ? 'offline' : 'unknown';
     const iconUrl = s.icon || (s.status.icon || null);
-    const iconHtml = iconUrl
-      ? `<img src="${this._escapeHtml(iconUrl)}" class="msrv-icon" alt="">`
+    const bustedIcon = iconUrl ? this._withCacheBust(iconUrl) : null;
+    const iconHtml = bustedIcon
+      ? `<img src="${this._escapeHtml(bustedIcon)}" class="msrv-icon" alt="" crossorigin="anonymous">`
       + `<span class="msrv-initial" style="display:none">${initial}</span>`
       : `<span class="msrv-initial">${initial}</span>`;
     return `<a class="mobile-server-item" href="${this._escapeHtml(s.url)}" target="_blank" rel="noopener">
@@ -3767,8 +3784,9 @@ _renderMobileSidebarServers() {
     const online = s.status.online;
     const dotClass = online === true ? 'online' : online === false ? 'offline' : 'unknown';
     const iconUrl = s.icon || (s.status.icon || null);
-    const iconHtml = iconUrl
-      ? `<img src="${this._escapeHtml(iconUrl)}" alt="${this._escapeHtml(initial)}" class="mobile-srv-icon-img">`
+    const bustedIcon = iconUrl ? this._withCacheBust(iconUrl) : null;
+    const iconHtml = bustedIcon
+      ? `<img src="${this._escapeHtml(bustedIcon)}" alt="${this._escapeHtml(initial)}" class="mobile-srv-icon-img" crossorigin="anonymous">`
       : `<span>${this._escapeHtml(initial)}</span>`;
     return `<a class="mobile-srv-bubble" href="${this._escapeHtml(s.url)}" target="_blank" rel="noopener" title="${this._escapeHtml(s.name)}">
       ${iconHtml}
