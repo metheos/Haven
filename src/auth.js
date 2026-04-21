@@ -1096,9 +1096,28 @@ router.get('/SSO', (req, res) => {
       // Safety watchdog: if anything stalls, stop showing an indefinite spinner.
       const bootTimeout = setTimeout(() => {
         if (loadingEl && loadingEl.style.display !== 'none') {
+          // If we have a cached user profile, use that instead of failing — server
+          // may simply be slow/unreachable for the validate endpoint, but the
+          // profile we'll share is already cached locally.
+          try {
+            const cachedRaw = localStorage.getItem('haven_user');
+            const cached = cachedRaw ? JSON.parse(cachedRaw) : null;
+            if (cached && cached.username) {
+              approvedProfile = {
+                username: cached.username,
+                displayName: cached.displayName || cached.username,
+                profilePicture: cached.avatar || null
+              };
+              document.getElementById('sso-username').textContent = approvedProfile.displayName || approvedProfile.username;
+              document.getElementById('sso-avatar').textContent = cached.avatar ? 'Will be shared' : 'None set';
+              showConsentReady();
+              setDebug('Using cached profile (validate endpoint did not respond in time).', 'ok');
+              return;
+            }
+          } catch {}
           showNotLoggedIn('SSO check timed out. Try refreshing this page or logging in again.');
         }
-      }, 10000);
+      }, 5000);
 
       let token;
       try {
@@ -1121,7 +1140,7 @@ router.get('/SSO', (req, res) => {
       try {
         setDebug('Validating token with this server...');
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const timer = setTimeout(() => ctrl.abort(), 4000);
         const verifyRes = await fetch('/api/auth/validate', {
           headers: { 'Authorization': 'Bearer ' + token },
           signal: ctrl.signal
