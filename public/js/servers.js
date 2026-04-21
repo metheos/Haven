@@ -26,13 +26,15 @@ class ServerManager {
   _load() {
     try {
       const raw = JSON.parse(localStorage.getItem('haven_servers') || '[]');
-      // Normalize URLs on load to dedup legacy entries with mismatched casing
+      // Normalize URLs on load to dedup legacy entries while preserving
+      // subpath-hosted servers like https://host/community.
       const seen = new Set();
       const deduped = [];
       for (const s of raw) {
-        try { s.url = new URL(s.url).origin; } catch {}
-        if (seen.has(s.url)) continue;
-        seen.add(s.url);
+        const normalizedUrl = this._normalizeUrl(s?.url || '');
+        if (!normalizedUrl || seen.has(normalizedUrl)) continue;
+        s.url = normalizedUrl;
+        seen.add(normalizedUrl);
         deduped.push(s);
       }
       if (deduped.length !== raw.length) {
@@ -64,7 +66,8 @@ class ServerManager {
   }
 
   update(url, updates) {
-    const server = this.servers.find(s => s.url === url);
+    const normalizedUrl = this._normalizeUrl(url);
+    const server = this.servers.find(s => this._normalizeUrl(s.url) === normalizedUrl);
     if (!server) return false;
     if (updates.name !== undefined) server.name = updates.name;
     if (updates.icon !== undefined) server.icon = updates.icon;
@@ -73,10 +76,11 @@ class ServerManager {
   }
 
   remove(url) {
-    this.servers = this.servers.filter(s => s.url !== url);
-    this.statusCache.delete(url);
+    const normalizedUrl = this._normalizeUrl(url);
+    this.servers = this.servers.filter(s => this._normalizeUrl(s.url) !== normalizedUrl);
+    this.statusCache.delete(normalizedUrl);
     this._save();
-    this.markRemoved(url);
+    this.markRemoved(normalizedUrl);
   }
 
   /** Reorder servers by an array of URLs in the desired order. */
@@ -101,14 +105,12 @@ class ServerManager {
   }
 
   async checkServer(url) {
+    const normalizedUrl = this._normalizeUrl(url);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
 
-      // Use only the origin for health checks — if someone stored a URL
-      // like https://example.com/app, we don't want /app/api/health (404).
-      let healthBase;
-      try { healthBase = new URL(url).origin; } catch { healthBase = url; }
+      const healthBase = normalizedUrl;
 
       const res = await fetch(`${healthBase}/api/health`, {
         signal: controller.signal,
@@ -118,10 +120,10 @@ class ServerManager {
 
       if (res.ok) {
         const data = await res.json();
-        const discoveredIcon = data.icon ? `${url}${data.icon}` : null;
-        this.statusCache.set(url, {
+        const discoveredIcon = data.icon ? new URL(data.icon, `${healthBase}/`).toString() : null;
+        this.statusCache.set(normalizedUrl, {
           online: true,
-          name: data.name || url,
+          name: data.name || normalizedUrl,
           icon: discoveredIcon,
           version: data.version,
           fingerprint: data.fingerprint || null,
@@ -130,7 +132,7 @@ class ServerManager {
         // Persist discovered icon to the server entry so it survives
         // across page reloads and offline periods
         if (discoveredIcon) {
-          const entry = this.servers.find(s => s.url === url);
+          const entry = this.servers.find(s => this._normalizeUrl(s.url) === normalizedUrl);
           if (entry) {
             // Always update the icon URL (server may have changed its icon)
             if (entry.icon !== discoveredIcon) {
@@ -148,10 +150,10 @@ class ServerManager {
           }
         }
       } else {
-        this.statusCache.set(url, { online: false, checkedAt: Date.now() });
+        this.statusCache.set(normalizedUrl, { online: false, checkedAt: Date.now() });
       }
     } catch {
-      this.statusCache.set(url, { online: false, checkedAt: Date.now() });
+      this.statusCache.set(normalizedUrl, { online: false, checkedAt: Date.now() });
     }
   }
 
@@ -320,11 +322,23 @@ class ServerManager {
     return bytes;
   }
 
-  /** Normalize a URL to its origin (strips paths, trailing slashes, default ports). */
+  /** Normalize a Haven server URL to its base path (strips /app(.html), query, hash, trailing slash). */
   _normalizeUrl(url) {
-    url = url.replace(/\/+$/, '');
-    if (!/^https?:\/\//.test(url)) url = 'https://' + url;
-    try { return new URL(url).origin; } catch { return url; }
+    url = String(url || '').trim();
+    if (!url) return '';
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try {
+      const parsed = new URL(url);
+      parsed.hash = '';
+      parsed.search = '';
+      let pathname = parsed.pathname || '/';
+      pathname = pathname.replace(/\/+$/, '') || '/';
+      pathname = pathname.replace(/\/app(?:\.html)?$/i, '') || '/';
+      pathname = pathname.replace(/\/+$/, '') || '/';
+      return pathname === '/' ? parsed.origin : parsed.origin + pathname;
+    } catch {
+      return url.replace(/\/+$/, '');
+    }
   }
 
   // ── Removed-servers tracking (local-only) ─────────────
@@ -340,10 +354,9 @@ class ServerManager {
   }
 
   markRemoved(url) {
+    const normalizedUrl = this._normalizeUrl(url);
     const removed = this._loadRemoved();
-    removed.add(url);
-    // Also store the normalized origin so sync checks catch URL variants
-    try { removed.add(new URL(url).origin); } catch {}
+    if (normalizedUrl) removed.add(normalizedUrl);
     this._saveRemoved(removed);
   }
 }
