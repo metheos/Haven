@@ -2749,6 +2749,60 @@ _setupUI() {
     });
   }
 
+  // ── Server backup / restore (admin) ──────────────────
+  const startBackupDownload = (mode) => {
+    const token = localStorage.getItem('haven_token');
+    if (!token) return this._showToast(t('toasts.not_logged_in') || 'Not logged in', 'error');
+    const url = `/api/admin/backup?mode=${encodeURIComponent(mode)}&token=${encodeURIComponent(token)}`;
+    // Use a hidden iframe so we don't navigate the page if anything goes wrong
+    const a = document.createElement('a');
+    a.href = url;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 1000);
+    this._showToast(t('toasts.backup_started') || 'Preparing backup…', 'info');
+  };
+  document.getElementById('backup-download-structure-btn')?.addEventListener('click', () => {
+    startBackupDownload('structure');
+  });
+  document.getElementById('backup-download-full-btn')?.addEventListener('click', () => {
+    if (!confirm(t('confirm.backup_full') || 'Generate a full backup including all messages and uploaded files? This may take a while and produce a large download.')) return;
+    startBackupDownload('full');
+  });
+
+  const restoreBtn = document.getElementById('backup-restore-btn');
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', async () => {
+      const fileInput = document.getElementById('backup-restore-file');
+      const file = fileInput?.files?.[0];
+      if (!file) return this._showToast(t('toasts.backup_no_file') || 'Choose a backup .zip file first', 'error');
+      if (!confirm(t('confirm.backup_restore') || 'Restore this backup? It will OVERWRITE the current server data and restart the server. This cannot be undone (except via the haven.db.pre-restore copy on the host machine).')) return;
+      const token = localStorage.getItem('haven_token');
+      if (!token) return this._showToast(t('toasts.not_logged_in') || 'Not logged in', 'error');
+      const fd = new FormData();
+      fd.append('backup', file);
+      restoreBtn.disabled = true;
+      const origText = restoreBtn.innerHTML;
+      restoreBtn.innerHTML = '⏳ Uploading…';
+      try {
+        const res = await fetch('/api/admin/restore', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: fd,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        this._showToast(data.message || 'Restore staged. Server restarting…', 'success');
+        restoreBtn.innerHTML = '✓ Restarting…';
+      } catch (err) {
+        this._showToast((t('toasts.backup_restore_failed') || 'Restore failed: ') + err.message, 'error');
+        restoreBtn.disabled = false;
+        restoreBtn.innerHTML = origText;
+      }
+    });
+  }
+
   // ── Whitelist controls (admin) ───────────────────────
   // Whitelist toggle — saved via admin Save button
 

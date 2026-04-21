@@ -1190,6 +1190,214 @@ app.post('/api/upload-role-icon', uploadLimiter, (req, res) => {
   });
 });
 
+// ── Admin: Server backup download (admin only) ──
+// Two modes:
+//   ?mode=structure → JSON of channels, users (sanitized), roles, permissions, server settings
+//   ?mode=full      → ZIP of the live haven.db (snapshot via VACUUM INTO) + uploads/
+// Token may be passed via ?token=... so the browser can trigger a normal download.
+app.get('/api/admin/backup', (req, res) => {
+  const token = req.query.token || req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+
+  const AdmZip = require('adm-zip');
+  const mode = req.query.mode === 'full' ? 'full' : 'structure';
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `haven-backup-${mode}-${ts}.zip`;
+
+  let tmpDb = null;
+  try {
+    const { getDb } = require('./src/database');
+    const db = getDb();
+    const zip = new AdmZip();
+
+    const manifest = {
+      app: 'haven',
+      version: require('./package.json').version,
+      exportedAt: new Date().toISOString(),
+      mode,
+      serverName: process.env.SERVER_NAME || 'Haven',
+    };
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
+
+    if (mode === 'structure') {
+      const tables = [
+        'users', 'channels', 'roles', 'role_permissions', 'user_roles',
+        'channel_members', 'server_settings', 'whitelist',
+      ];
+      const data = {};
+      for (const tbl of tables) {
+        try { data[tbl] = db.prepare(`SELECT * FROM ${tbl}`).all(); }
+        catch { data[tbl] = []; }
+      }
+      // Strip secrets from users — passwords, TOTP, recovery codes never leave the server
+      data.users = (data.users || []).map(u => {
+        const safe = { ...u };
+        delete safe.password_hash;
+        delete safe.password_version;
+        delete safe.totp_secret;
+        delete safe.totp_backup_codes;
+        delete safe.recovery_codes_hash;
+        delete safe.recovery_codes;
+        delete safe.email;
+        return safe;
+      });
+      // Strip JWT secret / VAPID keys / vanity codes that shouldn't travel in structure backups
+      const SENSITIVE_KEYS = new Set(['vanity_code', 'server_invite_code']);
+      data.server_settings = (data.server_settings || []).filter(r => !SENSITIVE_KEYS.has(r.key));
+      zip.addFile('structure.json', Buffer.from(JSON.stringify(data, null, 2)));
+    } else {
+      // Full snapshot: VACUUM INTO produces a consistent copy of the live DB.
+      tmpDb = path.join(DATA_DIR, `.backup-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+      try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
+      const safePath = tmpDb.replace(/'/g, "''");
+      db.prepare(`VACUUM INTO '${safePath}'`).run();
+      zip.addLocalFile(tmpDb, '', 'haven.db');
+
+      if (fs.existsSync(UPLOADS_DIR)) {
+        const walk = (dir, rel) => {
+          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (entry.name === 'deleted-attachments') continue;
+            const full = path.join(dir, entry.name);
+            const sub = rel ? `${rel}/${entry.name}` : entry.name;
+            try {
+              if (entry.isFile()) zip.addLocalFile(full, `uploads${rel ? '/' + rel : ''}`);
+              else if (entry.isDirectory()) walk(full, sub);
+            } catch {}
+          }
+        };
+        walk(UPLOADS_DIR, '');
+      }
+    }
+
+    const buf = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
+  } catch (err) {
+    console.error('[Backup] Failed:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Backup failed: ' + err.message });
+  } finally {
+    if (tmpDb) { try { fs.unlinkSync(tmpDb); } catch {} }
+  }
+});
+
+// ── Admin: Server backup restore (admin only, full backups only) ──
+// Stages the uploaded backup, then schedules a process exit so the
+// supervisor (Docker / systemd / installer service) restarts the server
+// with the restored DB and uploads in place. The pre-restore data is
+// preserved at haven.db.pre-restore / uploads.pre-restore for one cycle.
+const restoreUpload = multer({
+  dest: path.join(DATA_DIR, 'tmp-restore'),
+  limits: { fileSize: 4 * 1024 * 1024 * 1024 },
+});
+
+app.post('/api/admin/restore', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+
+  const tmpDir = path.join(DATA_DIR, 'tmp-restore');
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+  restoreUpload.single('backup')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No backup file uploaded' });
+
+    const cleanupTmp = () => { try { fs.unlinkSync(req.file.path); } catch {} };
+
+    try {
+      const AdmZip = require('adm-zip');
+      const zip = new AdmZip(req.file.path);
+      const entries = zip.getEntries();
+
+      const manifestEntry = entries.find(e => e.entryName === 'manifest.json');
+      if (!manifestEntry) {
+        cleanupTmp();
+        return res.status(400).json({ error: 'Invalid backup: missing manifest.json' });
+      }
+      let manifest;
+      try { manifest = JSON.parse(manifestEntry.getData().toString('utf8')); }
+      catch {
+        cleanupTmp();
+        return res.status(400).json({ error: 'Invalid backup: corrupt manifest.json' });
+      }
+      if (manifest.app !== 'haven') {
+        cleanupTmp();
+        return res.status(400).json({ error: 'Not a Haven backup file' });
+      }
+      if (manifest.mode !== 'full') {
+        cleanupTmp();
+        return res.status(400).json({
+          error: 'Only full backups can be restored automatically. Structure-only backups must be re-imported manually.',
+        });
+      }
+      const dbEntry = entries.find(e => e.entryName === 'haven.db');
+      if (!dbEntry) {
+        cleanupTmp();
+        return res.status(400).json({ error: 'Invalid full backup: missing haven.db' });
+      }
+
+      // Stage DB
+      const stagedDb = DB_PATH + '.restore';
+      fs.writeFileSync(stagedDb, dbEntry.getData());
+
+      // Stage uploads
+      const stagedUploads = UPLOADS_DIR + '.restore';
+      if (fs.existsSync(stagedUploads)) {
+        fs.rmSync(stagedUploads, { recursive: true, force: true });
+      }
+      const uploadEntries = entries.filter(e => e.entryName.startsWith('uploads/') && !e.isDirectory);
+      if (uploadEntries.length > 0) {
+        fs.mkdirSync(stagedUploads, { recursive: true });
+        for (const ue of uploadEntries) {
+          const rel = ue.entryName.slice('uploads/'.length);
+          if (!rel || rel.includes('..')) continue;
+          const dest = path.join(stagedUploads, rel);
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.writeFileSync(dest, ue.getData());
+        }
+      }
+
+      cleanupTmp();
+      res.json({
+        ok: true,
+        message: 'Backup staged. Server will restart in ~2 seconds to apply. If the server does not come back up, your hosting setup may not auto-restart — start Haven manually.',
+        scheduled: true,
+      });
+
+      // Apply swap and exit so the supervisor restarts us cleanly
+      setTimeout(() => {
+        console.log('🔄 Applying staged backup restore and restarting...');
+        try {
+          if (fs.existsSync(stagedDb)) {
+            try { fs.copyFileSync(DB_PATH, DB_PATH + '.pre-restore'); } catch {}
+            // Remove stale WAL/SHM so SQLite reopens against the restored file
+            try { fs.unlinkSync(DB_PATH + '-wal'); } catch {}
+            try { fs.unlinkSync(DB_PATH + '-shm'); } catch {}
+            fs.renameSync(stagedDb, DB_PATH);
+          }
+          if (fs.existsSync(stagedUploads)) {
+            const oldUploads = UPLOADS_DIR + '.pre-restore';
+            if (fs.existsSync(oldUploads)) fs.rmSync(oldUploads, { recursive: true, force: true });
+            if (fs.existsSync(UPLOADS_DIR)) fs.renameSync(UPLOADS_DIR, oldUploads);
+            fs.renameSync(stagedUploads, UPLOADS_DIR);
+          }
+        } catch (e) {
+          console.error('[Restore] Swap failed:', e);
+        }
+        process.exit(0);
+      }, 1500);
+    } catch (e) {
+      cleanupTmp();
+      console.error('[Restore] Failed:', e);
+      if (!res.headersSent) res.status(500).json({ error: 'Restore failed: ' + e.message });
+    }
+  });
+});
+
 // ── Server banner upload (admin only, image only, max 4 MB) ──
 app.post('/api/upload-server-banner', uploadLimiter, (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];

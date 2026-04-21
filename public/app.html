@@ -1028,6 +1028,7 @@
           <div class="settings-nav-item settings-nav-admin" data-target="section-whitelist" style="display:none">🛡️ <span data-i18n="settings.nav.whitelist">Whitelist</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-invite" style="display:none">🌐 <span data-i18n="settings.nav.invite">Invite Code</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-cleanup" style="display:none">🗑️ <span data-i18n="settings.nav.cleanup">Cleanup</span></div>
+          <div class="settings-nav-item settings-nav-admin" data-target="section-backup" style="display:none">💾 <span data-i18n="settings.nav.backup">Backup</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-uploads" style="display:none">📁 <span data-i18n="settings.nav.limits">Limits</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-sounds-admin" style="display:none">🔊 <span data-i18n="settings.nav.admin_sounds">Sounds</span></div>
           <div class="settings-nav-item settings-nav-admin" data-target="section-emojis" style="display:none">😎 <span data-i18n="settings.nav.emojis">Emojis</span></div>
@@ -1761,6 +1762,26 @@
           </label>
           <small class="settings-hint" data-i18n="settings.admin.cleanup_size_hint">Trim oldest messages when DB exceeds N MB (0 = off)</small>
           <button class="btn-sm btn-full" id="run-cleanup-now-btn" style="margin-top:4px;">🧹 <span data-i18n="settings.admin.cleanup_run_btn">Run Cleanup Now</span></button>
+        </div>
+        <div class="admin-settings" id="section-backup" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+          <h5 class="settings-section-subtitle">💾 <span data-i18n="settings.admin.backup_title">Server Backup</span></h5>
+          <small class="settings-hint" data-i18n="settings.admin.backup_hint">Download a backup of this server, or restore from a previous backup. Useful when you don't have shell access to the host machine.</small>
+          <div class="settings-group" style="margin-top:10px">
+            <small class="settings-group-label" data-i18n="settings.admin.backup_download_label">Download Backup</small>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+              <button class="btn-sm btn-accent" id="backup-download-structure-btn">📋 <span data-i18n="settings.admin.backup_structure_btn">Structure Only</span></button>
+              <button class="btn-sm btn-accent" id="backup-download-full-btn">📦 <span data-i18n="settings.admin.backup_full_btn">Full Backup</span></button>
+            </div>
+            <small class="settings-hint" style="margin-top:6px;display:block" data-i18n="settings.admin.backup_modes_hint"><strong>Structure</strong> includes channels, users (no passwords), roles, and server settings. <strong>Full</strong> also includes all messages and uploaded files. Full backups can be large.</small>
+          </div>
+          <div class="settings-group" style="margin-top:14px">
+            <small class="settings-group-label" data-i18n="settings.admin.backup_restore_label">Restore From Backup</small>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+              <input type="file" id="backup-restore-file" accept=".zip" style="flex:1">
+              <button class="btn-sm" id="backup-restore-btn">⬆️ <span data-i18n="settings.admin.backup_restore_btn">Restore</span></button>
+            </div>
+            <small class="settings-hint" style="margin-top:6px;display:block;color:var(--danger,#e84a4a)" data-i18n="settings.admin.backup_restore_warning"><strong>Warning:</strong> Restoring overwrites the current server data. The server will restart automatically — your hosting setup must support auto-restart (Docker, systemd, the Haven installer service, etc.). The previous database is preserved as <code>haven.db.pre-restore</code> for one cycle.</small>
+          </div>
         </div>
         <div class="admin-settings" id="section-uploads" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
           <h5 class="settings-section-subtitle">📁 <span data-i18n="settings.admin.uploads_title">Uploads &amp; Limits</span></h5>
