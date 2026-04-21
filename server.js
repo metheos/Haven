@@ -160,8 +160,15 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
     // Force download for non-image files (prevents HTML/SVG execution in browser)
     const ext = path.extname(filePath).toLowerCase();
     if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-      // Allow cross-origin access for images (needed for server icon pulling)
+      // Allow cross-origin access for images (needed for server icon pulling).
+      // CORP override is required because helmet defaults to 'same-origin', which
+      // would otherwise block cross-origin <img> loads even with ACAO set.
+      // Vary: Origin prevents a non-CORS cached response from being reused for a
+      // CORS request (which is what causes the "No 'Access-Control-Allow-Origin'
+      // header is present" error on a cached image).
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Vary', 'Origin');
     } else {
       res.setHeader('Content-Disposition', 'attachment');
     }
@@ -589,6 +596,8 @@ app.get('/api/donors', (req, res) => {
 // ── Health check (CORS allowed for multi-server status pings) ──
 app.get('/api/health', (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.set('Vary', 'Origin');
   let name = process.env.SERVER_NAME || 'Haven';
   let icon = null;
   let fingerprint = null;
