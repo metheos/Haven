@@ -9296,7 +9296,25 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
 
 .mobile-settings-btn { display: none; }
 @media (max-width: 900px) {
-  .right-sidebar { display: none; }
+  /* Right sidebar slides in as an overlay on tablet widths so the Members
+     button works between 769-900px (was previously display:none and the
+     button appeared to do nothing). See #5274. */
+  .right-sidebar {
+    display: flex !important;
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 260px;
+    min-width: 260px;
+    z-index: 1100;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+  #app-body.mobile-right-open .right-sidebar { transform: translateX(0); }
   .sidebar-collapse-btn { display: none; }
   .mobile-users-btn { display: flex; }
   .mobile-settings-btn { display: flex; }
@@ -9362,24 +9380,11 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
     transform: translateX(0);
   }
 
-  /* Bring server bar back inside the sidebar overlay */
+  /* The mobile-servers-section bubble row inside the sidebar already shows
+     all servers, so we hide the vertical .server-bar entirely on mobile to
+     avoid a duplicate server list when the sidebar overlay is open. (#5272) */
   #app-body.mobile-sidebar-open .server-bar {
-    position: fixed;
-    left: 280px;
-    top: 0;
-    bottom: 0;
-    width: 52px;
-    min-width: 52px;
-    z-index: 1100;
-    overflow-y: auto;
-    transform: translateX(-332px);
-    transition: transform 0.25s ease;
-    border-right: 1px solid var(--border);
-    padding: calc(8px + env(safe-area-inset-top, 0px)) 0 8px;
-  }
-
-  #app-body.mobile-sidebar-open .server-bar {
-    transform: translateX(0);
+    display: none;
   }
 
   /* Right sidebar — slide in from right as overlay */
@@ -9461,11 +9466,6 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
 @media (max-width: 480px) {
   /* Sidebar full width on phones */
   .sidebar { width: 85vw; min-width: 85vw; }
-
-  /* Hide server bar on phones — sidebar already covers enough, server bar eats space */
-  #app-body.mobile-sidebar-open .server-bar {
-    display: none;
-  }
 
   /* Mobile server dropdown (visible on phones) */
   .mobile-server-dropdown { display: block; }
