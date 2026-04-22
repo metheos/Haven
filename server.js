@@ -1196,32 +1196,16 @@ app.post('/api/upload-role-icon', uploadLimiter, (req, res) => {
 //                   ?mode=full      → channels,users,settings,messages,files
 // Token may be passed via ?token=... so the browser can trigger a normal download.
 const ALL_BACKUP_SECTIONS = ['channels', 'users', 'settings', 'messages', 'files'];
-app.get('/api/admin/backup', (req, res) => {
-  const token = req.query.token || req.headers.authorization?.split(' ')[1];
-  const user = token ? verifyToken(token) : null;
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
-  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
 
+// Build a backup zip buffer from the requested sections. Returns { buf, filename, mode, include }.
+// Used by both the admin download endpoint and the auto-backup scheduler.
+function buildBackupBuffer(includeRaw) {
   const AdmZip = require('adm-zip');
-
-  // Resolve which sections to include
-  let include = [];
-  if (typeof req.query.include === 'string' && req.query.include.trim()) {
-    include = req.query.include.split(',')
-      .map(s => s.trim().toLowerCase())
-      .filter(s => ALL_BACKUP_SECTIONS.includes(s));
-  } else if (req.query.mode === 'full') {
-    include = ALL_BACKUP_SECTIONS.slice();
-  } else {
-    // default / mode=structure
-    include = ['channels', 'users', 'settings'];
-  }
-  if (!include.length) {
-    return res.status(400).json({ error: 'Pick at least one section to back up' });
-  }
+  let include = Array.isArray(includeRaw)
+    ? includeRaw.map(s => String(s).trim().toLowerCase()).filter(s => ALL_BACKUP_SECTIONS.includes(s))
+    : ALL_BACKUP_SECTIONS.slice();
+  if (!include.length) include = ALL_BACKUP_SECTIONS.slice();
   const has = (s) => include.includes(s);
-  // The restore endpoint only accepts mode='full' — set it when the backup
-  // contains both the live DB and uploads, since that's what restore requires.
   const mode = (has('messages') && has('files')) ? 'full' : 'partial';
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const filename = `haven-backup-${mode === 'full' ? 'full' : include.join('-')}-${ts}.zip`;
@@ -1242,7 +1226,6 @@ app.get('/api/admin/backup', (req, res) => {
     };
     zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
 
-    // Structure JSON — collect tables per selected sections
     const structureTables = [];
     if (has('channels')) structureTables.push('channels', 'roles', 'role_permissions', 'user_roles', 'channel_members');
     if (has('users')) structureTables.push('users');
@@ -1254,7 +1237,6 @@ app.get('/api/admin/backup', (req, res) => {
         try { data[tbl] = db.prepare(`SELECT * FROM ${tbl}`).all(); }
         catch { data[tbl] = []; }
       }
-      // Strip secrets from users — passwords, TOTP, recovery codes never leave the server
       if (data.users) {
         data.users = data.users.map(u => {
           const safe = { ...u };
@@ -1268,7 +1250,6 @@ app.get('/api/admin/backup', (req, res) => {
           return safe;
         });
       }
-      // Strip vanity codes / invite codes from server_settings
       if (data.server_settings) {
         const SENSITIVE_KEYS = new Set(['vanity_code', 'server_invite_code']);
         data.server_settings = data.server_settings.filter(r => !SENSITIVE_KEYS.has(r.key));
@@ -1276,8 +1257,6 @@ app.get('/api/admin/backup', (req, res) => {
       zip.addFile('structure.json', Buffer.from(JSON.stringify(data, null, 2)));
     }
 
-    // Messages — include the full DB snapshot so restore can rebuild everything.
-    // (Cherry-picking message tables would defeat referential integrity.)
     if (has('messages')) {
       tmpDb = path.join(DATA_DIR, `.backup-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
       try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
@@ -1286,7 +1265,6 @@ app.get('/api/admin/backup', (req, res) => {
       zip.addLocalFile(tmpDb, '', 'haven.db');
     }
 
-    // Files — uploaded attachments / icons / banners / sounds
     if (has('files') && fs.existsSync(UPLOADS_DIR)) {
       const walk = (dir, rel) => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -1302,15 +1280,36 @@ app.get('/api/admin/backup', (req, res) => {
       walk(UPLOADS_DIR, '');
     }
 
-    const buf = zip.toBuffer();
+    return { buf: zip.toBuffer(), filename, mode, include };
+  } finally {
+    if (tmpDb) { try { fs.unlinkSync(tmpDb); } catch {} }
+  }
+}
+
+app.get('/api/admin/backup', (req, res) => {
+  const token = req.query.token || req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+
+  // Resolve which sections to include
+  let include = [];
+  if (typeof req.query.include === 'string' && req.query.include.trim()) {
+    include = req.query.include.split(',');
+  } else if (req.query.mode === 'full') {
+    include = ALL_BACKUP_SECTIONS.slice();
+  } else {
+    include = ['channels', 'users', 'settings'];
+  }
+
+  try {
+    const { buf, filename } = buildBackupBuffer(include);
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buf);
   } catch (err) {
     console.error('[Backup] Failed:', err);
     if (!res.headersSent) res.status(500).json({ error: 'Backup failed: ' + err.message });
-  } finally {
-    if (tmpDb) { try { fs.unlinkSync(tmpDb); } catch {} }
   }
 });
 
@@ -3104,6 +3103,239 @@ setInterval(runAutoCleanup, 15 * 60 * 1000);
 setTimeout(runAutoCleanup, 30000);
 // Expose globally so socketHandlers can trigger it
 global.runAutoCleanup = runAutoCleanup;
+
+// ── Auto-backup (runs hourly, decides per server settings) ───────
+// Stored under DATA_DIR/auto-backups. Pruned to keep N most recent.
+const AUTO_BACKUP_DIR = path.join(DATA_DIR, 'auto-backups');
+function pruneAutoBackups(retain) {
+  try {
+    if (!fs.existsSync(AUTO_BACKUP_DIR)) return;
+    const files = fs.readdirSync(AUTO_BACKUP_DIR)
+      .filter(f => f.endsWith('.zip'))
+      .map(f => ({ name: f, full: path.join(AUTO_BACKUP_DIR, f), mtime: fs.statSync(path.join(AUTO_BACKUP_DIR, f)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+    for (const f of files.slice(retain)) {
+      try { fs.unlinkSync(f.full); } catch {}
+    }
+  } catch (err) {
+    console.error('[AutoBackup] Prune failed:', err);
+  }
+}
+
+function runAutoBackup() {
+  try {
+    const getSetting = (key) => {
+      const row = db.prepare('SELECT value FROM server_settings WHERE key = ?').get(key);
+      return row ? row.value : null;
+    };
+    if (getSetting('auto_backup_enabled') !== 'true') return;
+    const intervalH = Math.max(1, parseInt(getSetting('auto_backup_interval_hours') || '24'));
+    const retain = Math.max(1, Math.min(50, parseInt(getSetting('auto_backup_retention') || '7')));
+    const sectionsRaw = getSetting('auto_backup_sections') || 'channels,users,settings,messages';
+    const include = sectionsRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+    const lastRunRaw = getSetting('auto_backup_last_run');
+    const lastRun = lastRunRaw ? parseInt(lastRunRaw) : 0;
+    const now = Date.now();
+    if (lastRun && (now - lastRun) < intervalH * 60 * 60 * 1000) return;
+
+    if (!fs.existsSync(AUTO_BACKUP_DIR)) fs.mkdirSync(AUTO_BACKUP_DIR, { recursive: true });
+
+    const { buf, filename } = buildBackupBuffer(include);
+    const outPath = path.join(AUTO_BACKUP_DIR, filename);
+    fs.writeFileSync(outPath, buf);
+    db.prepare("INSERT OR REPLACE INTO server_settings (key, value) VALUES ('auto_backup_last_run', ?)").run(String(now));
+    pruneAutoBackups(retain);
+    console.log(`💾 Auto-backup written: ${filename} (${(buf.length / 1024 / 1024).toFixed(2)} MB)`);
+  } catch (err) {
+    console.error('[AutoBackup] Failed:', err);
+  }
+}
+
+// Check hourly whether it's time for an auto-backup. The function itself
+// honors the configured interval, so this can be cheap.
+setInterval(runAutoBackup, 60 * 60 * 1000);
+// First check 60s after boot so it doesn't fight with cleanup or migrations
+setTimeout(runAutoBackup, 60000);
+
+// ── Admin: list / download / delete / trigger auto-backups ─────
+app.get('/api/admin/auto-backups', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+  try {
+    if (!fs.existsSync(AUTO_BACKUP_DIR)) return res.json({ files: [] });
+    const files = fs.readdirSync(AUTO_BACKUP_DIR)
+      .filter(f => f.endsWith('.zip'))
+      .map(f => {
+        const st = fs.statSync(path.join(AUTO_BACKUP_DIR, f));
+        return { name: f, size: st.size, mtime: st.mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+    res.json({ files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/auto-backups/:name', (req, res) => {
+  const token = req.query.token || req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+  const name = req.params.name;
+  // Path traversal guard: backups are flat zip files only.
+  if (!/^[\w.-]+\.zip$/.test(name)) return res.status(400).json({ error: 'Invalid name' });
+  const full = path.join(AUTO_BACKUP_DIR, name);
+  if (!fs.existsSync(full) || !full.startsWith(AUTO_BACKUP_DIR)) return res.status(404).json({ error: 'Not found' });
+  res.download(full, name);
+});
+
+app.delete('/api/admin/auto-backups/:name', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+  const name = req.params.name;
+  if (!/^[\w.-]+\.zip$/.test(name)) return res.status(400).json({ error: 'Invalid name' });
+  const full = path.join(AUTO_BACKUP_DIR, name);
+  if (!fs.existsSync(full) || !full.startsWith(AUTO_BACKUP_DIR)) return res.status(404).json({ error: 'Not found' });
+  try { fs.unlinkSync(full); res.json({ ok: true }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/auto-backups/run-now', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+  // Reset last-run so runAutoBackup definitely fires.
+  try { db.prepare("DELETE FROM server_settings WHERE key = 'auto_backup_last_run'").run(); } catch {}
+  setImmediate(runAutoBackup);
+  res.json({ ok: true });
+});
+
+// ── Admin: in-app update check + run ─────────────────────
+// Detects how Haven was installed and returns the right command (or runs it).
+// Docker is intentionally NOT auto-runnable from inside the container — we just
+// surface the right command for the operator to run on the host.
+function detectInstallMethod() {
+  const cwd = process.cwd();
+  const inDocker = fs.existsSync('/.dockerenv') || process.env.HAVEN_IN_DOCKER === 'true';
+  if (inDocker) return 'docker';
+  if (fs.existsSync(path.join(cwd, '.git'))) return 'git';
+  if (process.platform === 'win32' && fs.existsSync(path.join(cwd, 'Install Haven.bat'))) return 'windows-installer';
+  if (fs.existsSync(path.join(cwd, 'install.sh'))) return 'shell-installer';
+  return 'manual';
+}
+
+function getUpdateInstructions(method) {
+  switch (method) {
+    case 'docker': return {
+      runnable: false,
+      message: 'Update from the host machine: cd into the haven-docker folder and run `docker compose pull && docker compose up -d`.',
+    };
+    case 'git': return {
+      runnable: true,
+      command: 'git pull --ff-only && npm install --omit=dev',
+      message: 'Pull latest from GitHub and reinstall dependencies. The server will exit after the update so your supervisor (systemd / Docker / installer service) restarts it on the new code.',
+    };
+    case 'windows-installer': return {
+      runnable: true,
+      command: '"Install Haven.bat" /update',
+      message: 'Re-run the Windows installer in update mode. The server will exit so the installer can replace files and restart the service.',
+    };
+    case 'shell-installer': return {
+      runnable: true,
+      command: 'bash install.sh --update',
+      message: 'Re-run the install script in update mode. The server will exit so the installer can refresh files and restart the service.',
+    };
+    default: return {
+      runnable: false,
+      message: 'Update method could not be detected. Pull the latest release from https://github.com/ancsemi/Haven/releases and replace your install manually.',
+    };
+  }
+}
+
+app.get('/api/admin/update/check', async (req, res) => {
+  const token = req.query.token || req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+  const currentVersion = require('./package.json').version;
+  const method = detectInstallMethod();
+  const instructions = getUpdateInstructions(method);
+  try {
+    const r = await fetch('https://api.github.com/repos/ancsemi/Haven/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'haven-update-check' },
+    });
+    if (!r.ok) throw new Error(`GitHub HTTP ${r.status}`);
+    const data = await r.json();
+    const latestVersion = String(data.tag_name || '').replace(/^v/, '');
+    const cmp = compareVersions(currentVersion, latestVersion);
+    res.json({
+      currentVersion,
+      latestVersion,
+      updateAvailable: cmp < 0,
+      releaseUrl: data.html_url,
+      releaseNotes: data.body || '',
+      method,
+      ...instructions,
+    });
+  } catch (err) {
+    res.status(502).json({ error: 'Could not reach GitHub: ' + err.message, currentVersion, method, ...instructions });
+  }
+});
+
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map(n => parseInt(n) || 0);
+  const pb = String(b).split('.').map(n => parseInt(n) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+  }
+  return 0;
+}
+
+app.post('/api/admin/update/run', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyAdminFromDb(user)) return res.status(403).json({ error: 'Admin only' });
+  const method = detectInstallMethod();
+  const instructions = getUpdateInstructions(method);
+  if (!instructions.runnable) {
+    return res.status(400).json({ error: instructions.message, method });
+  }
+  // Trigger an auto-backup first so we have a rollback point.
+  try { db.prepare("DELETE FROM server_settings WHERE key = 'auto_backup_last_run'").run(); } catch {}
+  try { runAutoBackup(); } catch (err) { console.error('[Update] Pre-update backup failed:', err); }
+
+  res.json({ ok: true, method, message: instructions.message });
+
+  // Run the update command in a detached child process so the parent can exit cleanly.
+  const { spawn } = require('child_process');
+  console.log(`🔄 [Update] Running update command for method=${method}: ${instructions.command}`);
+  setTimeout(() => {
+    try {
+      const child = spawn(instructions.command, {
+        cwd: process.cwd(),
+        shell: true,
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+    } catch (err) {
+      console.error('[Update] Failed to spawn update command:', err);
+    }
+    // Give the child a moment to start, then exit so the supervisor restarts us.
+    setTimeout(() => {
+      console.log('🔄 [Update] Exiting so supervisor restarts on new code…');
+      process.exit(0);
+    }, 1500);
+  }, 1500);
+});
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';

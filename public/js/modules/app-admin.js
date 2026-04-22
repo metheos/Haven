@@ -356,6 +356,20 @@ _applyServerSettings() {
       whitelistToggle.checked = this.serverSettings.whitelist_enabled === 'true';
     }
 
+    // ── Auto-backup form ───
+    const abEnabled = document.getElementById('auto-backup-enabled');
+    if (abEnabled) abEnabled.checked = this.serverSettings.auto_backup_enabled === 'true';
+    const abInterval = document.getElementById('auto-backup-interval');
+    if (abInterval) abInterval.value = this.serverSettings.auto_backup_interval_hours || '24';
+    const abRetention = document.getElementById('auto-backup-retention');
+    if (abRetention) abRetention.value = this.serverSettings.auto_backup_retention || '7';
+    const abSections = (this.serverSettings.auto_backup_sections || 'channels,users,settings,messages')
+      .split(',').map(s => s.trim()).filter(Boolean);
+    document.querySelectorAll('.auto-backup-include').forEach(el => {
+      el.checked = abSections.includes(el.value);
+    });
+    if (typeof this._refreshAutoBackupList === 'function') this._refreshAutoBackupList();
+
     const updateBannerAdminOnly = document.getElementById('update-banner-admin-only');
     if (updateBannerAdminOnly) {
       updateBannerAdminOnly.checked = this.serverSettings.update_banner_admin_only === 'true';

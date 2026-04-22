@@ -1794,6 +1794,51 @@
             </div>
             <small class="settings-hint" style="margin-top:6px;display:block;color:var(--danger,#e84a4a)" data-i18n="settings.admin.backup_restore_warning"><strong>Warning:</strong> Restoring overwrites the current server data. The server will restart automatically — your hosting setup must support auto-restart (Docker, systemd, the Haven installer service, etc.). The previous database is preserved as <code>haven.db.pre-restore</code> for one cycle.</small>
           </div>
+          <div class="settings-group" style="margin-top:14px">
+            <small class="settings-group-label" data-i18n="settings.admin.auto_backup_label">Automatic Backups</small>
+            <label class="toggle-row" style="margin-top:4px">
+              <span data-i18n="settings.admin.auto_backup_enable">Enable scheduled backups</span>
+              <input type="checkbox" id="auto-backup-enabled">
+            </label>
+            <label class="select-row" style="margin-top:6px">
+              <span data-i18n="settings.admin.auto_backup_interval">Interval</span>
+              <select id="auto-backup-interval" class="settings-number-input">
+                <option value="6">Every 6 hours</option>
+                <option value="12">Every 12 hours</option>
+                <option value="24" selected>Daily</option>
+                <option value="168">Weekly</option>
+                <option value="720">Monthly (~30d)</option>
+              </select>
+            </label>
+            <label class="select-row" style="margin-top:6px">
+              <span data-i18n="settings.admin.auto_backup_retention">Keep last N backups</span>
+              <input type="number" id="auto-backup-retention" min="1" max="50" value="7" class="settings-number-input">
+            </label>
+            <div class="backup-checkboxes" style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+              <small class="settings-hint" data-i18n="settings.admin.auto_backup_sections_label">Include in scheduled backups:</small>
+              <label class="checkbox-row"><input type="checkbox" class="auto-backup-include" value="channels" checked> Channels &amp; roles</label>
+              <label class="checkbox-row"><input type="checkbox" class="auto-backup-include" value="users" checked> Users</label>
+              <label class="checkbox-row"><input type="checkbox" class="auto-backup-include" value="settings" checked> Server settings</label>
+              <label class="checkbox-row"><input type="checkbox" class="auto-backup-include" value="messages" checked> Messages</label>
+              <label class="checkbox-row"><input type="checkbox" class="auto-backup-include" value="files"> Uploaded files</label>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+              <button class="btn-sm btn-accent" id="auto-backup-save-btn" data-i18n="settings.admin.auto_backup_save">Save Schedule</button>
+              <button class="btn-sm" id="auto-backup-run-now-btn" data-i18n="settings.admin.auto_backup_run_now">Run Now</button>
+              <button class="btn-sm" id="auto-backup-refresh-btn" data-i18n="settings.admin.auto_backup_refresh">Refresh List</button>
+            </div>
+            <small class="settings-hint" style="margin-top:6px;display:block" data-i18n="settings.admin.auto_backup_hint">Auto-backups are saved to the server's data directory and pruned to your retention count. They use the same format as manual downloads, so you can restore any of them above.</small>
+            <div id="auto-backup-list" style="margin-top:10px;display:flex;flex-direction:column;gap:4px"></div>
+          </div>
+        </div>
+        <div class="admin-settings" id="section-update" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+          <h5 class="settings-section-subtitle">⬆️ <span data-i18n="settings.admin.update_title">Server Updates</span></h5>
+          <small class="settings-hint" data-i18n="settings.admin.update_hint">Check for new Haven releases and apply them in place. The server will create a pre-update backup automatically and restart itself.</small>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn-sm btn-accent" id="update-check-btn" data-i18n="settings.admin.update_check_btn">Check for Updates</button>
+            <button class="btn-sm" id="update-run-btn" disabled data-i18n="settings.admin.update_run_btn">Update Now</button>
+          </div>
+          <div id="update-status" style="margin-top:10px;padding:8px;border:1px solid var(--border);border-radius:4px;display:none"></div>
         </div>
         <div class="admin-settings" id="section-uploads" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
           <h5 class="settings-section-subtitle">📁 <span data-i18n="settings.admin.uploads_title">Uploads &amp; Limits</span></h5>

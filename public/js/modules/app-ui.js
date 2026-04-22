@@ -2825,6 +2825,147 @@ _setupUI() {
     });
   }
 
+  // ── Auto-backup admin controls ─────────────────────
+  const fmtBytes = (n) => {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  };
+  this._refreshAutoBackupList = async () => {
+    const listEl = document.getElementById('auto-backup-list');
+    if (!listEl) return;
+    const token = localStorage.getItem('haven_token');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/admin/auto-backups', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const files = data.files || [];
+      if (!files.length) {
+        listEl.innerHTML = '<small class="settings-hint">No auto-backups yet.</small>';
+        return;
+      }
+      listEl.innerHTML = files.map(f => {
+        const safeName = f.name.replace(/[<>"&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', '&': '&amp;' }[c]));
+        const when = new Date(f.mtime).toLocaleString();
+        return `<div style="display:flex;gap:6px;align-items:center;justify-content:space-between;border:1px solid var(--border);padding:6px 8px;border-radius:4px">
+          <div style="min-width:0;flex:1">
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:0.85em">${safeName}</div>
+            <small class="settings-hint">${when} · ${fmtBytes(f.size)}</small>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <button class="btn-sm auto-backup-dl-btn" data-name="${safeName}">⬇️</button>
+            <button class="btn-sm auto-backup-del-btn" data-name="${safeName}" title="Delete">🗑️</button>
+          </div>
+        </div>`;
+      }).join('');
+      listEl.querySelectorAll('.auto-backup-dl-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const name = btn.dataset.name;
+          const url = `/api/admin/auto-backups/${encodeURIComponent(name)}?token=${encodeURIComponent(token)}`;
+          const a = document.createElement('a');
+          a.href = url; a.download = name; a.style.display = 'none';
+          document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1000);
+        });
+      });
+      listEl.querySelectorAll('.auto-backup-del-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const name = btn.dataset.name;
+          if (!confirm(`Delete ${name}?`)) return;
+          const r = await fetch(`/api/admin/auto-backups/${encodeURIComponent(name)}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (r.ok) this._refreshAutoBackupList();
+          else this._showToast('Delete failed', 'error');
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = `<small class="settings-hint" style="color:var(--danger)">Failed to load: ${err.message}</small>`;
+    }
+  };
+  document.getElementById('auto-backup-save-btn')?.addEventListener('click', () => {
+    const enabled = document.getElementById('auto-backup-enabled')?.checked ? 'true' : 'false';
+    const interval = document.getElementById('auto-backup-interval')?.value || '24';
+    const retention = document.getElementById('auto-backup-retention')?.value || '7';
+    const sections = Array.from(document.querySelectorAll('.auto-backup-include:checked')).map(el => el.value);
+    if (enabled === 'true' && !sections.length) {
+      return this._showToast('Pick at least one section to back up', 'error');
+    }
+    this.socket.emit('update-server-setting', { key: 'auto_backup_enabled', value: enabled });
+    this.socket.emit('update-server-setting', { key: 'auto_backup_interval_hours', value: String(interval) });
+    this.socket.emit('update-server-setting', { key: 'auto_backup_retention', value: String(retention) });
+    this.socket.emit('update-server-setting', { key: 'auto_backup_sections', value: sections.join(',') });
+    this._showToast('Auto-backup schedule saved', 'success');
+  });
+  document.getElementById('auto-backup-run-now-btn')?.addEventListener('click', async () => {
+    const token = localStorage.getItem('haven_token');
+    if (!token) return;
+    try {
+      const r = await fetch('/api/admin/auto-backups/run-now', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      this._showToast('Auto-backup triggered. Refreshing list shortly…', 'info');
+      setTimeout(() => this._refreshAutoBackupList(), 3000);
+    } catch (err) {
+      this._showToast('Run failed: ' + err.message, 'error');
+    }
+  });
+  document.getElementById('auto-backup-refresh-btn')?.addEventListener('click', () => this._refreshAutoBackupList());
+
+  // ── In-app update controls ─────────────────────────
+  let lastUpdateCheck = null;
+  const updStatusEl = () => document.getElementById('update-status');
+  const updRunBtn = () => document.getElementById('update-run-btn');
+  document.getElementById('update-check-btn')?.addEventListener('click', async () => {
+    const token = localStorage.getItem('haven_token');
+    if (!token) return;
+    const status = updStatusEl();
+    if (status) { status.style.display = 'block'; status.textContent = 'Checking…'; }
+    try {
+      const r = await fetch('/api/admin/update/check', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await r.json();
+      lastUpdateCheck = data;
+      if (status) {
+        const upToDate = !data.updateAvailable;
+        const esc = s => String(s || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        status.innerHTML = `
+          <div><strong>Installed:</strong> v${esc(data.currentVersion)}</div>
+          <div><strong>Latest:</strong> ${data.latestVersion ? 'v' + esc(data.latestVersion) : 'unknown'}</div>
+          <div><strong>Install method:</strong> ${esc(data.method)}</div>
+          <div style="margin-top:6px">${upToDate ? '✅ You are up to date.' : '⚠️ Update available.'}</div>
+          <div style="margin-top:6px"><small>${esc(data.message || '')}</small></div>
+          ${data.releaseUrl ? `<div style="margin-top:6px"><a href="${esc(data.releaseUrl)}" target="_blank" rel="noopener">Release notes →</a></div>` : ''}
+        `;
+      }
+      if (updRunBtn()) updRunBtn().disabled = !(data.updateAvailable && data.runnable);
+    } catch (err) {
+      if (status) status.textContent = 'Check failed: ' + err.message;
+    }
+  });
+  document.getElementById('update-run-btn')?.addEventListener('click', async () => {
+    if (!lastUpdateCheck || !lastUpdateCheck.runnable) return;
+    if (!confirm(`Apply update to v${lastUpdateCheck.latestVersion}? The server will run an auto-backup, then exit so the supervisor restarts it on the new code. You will be disconnected for ~30 seconds.`)) return;
+    const token = localStorage.getItem('haven_token');
+    if (!token) return;
+    const status = updStatusEl();
+    try {
+      const r = await fetch('/api/admin/update/run', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      if (status) status.innerHTML = `<div>🔄 Update started. The server will restart shortly.</div><div style="margin-top:6px"><small>${data.message || ''}</small></div>`;
+      if (updRunBtn()) updRunBtn().disabled = true;
+    } catch (err) {
+      if (status) status.textContent = 'Update failed: ' + err.message;
+    }
+  });
+
   // ── Whitelist controls (admin) ───────────────────────
   // Whitelist toggle — saved via admin Save button
 
