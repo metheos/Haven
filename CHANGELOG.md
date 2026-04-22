@@ -11,6 +11,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.7.0] — 2026-04-22
+
+### Added
+- **Scheduled auto-backups** — admins can configure automatic server backups on a schedule (daily, weekly, etc.) directly from the Admin panel. (#5268)
+- **In-app update check** — Haven now checks for new releases and shows a banner in the Admin panel when an update is available. (#5267)
+- **Add all server members to channel** — channel creation now includes an option to add all existing server members at once. (#5271)
+- **@mentions for usernames with spaces** — display names and usernames containing spaces can now be @mentioned correctly. (#5273)
+- **Desktop → web client server list bootstrap** — the web client now inherits the server list from Haven Desktop on first load, so servers added in the desktop app appear automatically.
+
+### Fixed
+- **Mention display-name dedup** — server-side deduplication prevents duplicate display names in mention autocomplete; autocomplete inserts the login name when a display name differs so mentions resolve correctly. (#5273)
+- **Server unread dot desktop-only** — the server unread indicator dot is now only rendered in the Desktop app, where it makes sense. (#5269)
+- **Mobile responsive layout** — fixed several layout regressions on mobile viewports. (#5272, #5274)
+
+---
+
 ## [3.6.0] — 2026-04-21
 
 ### Added
