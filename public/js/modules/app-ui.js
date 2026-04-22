@@ -2989,7 +2989,11 @@ _setupServerBar() {
         }
       }
 
-      if (added) {
+      // First-join scenario: if the synchronous preload bootstrap pulled in
+      // servers we didn't have locally OR if the async getServerHistory just
+      // added more, push the merged list to THIS server's encrypted backup
+      // immediately so the user is never stranded with an empty sidebar.
+      if (added || this.serverManager.bootstrappedFromDesktop) {
         this._renderServerBar();
         this._pushServerListToServer();
       }

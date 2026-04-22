@@ -10,6 +10,44 @@ class ServerManager {
     this.checkInterval = null;
     this.selfFingerprint = null;
     this.selfFingerprintReady = this._fetchSelfFingerprint();
+    // Desktop bootstrap: pull the cross-server history from the Electron
+    // main process synchronously (preload exposes it as a plain array).
+    // This means the sidebar shows the user's known network IMMEDIATELY
+    // on first-join to a new server, instead of waiting for an async sync.
+    this.bootstrappedFromDesktop = this._mergeDesktopBootstrap();
+  }
+
+  /** Merge the Desktop app's cross-server history into the local list.
+   *  Returns true if any new servers were added. Removed-server tracking
+   *  is honored so the user doesn't see servers they intentionally deleted. */
+  _mergeDesktopBootstrap() {
+    try {
+      const history = (typeof window !== 'undefined' && window.havenDesktop && Array.isArray(window.havenDesktop.initialServerHistory))
+        ? window.havenDesktop.initialServerHistory
+        : null;
+      if (!history || !history.length) return false;
+      const removed = this._loadRemoved();
+      const have = new Set(this.servers.map(s => this._normalizeUrl(s.url)));
+      let added = false;
+      for (const h of history) {
+        if (!h || !h.url) continue;
+        const url = this._normalizeUrl(h.url);
+        if (!url || have.has(url) || removed.has(url) || removed.has(h.url)) continue;
+        this.servers.push({
+          name: h.name || url,
+          url,
+          icon: h.icon || null,
+          iconData: h.iconData || null,
+          addedAt: h.lastConnected || Date.now(),
+        });
+        have.add(url);
+        added = true;
+      }
+      if (added) this._save();
+      return added;
+    } catch {
+      return false;
+    }
   }
 
   /** Fetch the current server's fingerprint so we can hide "self" from the sidebar. */
