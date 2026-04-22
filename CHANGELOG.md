@@ -11,6 +11,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Random `@text` rendering as a real mention** — the message renderer was styling any `@word` it found, even if it didn't match anyone on the server. Now only login names and display names that actually belong to a channel member (or the current user) get the mention pill; everything else stays as plain text. (#5273)
+- **First-load mentions showing login names instead of display names** — on the very first channel render the member list often hadn't arrived yet, so `@loginname` rendered as the raw login. Switching channels then re-rendered with display names. The renderer now refreshes the current message list as soon as members arrive, so display names show on the first render too. (#5273)
+- **Members modal channel counts inflated by DMs and stale rows** — the per-member channel counters in the Members modal were counting DM threads and old `channel_members` rows for channels that no longer exist. The count now joins the `channels` table and filters to non-DM channels only, so the number matches what each member actually sees in the sidebar.
+- **Empty temporary voice channels lingering after everyone left** — when a non-admin was the last to leave a temp voice channel, the on-leave cleanup occasionally missed the room (abrupt disconnects, a reconnecting socket re-binding the entry, etc.) and the channel sat there until its 24h expiry. Added a 60-second safety-net sweep that prunes empty `is_temp_voice` channels regardless of who emptied them.
+
+---
+
 ## [3.7.0] — 2026-04-22
 
 ### Added
