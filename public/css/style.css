@@ -7424,6 +7424,12 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
   color: white;
 }
 
+.mention-item-handle {
+  margin-left: 6px;
+  opacity: 0.65;
+  font-size: 0.85em;
+}
+
 /* :emoji autocomplete dropdown */
 .emoji-dropdown {
   position: absolute;

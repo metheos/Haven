@@ -22,6 +22,25 @@ module.exports = function register(socket, ctx) {
       return socket.emit('error-msg', 'Letters, numbers, underscores, and spaces only');
     }
 
+    // Reject if another user on this server already uses this display name
+    // (case-insensitive). Mentions resolve by login username, but allowing
+    // duplicate display names produced confusing sidebars where two people
+    // appeared identical.
+    try {
+      const conflict = db.prepare(`
+        SELECT id FROM users
+        WHERE id != ?
+          AND (LOWER(display_name) = LOWER(?)
+               OR (display_name IS NULL AND LOWER(username) = LOWER(?)))
+        LIMIT 1
+      `).get(socket.user.id, newName, newName);
+      if (conflict) {
+        return socket.emit('error-msg', 'That display name is already taken on this server');
+      }
+    } catch (err) {
+      console.error('Display name conflict check failed:', err);
+    }
+
     try {
       db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(newName, socket.user.id);
     } catch (err) {

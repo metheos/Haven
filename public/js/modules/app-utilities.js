@@ -176,16 +176,29 @@ _formatContent(str) {
   // to match any known channel-member name, longest-first. We fall back to
   // the simple word-only pattern for anyone we don't have a member record
   // for (rendered messages from other channels, historical authors, etc.). (#5273)
+  // Mentions are inserted by login username, not display name, so renames
+  // don't break old @mentions. We still match display names for backwards
+  // compatibility with messages sent before this change.
   const memberNames = Array.isArray(this.channelMembers)
-    ? [...new Set(this.channelMembers.map(m => m && m.username).filter(Boolean))]
+    ? [...new Set(this.channelMembers.flatMap(m => m ? [m.username, m.loginName] : []).filter(Boolean))]
         .sort((a, b) => b.length - a.length)
     : [];
   const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const namesAlt = memberNames.length ? memberNames.map(escapeRe).join('|') + '|' : '';
   const mentionRegex = new RegExp(`(?<![\\w@])@(${namesAlt}\\w{1,30})`, 'g');
+  // Quick lookup: loginName -> display name, so messages that reference
+  // @loginname render the user's CURRENT display name (resilient to renames).
+  const loginToDisplay = new Map();
+  if (Array.isArray(this.channelMembers)) {
+    for (const m of this.channelMembers) {
+      if (m && m.loginName) loginToDisplay.set(m.loginName.toLowerCase(), m.username || m.loginName);
+    }
+  }
   html = html.replace(mentionRegex, (match, name) => {
-    const isSelf = name.toLowerCase() === (this.user.username || '').toLowerCase();
-    return `<span class="mention${isSelf ? ' mention-self' : ''}">@${this._escapeHtml(name)}</span>`;
+    const lower = name.toLowerCase();
+    const isSelf = lower === (this.user.username || '').toLowerCase();
+    const display = loginToDisplay.get(lower) || name;
+    return `<span class="mention${isSelf ? ' mention-self' : ''}">@${this._escapeHtml(display)}</span>`;
   });
 
   // Render spoilers (||text||) — CSP-safe, uses delegated click handler

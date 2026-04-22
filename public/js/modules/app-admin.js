@@ -1339,18 +1339,28 @@ _checkMentionTrigger(inputEl) {
 _showMentionDropdown() {
   const dropdown = document.getElementById('mention-dropdown');
   const query = this.mentionQuery;
-  const filtered = this.channelMembers.filter(m =>
-    m.username.toLowerCase().startsWith(query)
-  ).slice(0, 8);
+  const filtered = this.channelMembers.filter(m => {
+    const dn = (m.username || '').toLowerCase();
+    const ln = (m.loginName || '').toLowerCase();
+    return dn.startsWith(query) || ln.startsWith(query);
+  }).slice(0, 8);
 
   if (filtered.length === 0) {
     dropdown.style.display = 'none';
     return;
   }
 
-  dropdown.innerHTML = filtered.map((m, i) =>
-    `<div class="mention-item${i === 0 ? ' active' : ''}" data-username="${this._escapeHtml(m.username)}">${this._escapeHtml(m.username)}</div>`
-  ).join('');
+  // Insert by loginName (stable, immune to display-name renames). Show the
+  // display name in the dropdown for recognizability, with the @loginName
+  // suffix when it differs so people know what'll actually be inserted.
+  dropdown.innerHTML = filtered.map((m, i) => {
+    const display = m.username || m.loginName || '';
+    const login = m.loginName || m.username || '';
+    const suffix = (login && display.toLowerCase() !== login.toLowerCase())
+      ? ` <span class="mention-item-handle">@${this._escapeHtml(login)}</span>`
+      : '';
+    return `<div class="mention-item${i === 0 ? ' active' : ''}" data-username="${this._escapeHtml(login)}">${this._escapeHtml(display)}${suffix}</div>`;
+  }).join('');
 
   dropdown.style.display = 'block';
 
