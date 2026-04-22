@@ -85,6 +85,8 @@
       "private_hint": "(invite-only)",
       "temporary_channel": "Temporary",
       "temporary_hint": "(auto-delete)",
+      "add_all_members": "Add all server members",
+      "add_all_hint": "(everyone joins automatically)",
       "hours": "hours",
       "channels": "Channels",
       "direct_messages": "Direct Messages",

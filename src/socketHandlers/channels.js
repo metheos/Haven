@@ -58,6 +58,24 @@ module.exports = function register(socket, ctx) {
         'INSERT INTO channel_members (channel_id, user_id) VALUES (?, ?)'
       ).run(result.lastInsertRowid, socket.user.id);
 
+      // Optional: bulk-add every existing user to the new channel.
+      // Lets admins approximate Discord-style "everyone is in every channel"
+      // when a server uses the server-wide invite code. (#5271)
+      if (data.addAllMembers && !isPrivate) {
+        try {
+          const allUsers = db.prepare('SELECT id FROM users').all();
+          const insertMember = db.prepare(
+            'INSERT OR IGNORE INTO channel_members (channel_id, user_id) VALUES (?, ?)'
+          );
+          const txn = db.transaction(() => {
+            for (const u of allUsers) insertMember.run(result.lastInsertRowid, u.id);
+          });
+          txn();
+        } catch (e) {
+          console.warn('addAllMembers failed:', e.message);
+        }
+      }
+
       if (!socket.user.isAdmin) {
         const channelModRole = db.prepare(
           "SELECT id FROM roles WHERE scope = 'channel' ORDER BY level DESC LIMIT 1"
@@ -83,6 +101,16 @@ module.exports = function register(socket, ctx) {
 
       socket.join(`channel:${code}`);
       socket.emit('channel-created', channel);
+
+      // If we mass-added every user, push the new channel to all currently
+      // connected sockets so it appears for them without a refresh. (#5271)
+      if (data.addAllMembers && !isPrivate) {
+        for (const [, s] of io.sockets.sockets) {
+          if (!s.user || s.user.id === socket.user.id) continue;
+          s.join(`channel:${code}`);
+          s.emit('channel-created', channel);
+        }
+      }
     } catch (err) {
       console.error('Create channel error:', err);
       socket.emit('error-msg', 'Failed to create channel');

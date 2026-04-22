@@ -122,13 +122,16 @@ _setupUI() {
       const isPrivate = document.getElementById('new-channel-private')?.checked || false;
       const temporary = document.getElementById('new-channel-temporary')?.checked || false;
       const duration = parseInt(document.getElementById('new-channel-duration')?.value, 10) || 24;
+      const addAllMembers = document.getElementById('new-channel-add-all')?.checked || false;
       if (name) {
-        this.socket.emit('create-channel', { name, isPrivate, temporary, duration });
+        this.socket.emit('create-channel', { name, isPrivate, temporary, duration, addAllMembers });
         nameInput.value = '';
         const pvt = document.getElementById('new-channel-private');
         if (pvt) pvt.checked = false;
         const tmp = document.getElementById('new-channel-temporary');
         if (tmp) tmp.checked = false;
+        const all = document.getElementById('new-channel-add-all');
+        if (all) all.checked = false;
         const durRow = document.getElementById('temp-channel-duration-row');
         if (durRow) durRow.style.display = 'none';
       }

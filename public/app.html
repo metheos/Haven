@@ -109,6 +109,10 @@
                 <input type="checkbox" id="new-channel-temporary" style="width:14px;height:14px">
                 <span>⏱️ <span data-i18n="app.sidebar.temporary_channel">Temporary</span></span> <span style="opacity:0.5;font-size:0.75rem" data-i18n="app.sidebar.temporary_hint">(auto-delete)</span>
               </label>
+              <label class="checkbox-row" id="new-channel-add-all-row" style="margin:2px 0;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;opacity:0.8">
+                <input type="checkbox" id="new-channel-add-all" style="width:14px;height:14px">
+                <span>👥 <span data-i18n="app.sidebar.add_all_members">Add all server members</span></span> <span style="opacity:0.5;font-size:0.75rem" data-i18n="app.sidebar.add_all_hint">(everyone joins automatically)</span>
+              </label>
               <div id="temp-channel-duration-row" style="display:none;margin:4px 0 2px;padding-left:22px">
                 <div class="input-row" style="gap:6px;align-items:center">
                   <input type="number" id="new-channel-duration" min="1" max="720" value="24" style="width:60px;font-size:0.8rem" placeholder="Hours">
