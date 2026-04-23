@@ -144,21 +144,7 @@ class VoiceManager {
       }
 
       try {
-        const conn = peer.connection;
-        // Handle renegotiation glare: if we have a pending local offer,
-        // roll it back first so we can accept the incoming one.
-        if (conn.signalingState !== "stable") {
-          await conn.setLocalDescription({ type: "rollback" });
-        }
-        await conn.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await conn.createAnswer();
-        await conn.setLocalDescription(answer);
-
-        this.socket.emit("voice-answer", {
-          code: this.currentChannel,
-          targetUserId: from.id,
-          answer: answer,
-        });
+        await this._acceptIncomingOffer(from.id, from.username, offer);
       } catch (err) {
         console.error("Error handling voice offer:", err);
       }
@@ -1322,6 +1308,51 @@ class VoiceManager {
     } catch (err) {
       console.error("Renegotiation failed:", err);
     }
+  }
+
+  async _acceptIncomingOffer(userId, username, offer, allowPeerReset = true) {
+    let peer = this.peers.get(userId);
+    if (!peer) {
+      await this._createPeer(userId, username, false);
+      peer = this.peers.get(userId);
+      if (!peer) throw new Error("Failed to create peer for incoming offer");
+    }
+
+    const conn = peer.connection;
+
+    // Only rollback when we actually have a local offer pending.
+    if (conn.signalingState === "have-local-offer") {
+      await conn.setLocalDescription({ type: "rollback" });
+    } else if (conn.signalingState !== "stable") {
+      // Wait briefly for transitional states to settle, then continue.
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+
+    try {
+      await conn.setRemoteDescription(new RTCSessionDescription(offer));
+    } catch (err) {
+      const msg = String(err && (err.message || err));
+      const isHeaderExtConflict = msg.includes("Failed to update RTP header extensions") || msg.includes("RTP extension ID reassignment");
+
+      if (allowPeerReset && isHeaderExtConflict) {
+        // Recover from extmap conflicts by rebuilding only this peer connection,
+        // then applying the same incoming offer to a fresh RTCPeerConnection.
+        this._removePeer(userId);
+        await this._createPeer(userId, username, false);
+        await this._acceptIncomingOffer(userId, username, offer, false);
+        return;
+      }
+      throw err;
+    }
+
+    const answer = await conn.createAnswer();
+    await conn.setLocalDescription(answer);
+
+    this.socket.emit("voice-answer", {
+      code: this.currentChannel,
+      targetUserId: userId,
+      answer: answer,
+    });
   }
 
   async _renegotiateStreamForLateJoiner(type, userId, attempt = 0) {
