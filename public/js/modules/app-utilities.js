@@ -1608,6 +1608,10 @@ _openDMPiP(code) {
   // Clear messages and request fresh
   const msgsEl = document.getElementById('dm-pip-messages');
   if (msgsEl) msgsEl.innerHTML = '<div class="dm-pip-loading">Loading…</div>';
+  // E2E: ensure partner key is loaded before history arrives so messages decrypt
+  if (ch.dm_target && this._dmPublicKeys && !this._dmPublicKeys[ch.dm_target.id]) {
+    try { this._fetchDMPartnerKey?.(ch); } catch {}
+  }
   this.socket.emit('get-messages', { code });
 
   // Focus input

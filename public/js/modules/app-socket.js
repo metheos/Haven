@@ -402,7 +402,12 @@ _setupSocketListeners() {
     // (and ignore the non-current-channel guard).
     if (this._activeDMPip && data.channelCode === this._activeDMPip
         && data.channelCode !== this.currentChannel) {
-      await this._decryptMessages(data.messages);
+      // E2E: ensure partner key is fetched before decrypting (self-DMs included)
+      const pipCh = this.channels.find(c => c.code === data.channelCode);
+      if (pipCh && pipCh.is_dm && pipCh.dm_target && !this._dmPublicKeys[pipCh.dm_target.id]) {
+        await this._fetchDMPartnerKey(pipCh);
+      }
+      await this._decryptMessages(data.messages, data.channelCode);
       this._renderDMPiPHistory?.(data.messages);
       return;
     }
