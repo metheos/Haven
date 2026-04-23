@@ -829,8 +829,12 @@ class VoiceManager {
         this._preferHardwareAcceleration(peer.connection);
         // Cap the video bitrate so WebRTC doesn't starve framerate
         this._applyScreenBitrate(peer.connection, maxBitrate);
-        // Renegotiate with each peer
-        await this._renegotiate(userId, peer.connection);
+        // Renegotiate with each peer unless local Firefox is sharing.
+        // Firefox's outgoing screen-share offers are getting stuck in have-local-offer,
+        // so let receivers request the stream instead.
+        if (!this._isFirefoxBrowser()) {
+          await this._renegotiate(userId, peer.connection);
+        }
       }
 
       // Tell the server we're sharing (include audio availability)
@@ -1296,6 +1300,11 @@ class VoiceManager {
     return !/firefox\//i.test(ua);
   }
 
+  _isFirefoxBrowser() {
+    const ua = navigator.userAgent || "";
+    return /firefox\//i.test(ua);
+  }
+
   /**
    * Enable hardware acceleration for video by prioritizing hardware-accelerated codecs.
    * H.264 is commonly hardware-accelerated on most devices. This should be called
@@ -1732,6 +1741,10 @@ class VoiceManager {
       const res = this.screenResolution;
       const maxBitrate = this._screenBitrates[res] || this._screenBitrates[0];
       this._applyScreenBitrate(conn, maxBitrate);
+      if (this._isFirefoxBrowser()) {
+        this._clearLateRenegotiationRetry(retryKey);
+        return;
+      }
     } else {
       const webcamTrack = this.webcamStream.getVideoTracks()[0];
       if (!webcamTrack) return;
