@@ -16,6 +16,8 @@ class VoiceManager {
     this._negotiationSeq = 0;
     this._incomingOfferQueues = new Map();
     this._orphanRemoteCandidates = new Map();
+    this._joinInFlight = null;
+    this._joiningChannel = null;
     this.currentChannel = null;
     this.isMuted = false;
     this.isDeafened = false;
@@ -368,113 +370,133 @@ class VoiceManager {
   // ── Public API ──────────────────────────────────────────
 
   async join(channelCode) {
-    try {
-      const preservedMuteState = this.isMuted;
-      const preservedDeafenState = this.isDeafened;
-
-      // Leave existing voice channel if connected elsewhere
-      if (this.inVoice) this.leave();
-
-      // Refresh ICE config (TURN credentials may have expired)
-      await this._fetchIceServers();
-
-      // Create/resume AudioContext with user gesture (needed for volume boost)
-      if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this._joinInFlight) {
+      if (this._joiningChannel === channelCode) {
+        return this._joinInFlight;
       }
-      if (this.audioCtx.state === "suspended") await this.audioCtx.resume();
-
-      // Use saved input device if the user picked one
-      const savedInputId = localStorage.getItem("haven_input_device") || "";
-      const audioConstraints = {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      };
-      if (savedInputId) audioConstraints.deviceId = { exact: savedInputId };
-
       try {
-        this.rawStream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
-          video: false,
-        });
-      } catch (deviceErr) {
-        if (savedInputId) {
-          // Saved device may be stale — retry with default mic
-          console.warn("Saved mic device failed, falling back to default:", deviceErr.message);
-          localStorage.removeItem("haven_input_device");
-          delete audioConstraints.deviceId;
+        await this._joinInFlight;
+      } catch {}
+      if (this.inVoice && this.currentChannel === channelCode) {
+        return true;
+      }
+    }
+
+    this._joiningChannel = channelCode;
+    this._joinInFlight = (async () => {
+      try {
+        const preservedMuteState = this.isMuted;
+        const preservedDeafenState = this.isDeafened;
+
+        // Leave existing voice channel if connected elsewhere
+        if (this.inVoice) this.leave();
+
+        // Refresh ICE config (TURN credentials may have expired)
+        await this._fetchIceServers();
+
+        // Create/resume AudioContext with user gesture (needed for volume boost)
+        if (!this.audioCtx) {
+          this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioCtx.state === "suspended") await this.audioCtx.resume();
+
+        // Use saved input device if the user picked one
+        const savedInputId = localStorage.getItem("haven_input_device") || "";
+        const audioConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        };
+        if (savedInputId) audioConstraints.deviceId = { exact: savedInputId };
+
+        try {
           this.rawStream = await navigator.mediaDevices.getUserMedia({
             audio: audioConstraints,
             video: false,
           });
-        } else {
-          throw deviceErr;
+        } catch (deviceErr) {
+          if (savedInputId) {
+            // Saved device may be stale — retry with default mic
+            console.warn("Saved mic device failed, falling back to default:", deviceErr.message);
+            localStorage.removeItem("haven_input_device");
+            delete audioConstraints.deviceId;
+            this.rawStream = await navigator.mediaDevices.getUserMedia({
+              audio: audioConstraints,
+              video: false,
+            });
+          } else {
+            throw deviceErr;
+          }
         }
+
+        // Opt out of Windows audio ducking (Desktop app only).
+        // Must be called after getUserMedia so our audio session exists.
+        if (window.havenDesktop?.audio?.optOutOfDucking) {
+          setTimeout(() => window.havenDesktop.audio.optOutOfDucking().catch(() => {}), 500);
+        }
+
+        // ── Noise Gate via Web Audio ──
+        // Route mic through an analyser + gain node so we can silence
+        // audio below a threshold before sending it to peers.
+        const source = this.audioCtx.createMediaStreamSource(this.rawStream);
+        this._rnnoiseSource = source;
+        const gateAnalyser = this.audioCtx.createAnalyser();
+        gateAnalyser.fftSize = 2048;
+        gateAnalyser.smoothingTimeConstant = 0.3;
+        source.connect(gateAnalyser);
+
+        const gateGain = this.audioCtx.createGain();
+        source.connect(gateGain);
+
+        const dest = this.audioCtx.createMediaStreamDestination();
+        gateGain.connect(dest);
+
+        this._noiseGateAnalyser = gateAnalyser;
+        this._noiseGateGain = gateGain;
+        this._vcDest = dest;
+        this.localStream = dest.stream; // processed stream → peers
+        this._startNoiseGate();
+
+        // Initialize RNNoise and apply saved noise mode
+        await this._initRNNoise();
+        if (this.noiseMode === "suppress" && this._rnnoiseReady) {
+          this.setNoiseSensitivity(0);
+          this._enableRNNoise();
+        } else if (this.noiseMode === "off") {
+          this.setNoiseSensitivity(0);
+        } else if (this.noiseMode === "gate") {
+          const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
+          this.setNoiseSensitivity(saved);
+        }
+
+        this.currentChannel = channelCode;
+        this.inVoice = true;
+        this.isMuted = preservedMuteState;
+        this.isDeafened = preservedDeafenState;
+
+        this._applyMuteStateToLocalTracks();
+
+        // Persist voice channel for auto-rejoin after page refresh or server restart
+        try {
+          localStorage.setItem("haven_voice_channel", channelCode);
+        } catch {}
+
+        this.socket.emit("voice-join", { code: channelCode });
+
+        // Start local talk indicator (use raw stream for accurate detection)
+        this._startLocalTalkDetection();
+
+        return true;
+      } catch (err) {
+        console.error("Microphone access failed:", err);
+        return false;
+      } finally {
+        this._joinInFlight = null;
+        this._joiningChannel = null;
       }
+    })();
 
-      // Opt out of Windows audio ducking (Desktop app only).
-      // Must be called after getUserMedia so our audio session exists.
-      if (window.havenDesktop?.audio?.optOutOfDucking) {
-        setTimeout(() => window.havenDesktop.audio.optOutOfDucking().catch(() => {}), 500);
-      }
-
-      // ── Noise Gate via Web Audio ──
-      // Route mic through an analyser + gain node so we can silence
-      // audio below a threshold before sending it to peers.
-      const source = this.audioCtx.createMediaStreamSource(this.rawStream);
-      this._rnnoiseSource = source;
-      const gateAnalyser = this.audioCtx.createAnalyser();
-      gateAnalyser.fftSize = 2048;
-      gateAnalyser.smoothingTimeConstant = 0.3;
-      source.connect(gateAnalyser);
-
-      const gateGain = this.audioCtx.createGain();
-      source.connect(gateGain);
-
-      const dest = this.audioCtx.createMediaStreamDestination();
-      gateGain.connect(dest);
-
-      this._noiseGateAnalyser = gateAnalyser;
-      this._noiseGateGain = gateGain;
-      this._vcDest = dest;
-      this.localStream = dest.stream; // processed stream → peers
-      this._startNoiseGate();
-
-      // Initialize RNNoise and apply saved noise mode
-      await this._initRNNoise();
-      if (this.noiseMode === "suppress" && this._rnnoiseReady) {
-        this.setNoiseSensitivity(0);
-        this._enableRNNoise();
-      } else if (this.noiseMode === "off") {
-        this.setNoiseSensitivity(0);
-      } else if (this.noiseMode === "gate") {
-        const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
-        this.setNoiseSensitivity(saved);
-      }
-
-      this.currentChannel = channelCode;
-      this.inVoice = true;
-      this.isMuted = preservedMuteState;
-      this.isDeafened = preservedDeafenState;
-
-      this._applyMuteStateToLocalTracks();
-
-      // Persist voice channel for auto-rejoin after page refresh or server restart
-      try {
-        localStorage.setItem("haven_voice_channel", channelCode);
-      } catch {}
-
-      this.socket.emit("voice-join", { code: channelCode });
-
-      // Start local talk indicator (use raw stream for accurate detection)
-      this._startLocalTalkDetection();
-
-      return true;
-    } catch (err) {
-      console.error("Microphone access failed:", err);
-      return false;
-    }
+    return this._joinInFlight;
   }
 
   leave() {
