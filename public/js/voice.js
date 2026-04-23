@@ -1428,19 +1428,28 @@ class VoiceManager {
 
   async _acceptIncomingOffer(userId, username, offer, negotiationId, allowPeerReset = true) {
     let peer = this.peers.get(userId);
+
+    // Deduplicate: ignore any offer we already processed or are processing right now.
+    // These guards must be synchronous (no await between check and set) so two
+    // queued calls with the same negotiationId can never both slip through.
+    if (negotiationId && peer) {
+      if (peer._lastHandledIncomingOfferId === negotiationId) {
+        return;
+      }
+      if (peer._incomingOfferInFlightId === negotiationId) {
+        return;
+      }
+      peer._incomingOfferInFlightId = negotiationId;
+    }
+
     if (!peer) {
       await this._createPeer(userId, username, false);
       peer = this.peers.get(userId);
       if (!peer) throw new Error("Failed to create peer for incoming offer");
-    }
-
-    // Socket retries can occasionally deliver the same offer twice.
-    // Ignore duplicate negotiation IDs we've already applied.
-    if (negotiationId && peer._lastHandledIncomingOfferId === negotiationId) {
-      return;
-    }
-    if (negotiationId && peer._incomingOfferInFlightId === negotiationId) {
-      return;
+      // Set the in-flight guard on the freshly-created peer too.
+      if (negotiationId) {
+        peer._incomingOfferInFlightId = negotiationId;
+      }
     }
 
     const conn = peer.connection;
@@ -1454,10 +1463,6 @@ class VoiceManager {
     } else if (conn.signalingState !== "stable") {
       // Wait briefly for transitional states to settle, then continue.
       await new Promise((resolve) => setTimeout(resolve, 120));
-    }
-
-    if (negotiationId) {
-      peer._incomingOfferInFlightId = negotiationId;
     }
 
     try {
