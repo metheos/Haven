@@ -15,6 +15,7 @@ class VoiceManager {
     this._lateRenegotiationTimers = new Map(); // key(type:userId) -> timeout id
     this._negotiationSeq = 0;
     this._incomingOfferQueues = new Map();
+    this._orphanRemoteCandidates = new Map();
     this.currentChannel = null;
     this.isMuted = false;
     this.isDeafened = false;
@@ -195,6 +196,13 @@ class VoiceManager {
     // Received an ICE candidate
     this.socket.on("voice-ice-candidate", async (data) => {
       const peer = this.peers.get(data.from.id);
+      if (!peer && data.candidate) {
+        const queued = this._orphanRemoteCandidates.get(data.from.id) || [];
+        queued.push(data.candidate);
+        this._orphanRemoteCandidates.set(data.from.id, queued);
+        return;
+      }
+
       if (peer && data.candidate) {
         const conn = peer.connection;
         if (!conn.remoteDescription) {
@@ -1835,12 +1843,19 @@ class VoiceManager {
       _incomingOfferInFlightId: null,
     });
 
+    const createdPeer = this.peers.get(userId);
+    const orphanCandidates = this._orphanRemoteCandidates.get(userId);
+    if (createdPeer && orphanCandidates && orphanCandidates.length > 0) {
+      createdPeer._pendingRemoteCandidates.push(...orphanCandidates);
+      this._orphanRemoteCandidates.delete(userId);
+    }
+
     // If we're the initiator, create and send an offer
     if (createOffer) {
       try {
         const sent = await this._emitLocalOffer(userId, connection, { iceRestart: false });
-        const createdPeer = this.peers.get(userId);
-        if (createdPeer && sent) createdPeer._initialOfferSent = true;
+        const currentPeer = this.peers.get(userId);
+        if (currentPeer && sent) currentPeer._initialOfferSent = true;
       } catch (err) {
         console.error("Error creating voice offer:", err);
       }
