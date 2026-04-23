@@ -1005,6 +1005,42 @@ class VoiceManager {
     return `${framesSent} fr | ${resolution} | ${bitrateKbps}`;
   }
 
+  _pickVideoOutboundReport(stats, sender) {
+    let preferred = null;
+    let fallback = null;
+    const senderTrackId = sender?.track?.id;
+
+    stats.forEach((report) => {
+      if (report.type !== "outbound-rtp" || report.isRemote) return;
+
+      if (senderTrackId && report.trackIdentifier && report.trackIdentifier !== senderTrackId) {
+        return;
+      }
+
+      const mediaType = String(report.kind || report.mediaType || "").toLowerCase();
+      const codec = report.codecId ? stats.get(report.codecId) : null;
+      const mimeType = String(codec?.mimeType || "").toLowerCase();
+      const hasVideoLikeMetrics =
+        typeof report.framesSent === "number" ||
+        typeof report.frameWidth === "number" ||
+        typeof report.frameHeight === "number" ||
+        typeof report.framesPerSecond === "number";
+      const looksVideo = mediaType === "video" || mimeType.startsWith("video/") || hasVideoLikeMetrics;
+      if (!looksVideo) return;
+
+      if (senderTrackId && report.trackIdentifier === senderTrackId) {
+        preferred = report;
+        return;
+      }
+
+      if (!fallback) {
+        fallback = report;
+      }
+    });
+
+    return preferred || fallback;
+  }
+
   _startCodecStatsWatch(sender) {
     this._clearCodecStatsWatch(sender);
 
@@ -1016,16 +1052,7 @@ class VoiceManager {
 
       try {
         const stats = await sender.getStats();
-        let selectedReport = null;
-
-        stats.forEach((report) => {
-          if (selectedReport) return;
-          const mediaType = report.kind || report.mediaType;
-          if (report.type !== "outbound-rtp" || mediaType !== "video") return;
-          // Prefer report tied to this sender track where available.
-          if (report.trackIdentifier && sender.track && report.trackIdentifier !== sender.track.id) return;
-          selectedReport = report;
-        });
+        const selectedReport = this._pickVideoOutboundReport(stats, sender);
 
         if (!selectedReport) {
           this._updateCodecDebugState({ activeCodec: null, liveStats: null });
@@ -1293,14 +1320,7 @@ class VoiceManager {
                   return;
                 }
                 const stats = await sender.getStats();
-                let selectedReport = null;
-                stats.forEach((report) => {
-                  if (selectedReport) return;
-                  const mediaType = report.kind || report.mediaType;
-                  if (report.type !== "outbound-rtp" || mediaType !== "video") return;
-                  if (report.trackIdentifier && sender.track && report.trackIdentifier !== sender.track.id) return;
-                  selectedReport = report;
-                });
+                const selectedReport = this._pickVideoOutboundReport(stats, sender);
 
                 if (!selectedReport) return;
 
@@ -1419,6 +1439,9 @@ class VoiceManager {
     if (negotiationId && peer._lastHandledIncomingOfferId === negotiationId) {
       return;
     }
+    if (negotiationId && peer._incomingOfferInFlightId === negotiationId) {
+      return;
+    }
 
     const conn = peer.connection;
     const offerVideoCount = (offer.sdp || "").split("\n").filter((l) => l.startsWith("m=video")).length;
@@ -1431,6 +1454,10 @@ class VoiceManager {
     } else if (conn.signalingState !== "stable") {
       // Wait briefly for transitional states to settle, then continue.
       await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+
+    if (negotiationId) {
+      peer._incomingOfferInFlightId = negotiationId;
     }
 
     try {
@@ -1448,6 +1475,10 @@ class VoiceManager {
         return;
       }
       throw err;
+    } finally {
+      if (negotiationId && peer._incomingOfferInFlightId === negotiationId) {
+        peer._incomingOfferInFlightId = null;
+      }
     }
 
     peer._remoteUfrag = this._extractSdpUfrag(conn.remoteDescription?.sdp || "");
@@ -1543,6 +1574,10 @@ class VoiceManager {
       const senders = conn.getSenders();
       const screenTrackSet = new Set(this.screenStream.getTracks().filter((t) => t.readyState === "live"));
       for (const track of screenTrackSet) {
+        track.enabled = true;
+        if (track.kind === "video" && typeof track.contentHint === "string") {
+          track.contentHint = "detail";
+        }
         const alreadySent = senders.some((s) => s.track === track);
         if (!alreadySent) conn.addTrack(track, this.screenStream);
       }
@@ -1773,6 +1808,7 @@ class VoiceManager {
       _remoteUfrag: null,
       _initialOfferSent: false,
       _lastHandledIncomingOfferId: null,
+      _incomingOfferInFlightId: null,
     });
 
     // If we're the initiator, create and send an offer
