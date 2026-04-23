@@ -14,6 +14,7 @@ class VoiceManager {
     this.peers = new Map(); // userId → { connection, stream, username }
     this._lateRenegotiationTimers = new Map(); // key(type:userId) -> timeout id
     this._negotiationSeq = 0;
+    this._incomingOfferQueues = new Map();
     this.currentChannel = null;
     this.isMuted = false;
     this.isDeafened = false;
@@ -144,11 +145,13 @@ class VoiceManager {
         peer = this.peers.get(from.id);
       }
 
-      try {
-        await this._acceptIncomingOffer(from.id, from.username, offer, negotiationId);
-      } catch (err) {
-        console.error("Error handling voice offer:", err);
-      }
+      this._enqueueIncomingOffer(from.id, async () => {
+        try {
+          await this._acceptIncomingOffer(from.id, from.username, offer, negotiationId);
+        } catch (err) {
+          console.error("Error handling voice offer:", err);
+        }
+      });
     });
 
     // Received an answer to our offer
@@ -1353,10 +1356,40 @@ class VoiceManager {
 
   async _renegotiate(userId, connection) {
     try {
-      const peer = this.peers.get(userId);
-      const negotiationId = this._nextNegotiationId(userId);
-      if (peer) peer._pendingLocalOfferId = negotiationId;
-      const offer = await connection.createOffer();
+      return await this._emitLocalOffer(userId, connection, { iceRestart: false });
+    } catch (err) {
+      console.error("Renegotiation failed:", err);
+      return false;
+    }
+  }
+
+  _enqueueIncomingOffer(userId, handler) {
+    const prev = this._incomingOfferQueues.get(userId) || Promise.resolve();
+    const next = prev
+      .catch(() => {})
+      .then(handler)
+      .catch(() => {});
+    this._incomingOfferQueues.set(userId, next);
+    next.finally(() => {
+      if (this._incomingOfferQueues.get(userId) === next) {
+        this._incomingOfferQueues.delete(userId);
+      }
+    });
+  }
+
+  async _emitLocalOffer(userId, connection, { iceRestart = false } = {}) {
+    const peer = this.peers.get(userId);
+    if (!peer) return false;
+
+    if (peer._pendingLocalOfferId || connection.signalingState !== "stable") {
+      return false;
+    }
+
+    const negotiationId = this._nextNegotiationId(userId);
+    peer._pendingLocalOfferId = negotiationId;
+
+    try {
+      const offer = iceRestart ? await connection.createOffer({ iceRestart: true }) : await connection.createOffer();
       await connection.setLocalDescription(offer);
       this.socket.emit("voice-offer", {
         code: this.currentChannel,
@@ -1364,8 +1397,12 @@ class VoiceManager {
         offer: offer,
         negotiationId,
       });
+      return true;
     } catch (err) {
-      console.error("Renegotiation failed:", err);
+      if (peer._pendingLocalOfferId === negotiationId) {
+        peer._pendingLocalOfferId = null;
+      }
+      throw err;
     }
   }
 
@@ -1513,7 +1550,10 @@ class VoiceManager {
       this._preferHardwareAcceleration(conn);
     }
 
-    await this._renegotiate(userId, conn);
+    const sent = await this._renegotiate(userId, conn);
+    if (!sent && attempt < 12) {
+      this._scheduleLateRenegotiationRetry(type, userId, attempt + 1);
+    }
   }
 
   _scheduleLateRenegotiationRetry(type, userId, attempt) {
@@ -1713,18 +1753,7 @@ class VoiceManager {
     // If we're the initiator, create and send an offer
     if (createOffer) {
       try {
-        const negotiationId = this._nextNegotiationId(userId);
-        const createdPeer = this.peers.get(userId);
-        if (createdPeer) createdPeer._pendingLocalOfferId = negotiationId;
-        const offer = await connection.createOffer();
-        await connection.setLocalDescription(offer);
-
-        this.socket.emit("voice-offer", {
-          code: this.currentChannel,
-          targetUserId: userId,
-          offer: offer,
-          negotiationId,
-        });
+        await this._emitLocalOffer(userId, connection, { iceRestart: false });
       } catch (err) {
         console.error("Error creating voice offer:", err);
       }
@@ -1747,17 +1776,7 @@ class VoiceManager {
 
   async _restartIce(userId, connection) {
     try {
-      const peer = this.peers.get(userId);
-      const negotiationId = this._nextNegotiationId(userId);
-      if (peer) peer._pendingLocalOfferId = negotiationId;
-      const offer = await connection.createOffer({ iceRestart: true });
-      await connection.setLocalDescription(offer);
-      this.socket.emit("voice-offer", {
-        code: this.currentChannel,
-        targetUserId: userId,
-        offer: offer,
-        negotiationId,
-      });
+      await this._emitLocalOffer(userId, connection, { iceRestart: true });
     } catch (err) {
       console.error("ICE restart failed for", userId, "— removing peer:", err);
       this._removePeer(userId);
