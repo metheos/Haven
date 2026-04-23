@@ -349,6 +349,7 @@ class VoiceManager {
     // Someone started screen sharing
     this.socket.on("screen-share-started", (data) => {
       this.screenSharers.add(data.userId);
+      this._requestRemoteScreenRenegotiation(data.userId).catch(() => {});
       // Play stream start notification sound
       if (this.onScreenShareStarted) {
         this.onScreenShareStarted(data.userId, data.username);
@@ -381,7 +382,10 @@ class VoiceManager {
     // Late joiner: server tells us about active screen sharers
     this.socket.on("active-screen-sharers", (data) => {
       if (data && data.sharers) {
-        data.sharers.forEach((s) => this.screenSharers.add(s.id));
+        data.sharers.forEach((s) => {
+          this.screenSharers.add(s.id);
+          this._requestRemoteScreenRenegotiation(s.id).catch(() => {});
+        });
       }
     });
 
@@ -1641,6 +1645,29 @@ class VoiceManager {
     }
   }
 
+  async _requestRemoteScreenRenegotiation(userId, attempt = 0) {
+    const retryKey = `request-screen:${userId}`;
+    const peer = this.peers.get(userId);
+    const conn = peer?.connection;
+
+    if (!this.inVoice || !this.screenSharers.has(userId)) {
+      this._clearLateRenegotiationRetry(retryKey);
+      return;
+    }
+
+    if (!conn || conn.signalingState !== "stable") {
+      if (attempt >= 12) {
+        this._clearLateRenegotiationRetry(retryKey);
+        return;
+      }
+      this._scheduleLateRenegotiationRetry("request-screen", userId, attempt + 1);
+      return;
+    }
+
+    this._clearLateRenegotiationRetry(retryKey);
+    await this._renegotiate(userId, conn);
+  }
+
   async _renegotiateStreamForLateJoiner(type, userId, attempt = 0) {
     const retryKey = `${type}:${userId}`;
     const peer = this.peers.get(userId);
@@ -1708,7 +1735,11 @@ class VoiceManager {
     this._clearLateRenegotiationRetry(retryKey);
     const timer = setTimeout(() => {
       this._lateRenegotiationTimers.delete(retryKey);
-      this._renegotiateStreamForLateJoiner(type, userId, attempt).catch(() => {});
+      if (type === "request-screen") {
+        this._requestRemoteScreenRenegotiation(userId, attempt).catch(() => {});
+      } else {
+        this._renegotiateStreamForLateJoiner(type, userId, attempt).catch(() => {});
+      }
     }, 500);
     this._lateRenegotiationTimers.set(retryKey, timer);
   }
