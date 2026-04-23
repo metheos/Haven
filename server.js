@@ -2808,17 +2808,6 @@ app.post('/api/import/discord/execute', express.json({ limit: '1mb' }), (req, re
   }
 });
 
-// ── Catch-all: 404 ──────────────────────────────────────
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-// ── Global error handler (never leak stack traces) ──────
-app.use((err, req, res, _next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
-});
-
 // Create HTTP or HTTPS server
 let server;
 
@@ -3335,6 +3324,19 @@ app.post('/api/admin/update/run', (req, res) => {
       process.exit(0);
     }, 1500);
   }, 1500);
+});
+
+// ── Catch-all: 404 ──────────────────────────────────────
+// Must be registered AFTER every app.get/post/etc. handler — Express
+// matches in registration order, so anything below this never runs.
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// ── Global error handler (never leak stack traces) ──────
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3000;
