@@ -1436,9 +1436,11 @@ class VoiceManager {
     // prevents re-processing (sharer will retry with a fresh negotiationId if needed).
     if (negotiationId && peer) {
       if (peer._lastHandledIncomingOfferId === negotiationId) {
+        console.log("[Voice] _acceptIncomingOffer: dedup blocked (already handled)", { userId, negotiationId, allowPeerReset });
         return;
       }
       if (peer._incomingOfferInFlightId === negotiationId) {
+        console.log("[Voice] _acceptIncomingOffer: dedup blocked (in flight)", { userId, negotiationId, allowPeerReset });
         return;
       }
       peer._incomingOfferInFlightId = negotiationId;
@@ -1449,15 +1451,16 @@ class VoiceManager {
       await this._createPeer(userId, username, false);
       peer = this.peers.get(userId);
       if (!peer) throw new Error("Failed to create peer for incoming offer");
-      // Set the in-flight guard on the freshly-created peer too.
+      // Set both dedup guards on the freshly-created peer.
       if (negotiationId) {
         peer._incomingOfferInFlightId = negotiationId;
+        peer._lastHandledIncomingOfferId = negotiationId;
       }
     }
 
     const conn = peer.connection;
     const offerVideoCount = (offer.sdp || "").split("\n").filter((l) => l.startsWith("m=video")).length;
-    console.log("[Voice] _acceptIncomingOffer", { userId, negotiationId, signalingState: conn.signalingState, offerVideoSections: offerVideoCount });
+    console.log("[Voice] _acceptIncomingOffer", { userId, negotiationId, allowPeerReset, signalingState: conn.signalingState, offerVideoSections: offerVideoCount });
 
     // Only rollback when we actually have a local offer pending.
     if (conn.signalingState === "have-local-offer") {
@@ -1477,8 +1480,15 @@ class VoiceManager {
       if (allowPeerReset && isHeaderExtConflict) {
         // Recover from extmap conflicts by rebuilding only this peer connection,
         // then applying the same incoming offer to a fresh RTCPeerConnection.
+        // Preserve any queued ICE candidates from the old peer so they can be
+        // flushed against the new connection once setRemoteDescription succeeds.
+        const oldQueued = peer._pendingRemoteCandidates ? [...peer._pendingRemoteCandidates] : [];
         this._removePeer(userId);
         await this._createPeer(userId, username, false);
+        const newPeer = this.peers.get(userId);
+        if (newPeer && oldQueued.length > 0) {
+          newPeer._pendingRemoteCandidates = oldQueued;
+        }
         await this._acceptIncomingOffer(userId, username, offer, negotiationId, false);
         return;
       }
@@ -1728,12 +1738,15 @@ class VoiceManager {
           });
           if (this.onScreenStream) this.onScreenStream(userId, videoStream);
           track.onunmute = () => {
+            console.log("[Voice] screen track onunmute", { userId, readyState: track.readyState });
             setTimeout(() => {
               const freshStream = new MediaStream([track]);
               if (this.onScreenStream) this.onScreenStream(userId, freshStream);
             }, 150);
           };
-          track.onmute = () => {};
+          track.onmute = () => {
+            console.log("[Voice] screen track muted again", { userId, readyState: track.readyState });
+          };
           track.onended = () => {
             if (this.onScreenStream) this.onScreenStream(userId, null);
           };
