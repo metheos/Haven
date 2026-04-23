@@ -188,6 +188,29 @@ class VoiceManager {
             this._restartIce(data.from.id, peer.connection);
             return;
           }
+          const shouldRollback =
+            peer.connection.signalingState === "have-local-offer" &&
+            peer._pendingLocalOfferId &&
+            (!data.negotiationId || data.negotiationId === peer._pendingLocalOfferId);
+          if (shouldRollback) {
+            try {
+              await peer.connection.setLocalDescription({ type: "rollback" });
+              console.warn("[Voice] voice-answer: rolled back failed local offer", {
+                from: data.from.id,
+                negotiationId: data.negotiationId,
+                error: msg,
+              });
+            } catch (rollbackErr) {
+              console.warn("[Voice] voice-answer: rollback failed", {
+                from: data.from.id,
+                negotiationId: data.negotiationId,
+                error: String(rollbackErr && (rollbackErr.message || rollbackErr)),
+              });
+            } finally {
+              peer._pendingLocalOfferId = null;
+            }
+            return;
+          }
           console.error("Error handling voice answer:", err);
         }
       }
