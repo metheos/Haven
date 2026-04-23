@@ -1512,8 +1512,219 @@ _quoteThreadMessage(msgEl) {
   input.dispatchEvent(new Event('input'));
 },
 
+// ── Thread @mention tracking ──────────────────────
+_recordThreadMention(channelCode, parentId, msg) {
+  if (!this._threadMentions) {
+    try { this._threadMentions = JSON.parse(localStorage.getItem('haven_thread_mentions') || '{}'); }
+    catch { this._threadMentions = {}; }
+  }
+  const list = this._threadMentions[channelCode] || (this._threadMentions[channelCode] = []);
+  // Dedupe by messageId
+  if (list.some(m => m.messageId === msg.id)) return;
+  list.push({
+    parentId,
+    messageId: msg.id,
+    username: msg.username || '',
+    snippet: (msg.content || '').slice(0, 140),
+    when: Date.now()
+  });
+  this._persistThreadMentions();
+  this._renderChannels?.();
+  this._updateThreadMentionsPill();
+},
+_clearThreadMentionsForParent(channelCode, parentId) {
+  if (!this._threadMentions || !this._threadMentions[channelCode]) return;
+  this._threadMentions[channelCode] = this._threadMentions[channelCode].filter(m => m.parentId !== parentId);
+  if (this._threadMentions[channelCode].length === 0) delete this._threadMentions[channelCode];
+  this._persistThreadMentions();
+  this._renderChannels?.();
+  this._updateThreadMentionsPill();
+},
+_clearThreadMentionsForChannel(channelCode) {
+  if (!this._threadMentions || !this._threadMentions[channelCode]) return;
+  delete this._threadMentions[channelCode];
+  this._persistThreadMentions();
+  this._renderChannels?.();
+  this._updateThreadMentionsPill();
+},
+_persistThreadMentions() {
+  try { localStorage.setItem('haven_thread_mentions', JSON.stringify(this._threadMentions || {})); } catch {}
+},
+_updateThreadMentionsPill() {
+  const pill = document.getElementById('thread-mentions-pill');
+  const cnt = document.getElementById('thread-mentions-pill-count');
+  if (!pill || !cnt) return;
+  if (!this._threadMentions) {
+    try { this._threadMentions = JSON.parse(localStorage.getItem('haven_thread_mentions') || '{}'); }
+    catch { this._threadMentions = {}; }
+  }
+  const list = (this._threadMentions[this.currentChannel] || []);
+  if (list.length === 0) {
+    pill.style.display = 'none';
+    return;
+  }
+  pill.style.display = '';
+  cnt.textContent = String(list.length);
+  pill.title = list.length === 1
+    ? `1 mention in a thread — click to open`
+    : `${list.length} mentions in threads — click to open the most recent`;
+},
+_openMostRecentThreadMention() {
+  if (!this._threadMentions) return;
+  const list = this._threadMentions[this.currentChannel];
+  if (!list || list.length === 0) return;
+  const newest = list[list.length - 1];
+  this._openThread(newest.parentId);
+},
+
+// ── DM Picture-in-Picture (overlay panel, like thread PiP) ──
+// Opens a floating, draggable, resizable panel that hosts a DM
+// without leaving the user's current channel. The DM panel is its
+// own message view — receives `new-message` events filtered by code,
+// sends via `send-message` with the PiP channel code.
+_openDMPiP(code) {
+  const ch = (this.channels || []).find(c => c.code === code);
+  if (!ch || !ch.is_dm) return;
+  this._activeDMPip = code;
+  try { localStorage.setItem('haven_active_dm_pip', code); } catch {}
+  // Keep the DM PiP cleared from the unread badge
+  this.unreadCounts[code] = 0;
+  this._updateBadge?.(code);
+
+  const panel = document.getElementById('dm-pip-panel');
+  if (!panel) return;
+  panel.style.display = 'flex';
+  panel.dataset.code = code;
+  // Title: partner name
+  const partnerName = ch.dm_target ? this._getNickname(ch.dm_target.id, ch.dm_target.username) : 'DM';
+  const titleEl = document.getElementById('dm-pip-title');
+  if (titleEl) titleEl.textContent = ch.is_self_dm ? `📝 ${partnerName} (you)` : `@ ${partnerName}`;
+
+  // Restore geometry from localStorage
+  this._applyDMPiPGeometry(panel);
+  // Bind drag once
+  this._bindDMPiPDrag();
+
+  // Clear messages and request fresh
+  const msgsEl = document.getElementById('dm-pip-messages');
+  if (msgsEl) msgsEl.innerHTML = '<div class="dm-pip-loading">Loading…</div>';
+  this.socket.emit('get-messages', { code });
+
+  // Focus input
+  const input = document.getElementById('dm-pip-input');
+  if (input) input.focus();
+},
+
+_closeDMPiP() {
+  this._activeDMPip = null;
+  try { localStorage.removeItem('haven_active_dm_pip'); } catch {}
+  const panel = document.getElementById('dm-pip-panel');
+  if (panel) panel.style.display = 'none';
+},
+
+_applyDMPiPGeometry(panel) {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('haven_dm_pip_rect') || 'null'); } catch {}
+  const minW = 320, minH = 280;
+  const maxW = Math.min(720, window.innerWidth - 28);
+  const maxH = Math.max(minH, window.innerHeight - 28);
+  const width = Math.max(minW, Math.min(maxW, (saved && saved.width) || 420));
+  const height = Math.max(minH, Math.min(maxH, (saved && saved.height) || 540));
+  const defaultLeft = Math.max(0, window.innerWidth - width - 20);
+  const defaultTop = Math.max(0, window.innerHeight - height - 80);
+  const left = Math.max(0, Math.min(window.innerWidth - width, (saved && Number.isFinite(saved.left)) ? saved.left : defaultLeft));
+  const top = Math.max(0, Math.min(window.innerHeight - height, (saved && Number.isFinite(saved.top)) ? saved.top : defaultTop));
+  panel.style.width = `${Math.round(width)}px`;
+  panel.style.height = `${Math.round(height)}px`;
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.top = `${Math.round(top)}px`;
+},
+
+_bindDMPiPDrag() {
+  if (this._dmPipDragBound) return;
+  this._dmPipDragBound = true;
+  const panel = document.getElementById('dm-pip-panel');
+  if (!panel) return;
+  const header = panel.querySelector('.dm-pip-header');
+  if (!header) return;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0, dragging = false;
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button, a, input, select, textarea')) return;
+    dragging = true;
+    startX = e.clientX; startY = e.clientY;
+    const r = panel.getBoundingClientRect();
+    startLeft = r.left; startTop = r.top;
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const left = Math.max(0, Math.min(window.innerWidth - w, startLeft + (e.clientX - startX)));
+    const top = Math.max(0, Math.min(window.innerHeight - h, startTop + (e.clientY - startY)));
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  });
+  const persist = () => {
+    if (!panel || panel.style.display === 'none') return;
+    try {
+      localStorage.setItem('haven_dm_pip_rect', JSON.stringify({
+        left: parseInt(panel.style.left, 10) || 0,
+        top: parseInt(panel.style.top, 10) || 0,
+        width: panel.offsetWidth,
+        height: panel.offsetHeight
+      }));
+    } catch {}
+  };
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; persist(); }
+  });
+  // Persist on resize (CSS resize: both)
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(() => persist());
+    ro.observe(panel);
+  }
+},
+
+// Render a DM message in the PiP panel (very minimal — text only)
+_appendDMPiPMessage(msg) {
+  const list = document.getElementById('dm-pip-messages');
+  if (!list) return;
+  // Skip if we're already showing this id
+  if (msg && msg.id && list.querySelector(`[data-pip-msg-id="${msg.id}"]`)) return;
+  // Clear any "loading" placeholder
+  const ph = list.querySelector('.dm-pip-loading');
+  if (ph) ph.remove();
+  const row = document.createElement('div');
+  row.className = 'dm-pip-message';
+  row.dataset.pipMsgId = msg.id || '';
+  const author = this._escapeHtml(msg.username || '');
+  const body = this._escapeHtml(msg.content || '');
+  row.innerHTML = `<span class="dm-pip-author">${author}</span><span class="dm-pip-body">${body}</span>`;
+  list.appendChild(row);
+  list.scrollTop = list.scrollHeight;
+},
+
+_renderDMPiPHistory(messages) {
+  const list = document.getElementById('dm-pip-messages');
+  if (!list) return;
+  list.innerHTML = '';
+  (messages || []).forEach(m => this._appendDMPiPMessage(m));
+},
+
+_sendDMPiPMessage() {
+  const input = document.getElementById('dm-pip-input');
+  if (!input || !this._activeDMPip) return;
+  const content = (input.value || '').trim();
+  if (!content) return;
+  this.socket.emit('send-message', { code: this._activeDMPip, content });
+  input.value = '';
+  input.focus();
+},
+
 _openThread(parentId) {
   this._activeThreadParent = parentId;
+  // Clear any pending thread mentions for this thread/channel
+  this._clearThreadMentionsForParent(this.currentChannel, parentId);
   const panel = document.getElementById('thread-panel');
   if (!panel) return;
   panel.style.display = 'flex';

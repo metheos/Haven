@@ -282,7 +282,16 @@ function setupSocketHandlers(io, db) {
             JOIN channel_members cm ON u.id = cm.user_id
             WHERE cm.channel_id = ? AND u.id != ?
           `).get(ch.id, userId);
-          ch.dm_target = otherUser || null;
+          if (otherUser) {
+            ch.dm_target = otherUser;
+          } else {
+            // Self-DM: only one channel_members row, no "other" user. Use self as the partner.
+            const self = db.prepare(
+              'SELECT id, COALESCE(display_name, username) as username FROM users WHERE id = ?'
+            ).get(userId);
+            ch.dm_target = self || null;
+            ch.is_self_dm = 1;
+          }
         }
       });
     }

@@ -398,6 +398,14 @@ _setupSocketListeners() {
   });
 
   this.socket.on('message-history', async (data) => {
+    // DM PiP: if this history is for the active PiP DM, render it there
+    // (and ignore the non-current-channel guard).
+    if (this._activeDMPip && data.channelCode === this._activeDMPip
+        && data.channelCode !== this.currentChannel) {
+      await this._decryptMessages(data.messages);
+      this._renderDMPiPHistory?.(data.messages);
+      return;
+    }
     if (data.channelCode !== this.currentChannel) return;
     // E2E: decrypt DM messages before rendering
     await this._decryptMessages(data.messages);
@@ -539,6 +547,11 @@ _setupSocketListeners() {
     }
     // E2E: decrypt single message if encrypted
     await this._decryptMessages([data.message], data.channelCode);
+
+    // DM PiP: if message is for the active PiP DM, append to the floating panel
+    if (this._activeDMPip && data.channelCode === this._activeDMPip) {
+      this._appendDMPiPMessage?.(data.message);
+    }
 
     if (data.channelCode === this.currentChannel) {
       const isOwnMessage = data.message.user_id === this.user.id;
@@ -808,6 +821,29 @@ _setupSocketListeners() {
   });
 
   this.socket.on('new-thread-message', (data) => {
+    // Detect @mentions / replies-to-self in thread messages, even when the
+    // thread (or even the channel) is not currently open. Server broadcasts
+    // new-thread-message to the entire channel room, so all members get it.
+    const msg = data && data.message;
+    if (msg && msg.user_id !== this.user.id) {
+      const _mutedChs = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
+      const _isMuted = _mutedChs.includes(data.channelCode);
+      const _meEsc = (this.user.username || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const mentionRegex = _meEsc ? new RegExp(`@${_meEsc}(?!\\w)`, 'i') : null;
+      const _isMention = mentionRegex && mentionRegex.test(msg.content || '');
+      const _isReplyToMe = msg.replyContext && msg.replyContext.user_id === this.user.id;
+      if ((_isMention || _isReplyToMe) && !_isMuted) {
+        this._recordThreadMention(data.channelCode, data.parentId, msg);
+        if (!_isMuted) this.notifications.play('mention', { isMention: true });
+        if (document.hidden) {
+          this._fireNativeNotification(
+            { ...msg, content: `[thread] ${msg.content || ''}` },
+            data.channelCode,
+            { isMention: true }
+          );
+        }
+      }
+    }
     if (data.channelCode !== this.currentChannel) return;
     // If this thread is open, append the message
     if (this._activeThreadParent === data.parentId) {
@@ -912,7 +948,10 @@ _setupSocketListeners() {
       if (arrow) arrow.classList.remove('collapsed');
       localStorage.setItem('haven_dm_collapsed', false);
     }
-    this.switchChannel(data.code);
+    // Open the new/existing DM as a PiP overlay rather than switching the
+    // active channel. Single-click on the sidebar entry, the "Message [User]"
+    // button, and right-click → DM all funnel through here.
+    this._openDMPiP?.(data.code);
     // Scroll the DM channel into view in the sidebar
     const dmEl = document.querySelector(`.channel-item[data-code="${data.code}"]`);
     if (dmEl) dmEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

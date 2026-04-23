@@ -1099,16 +1099,20 @@ module.exports = function register(socket, ctx) {
   socket.on('start-dm', (data) => {
     if (!data || typeof data !== 'object') return;
     const targetId = isInt(data.targetUserId) ? data.targetUserId : null;
-    if (!targetId || targetId === socket.user.id) return;
+    if (!targetId) return;
+    const isSelfDm = targetId === socket.user.id;
     const target = db.prepare(
       'SELECT u.id, COALESCE(u.display_name, u.username) as username FROM users u LEFT JOIN bans b ON u.id = b.user_id WHERE u.id = ? AND b.id IS NULL'
     ).get(targetId);
     if (!target) return socket.emit('error-msg', 'User not found');
+    // For self-DM, the channel has only one channel_members row, so both EXISTS
+    // clauses below collapse to the same check — which still matches correctly.
     const existingDm = db.prepare(`
       SELECT c.id, c.code, c.name FROM channels c
       WHERE c.is_dm = 1
       AND EXISTS (SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?)
       AND EXISTS (SELECT 1 FROM channel_members WHERE channel_id = c.id AND user_id = ?)
+      ${isSelfDm ? 'AND (SELECT COUNT(*) FROM channel_members WHERE channel_id = c.id) = 1' : ''}
     `).get(socket.user.id, targetId);
     if (existingDm) {
       socket.emit('dm-opened', {
@@ -1122,13 +1126,18 @@ module.exports = function register(socket, ctx) {
       const result = db.prepare('INSERT INTO channels (name, code, created_by, is_dm) VALUES (?, ?, ?, 1)').run('DM', code, socket.user.id);
       const channelId = result.lastInsertRowid;
       db.prepare('INSERT INTO channel_members (channel_id, user_id) VALUES (?, ?)').run(channelId, socket.user.id);
-      db.prepare('INSERT INTO channel_members (channel_id, user_id) VALUES (?, ?)').run(channelId, targetId);
+      // Self-DMs only have one member; PRIMARY KEY prevents duplicate insert.
+      if (!isSelfDm) {
+        db.prepare('INSERT INTO channel_members (channel_id, user_id) VALUES (?, ?)').run(channelId, targetId);
+      }
       socket.join(`channel:${code}`);
       socket.emit('dm-opened', { id: channelId, code, name: 'DM', is_dm: 1, dm_target: { id: target.id, username: target.username } });
-      for (const [, s] of io.of('/').sockets) {
-        if (s.user && s.user.id === targetId) {
-          s.join(`channel:${code}`);
-          s.emit('dm-opened', { id: channelId, code, name: 'DM', is_dm: 1, dm_target: { id: socket.user.id, username: socket.user.displayName } });
+      if (!isSelfDm) {
+        for (const [, s] of io.of('/').sockets) {
+          if (s.user && s.user.id === targetId) {
+            s.join(`channel:${code}`);
+            s.emit('dm-opened', { id: channelId, code, name: 'DM', is_dm: 1, dm_target: { id: socket.user.id, username: socket.user.displayName } });
+          }
         }
       }
     } catch (err) {

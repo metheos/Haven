@@ -10,7 +10,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <title>Haven</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cG9seWdvbiBwb2ludHM9IjUwLDMgOTMsMjggOTMsNzIgNTAsOTcgNyw3MiA3LDI4IiBmaWxsPSJub25lIiBzdHJva2U9IiM2YjRmZGIiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjx0ZXh0IHg9IjUwIiB5PSI2MyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLEhlbHZldGljYSxzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgZm9udC1zaXplPSIzOCIgZmlsbD0iIzZiNGZkYiIgb3BhY2l0eT0iMC45NSI+SDwvdGV4dD48L3N2Zz4=">
-  <link rel="stylesheet" href="/css/style.css?v=3.4.0">
+  <link rel="stylesheet" href="/css/style.css?v=3.4.1">
   <script src="/js/theme-init.js?v=3.4.0"></script>
 </head>
 <body>
@@ -288,6 +288,7 @@
             <h3 id="channel-header-name" data-i18n="header.select_channel">Select a channel</h3>
           </div>
           <div class="header-actions-box" id="header-actions-box" style="display:none">
+            <button id="thread-mentions-pill" class="icon-btn small thread-mentions-pill" title="Mentions in threads" style="display:none">🔔 <span id="thread-mentions-pill-count">0</span></button>
             <span class="channel-code-tag" id="channel-code-display" data-i18n-title="header.channel_code" title="Channel code"></span>
             <button id="copy-code-btn" class="icon-btn small" data-i18n-title="header.copy_code" title="Copy code">📋</button>
             <button id="channel-code-settings-btn" class="icon-btn small" data-i18n-title="header.channel_code_settings" title="Channel code settings">⚙️</button>
@@ -716,6 +717,26 @@
   </div>
 
   <!-- Thread Panel (slides in from right) -->
+  <!-- DM PiP floating panel (overlay; doesn't switch the active channel) -->
+  <div id="dm-pip-panel" class="dm-pip-panel" style="display:none">
+    <div class="dm-pip-header">
+      <span class="dm-pip-icon">💬</span>
+      <span id="dm-pip-title" class="dm-pip-title">DM</span>
+      <div class="dm-pip-spacer"></div>
+      <button id="dm-pip-fullscreen" class="icon-btn small" title="Open in full pane">▣</button>
+      <button id="dm-pip-close" class="icon-btn small" title="Close">&times;</button>
+    </div>
+    <div id="dm-pip-messages" class="dm-pip-messages"></div>
+    <div class="dm-pip-input-area">
+      <textarea id="dm-pip-input" class="dm-pip-input" placeholder="Reply…" rows="1"></textarea>
+      <button id="dm-pip-send" class="dm-pip-send" title="Send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
   <div id="thread-panel" class="thread-panel" style="display:none">
     <div class="thread-panel-resizer" id="thread-panel-resizer" aria-hidden="true"></div>
     <div class="thread-panel-header">
@@ -2932,7 +2953,7 @@
   <script src="/js/voice.js?v=3.4.0"></script>
   <script src="/js/modmode.js?v=3.4.0"></script>
   <script src="/js/e2e.js?v=3.4.0"></script>
-  <script type="module" src="/js/app.js?v=3.4.0"></script>
+  <script type="module" src="/js/app.js?v=3.4.1"></script>
   <script src="/js/plugin-loader.js?v=3.4.0"></script>
 </body>
 </html>

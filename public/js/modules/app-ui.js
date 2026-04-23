@@ -1500,6 +1500,30 @@ _setupUI() {
   const threadPipBtn = document.getElementById('thread-panel-pip');
   if (threadPipBtn) threadPipBtn.addEventListener('click', () => this._toggleThreadPiP());
 
+  // Thread @mention pill in the channel header
+  const tmPill = document.getElementById('thread-mentions-pill');
+  if (tmPill) tmPill.addEventListener('click', () => this._openMostRecentThreadMention?.());
+
+  // DM PiP panel buttons
+  const dmPipClose = document.getElementById('dm-pip-close');
+  if (dmPipClose) dmPipClose.addEventListener('click', () => this._closeDMPiP?.());
+  const dmPipFs = document.getElementById('dm-pip-fullscreen');
+  if (dmPipFs) dmPipFs.addEventListener('click', () => {
+    const code = this._activeDMPip;
+    if (!code) return;
+    this._closeDMPiP?.();
+    this.switchChannel(code);
+  });
+  const dmPipSend = document.getElementById('dm-pip-send');
+  if (dmPipSend) dmPipSend.addEventListener('click', () => this._sendDMPiPMessage?.());
+  const dmPipInput = document.getElementById('dm-pip-input');
+  if (dmPipInput) dmPipInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      this._sendDMPiPMessage?.();
+    }
+  });
+
   const threadSendBtn = document.getElementById('thread-send-btn');
   if (threadSendBtn) threadSendBtn.addEventListener('click', () => this._sendThreadMessage());
 
@@ -2202,6 +2226,15 @@ _setupUI() {
     document.querySelector(`.settings-tab[data-tab="${tab}"]`)?.classList.add('active');
 
     if (tab === 'admin') {
+      // Defensive gate: refuse switching to the admin tab if the user has no
+      // admin/manage permissions, regardless of where the call came from.
+      const isAdmin = !!(this.user && this.user.isAdmin);
+      const hasAdminAccess = isAdmin
+        || this._hasPerm?.('manage_emojis')
+        || this._hasPerm?.('manage_soundboard')
+        || this._hasPerm?.('manage_roles')
+        || this._hasPerm?.('manage_server');
+      if (!hasAdminAccess) return this._switchSettingsTab('user');
       if (userBody) userBody.style.display = 'none';
       if (adminBody) adminBody.style.display = '';
       if (userNav) userNav.style.display = 'none';

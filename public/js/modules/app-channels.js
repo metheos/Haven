@@ -118,6 +118,8 @@ async switchChannel(code) {
 
   this.unreadCounts[code] = 0;
   this._updateBadge(code);
+  // Refresh thread-mention pill for the channel we just entered
+  this._updateThreadMentionsPill?.();
 
   document.getElementById('status-channel').textContent = isDm && channel.dm_target
     ? t('channels.dm_status', { name: channel.dm_target.username }) : channel ? channel.name : code;
@@ -1458,6 +1460,15 @@ _renderChannels() {
       badge.textContent = count > 99 ? '99+' : count;
       el.appendChild(badge);
     }
+    // Thread @mention indicator (bell, distinct from unread bubble)
+    const tmCount = ((this._threadMentions || {})[ch.code] || []).length;
+    if (tmCount > 0) {
+      const bell = document.createElement('span');
+      bell.className = 'channel-badge thread-mention-badge';
+      bell.title = `${tmCount} mention${tmCount === 1 ? '' : 's'} in thread${tmCount === 1 ? '' : 's'}`;
+      bell.textContent = `🔔${tmCount > 9 ? '9+' : tmCount}`;
+      el.appendChild(bell);
+    }
 
     el.addEventListener('click', () => this.switchChannel(ch.code));
     // Double-click to join voice in the channel (blocked for text-only)
@@ -1839,7 +1850,16 @@ _renderChannels() {
         e.stopPropagation();
         this._openDmCtxMenu(ch.code, el, e);
       });
-      el.addEventListener('click', () => this.switchChannel(ch.code));
+      el.addEventListener('click', () => {
+        // Single-click on a DM opens it in a floating PiP panel overlaid
+        // on the user's current channel. Does NOT switch channels.
+        this._openDMPiP?.(ch.code);
+      });
+      el.addEventListener('dblclick', () => {
+        // Double-click switches to the full DM pane (legacy behavior).
+        this._closeDMPiP?.();
+        this.switchChannel(ch.code);
+      });
       return el;
     };
 
