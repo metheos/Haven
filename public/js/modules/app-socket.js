@@ -540,7 +540,7 @@ _setupSocketListeners() {
     // E2E: decrypt single message if encrypted
     await this._decryptMessages([data.message], data.channelCode);
 
-    if (data.channelCode === this.currentChannel) {
+    if (data.channelCode === this.currentChannel && !document.hidden) {
       const isOwnMessage = data.message.user_id === this.user.id;
 
       // If the user is scrolled into history and the DOM window has been
