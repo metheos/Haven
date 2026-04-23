@@ -1521,15 +1521,6 @@ class VoiceManager {
   async _createPeer(userId, username, createOffer) {
     const connection = new RTCPeerConnection(this.rtcConfig);
 
-    // When we initiate the call, advertise video receive capability up front
-    // so late joiners can receive active screen/webcam streams in the first answer.
-    if (createOffer) {
-      try {
-        connection.addTransceiver("video", { direction: "recvonly" });
-        connection.addTransceiver("video", { direction: "recvonly" });
-      } catch {}
-    }
-
     // Add our local audio tracks
     if (this.localStream) {
       this.localStream.getTracks().forEach((track) => {
