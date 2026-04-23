@@ -254,7 +254,7 @@ function setupSocketHandlers(io, db) {
       readRows.forEach(r => { readMap[r.channel_id] = r.last_read_message_id; });
 
       const latestRows = db.prepare(
-        `SELECT channel_id, MAX(id) as latest_id FROM messages WHERE channel_id IN (${placeholders}) GROUP BY channel_id`
+        `SELECT channel_id, MAX(id) as latest_id FROM messages WHERE channel_id IN (${placeholders}) AND thread_id IS NULL GROUP BY channel_id`
       ).all(...channelIds);
       const latestMap = {};
       latestRows.forEach(r => { latestMap[r.channel_id] = r.latest_id; });
@@ -265,7 +265,11 @@ function setupSocketHandlers(io, db) {
         ch.latestMessageId = latestId;
         if (latestId > lastRead) {
           const countRow = db.prepare(
-            'SELECT COUNT(*) as cnt FROM messages WHERE channel_id = ? AND id > ? AND user_id != ?'
+            // Exclude thread replies (thread_id IS NOT NULL): they live in their
+            // own thread panel, never appear in the channel scroll, and so can
+            // never be marked-read by scrolling — counting them here pins a
+            // phantom unread on the channel forever.
+            'SELECT COUNT(*) as cnt FROM messages WHERE channel_id = ? AND id > ? AND user_id != ? AND thread_id IS NULL'
           ).get(ch.id, lastRead, userId);
           ch.unreadCount = countRow ? countRow.cnt : 0;
         } else {

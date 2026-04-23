@@ -1146,7 +1146,9 @@ module.exports = function register(socket, ctx) {
     if (!member) return;
 
     try {
-      const latest = db.prepare('SELECT MAX(id) AS maxId FROM messages WHERE channel_id = ?').get(channel.id);
+      // Mark up to the latest non-thread message. Thread replies have their
+      // own panel and don't participate in channel-level read positions.
+      const latest = db.prepare('SELECT MAX(id) AS maxId FROM messages WHERE channel_id = ? AND thread_id IS NULL').get(channel.id);
       if (!latest || !latest.maxId) return;
 
       db.prepare(`
