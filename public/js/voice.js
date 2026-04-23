@@ -193,21 +193,33 @@ class VoiceManager {
             peer._pendingLocalOfferId &&
             (!data.negotiationId || data.negotiationId === peer._pendingLocalOfferId);
           if (shouldRollback) {
+            const username = peer.username;
             try {
               await peer.connection.setLocalDescription({ type: "rollback" });
-              console.warn("[Voice] voice-answer: rolled back failed local offer", {
+              console.error("[Voice] voice-answer: rolled back failed local offer", {
                 from: data.from.id,
                 negotiationId: data.negotiationId,
                 error: msg,
               });
             } catch (rollbackErr) {
-              console.warn("[Voice] voice-answer: rollback failed", {
+              console.error("[Voice] voice-answer: rollback failed", {
                 from: data.from.id,
                 negotiationId: data.negotiationId,
                 error: String(rollbackErr && (rollbackErr.message || rollbackErr)),
               });
             } finally {
               peer._pendingLocalOfferId = null;
+            }
+
+            const rebuiltPeer = this.peers.get(data.from.id);
+            if (rebuiltPeer?.connection?.signalingState !== "stable") {
+              console.error("[Voice] voice-answer: peer remained non-stable after rollback, rebuilding", {
+                from: data.from.id,
+                negotiationId: data.negotiationId,
+                signalingState: rebuiltPeer?.connection?.signalingState,
+              });
+              this._removePeer(data.from.id);
+              await this._createPeer(data.from.id, username, false);
             }
             return;
           }
