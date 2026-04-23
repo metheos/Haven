@@ -157,7 +157,14 @@ class VoiceManager {
       if (peer) {
         try {
           const expectedNegotiationId = peer._pendingLocalOfferId;
+          console.log("[Voice] voice-answer received", {
+            from: data.from.id,
+            negotiationId: data.negotiationId,
+            expectedNegotiationId,
+            signalingState: peer.connection.signalingState,
+          });
           if (expectedNegotiationId && data.negotiationId && data.negotiationId !== expectedNegotiationId) {
+            console.log("[Voice] voice-answer: stale negotiationId, ignoring");
             return;
           }
 
@@ -166,6 +173,7 @@ class VoiceManager {
           if (peer.connection.signalingState === "have-local-offer") {
             await peer.connection.setRemoteDescription(new RTCSessionDescription(data.answer));
             peer._pendingLocalOfferId = null;
+            console.log("[Voice] voice-answer: applied successfully", { from: data.from.id });
             peer._remoteUfrag = this._extractSdpUfrag(peer.connection.remoteDescription?.sdp || "");
             await this._flushQueuedRemoteCandidates(data.from.id);
           }
@@ -1370,6 +1378,8 @@ class VoiceManager {
     }
 
     const conn = peer.connection;
+    const offerVideoCount = (offer.sdp || "").split("\n").filter((l) => l.startsWith("m=video")).length;
+    console.log("[Voice] _acceptIncomingOffer", { userId, negotiationId, signalingState: conn.signalingState, offerVideoSections: offerVideoCount });
 
     // Only rollback when we actually have a local offer pending.
     if (conn.signalingState === "have-local-offer") {
@@ -1462,10 +1472,18 @@ class VoiceManager {
       return;
     }
 
+    console.log(`[Voice] _renegotiateStreamForLateJoiner attempt=${attempt}`, {
+      type,
+      userId,
+      signalingState: conn?.signalingState,
+      hasPeer: !!peer,
+    });
+
     // New joiners may not have a peer yet (or signaling may still be mid-offer/answer).
     // Retry a few times instead of dropping the renegotiation request.
     if (!conn || conn.signalingState !== "stable") {
       if (attempt >= 12) {
+        console.warn("[Voice] _renegotiateStreamForLateJoiner: gave up after 12 attempts", { type, userId, signalingState: conn?.signalingState });
         this._clearLateRenegotiationRetry(retryKey);
         return;
       }
@@ -1571,6 +1589,16 @@ class VoiceManager {
         const settings = track.getSettings ? track.getSettings() : {};
         const isScreenTrack = !!settings.displaySurface || this.screenSharers.has(userId);
         const isWebcamTrack = !settings.displaySurface && this.webcamUsers.has(userId);
+        console.log("[Voice] ontrack video", {
+          userId,
+          readyState: track.readyState,
+          muted: track.muted,
+          isScreenTrack,
+          isWebcamTrack,
+          inScreenSharers: this.screenSharers.has(userId),
+          inWebcamUsers: this.webcamUsers.has(userId),
+          hasSourceStream: !!sourceStream,
+        });
 
         if (isWebcamTrack && !isScreenTrack) {
           // Route to webcam callback
@@ -1589,6 +1617,12 @@ class VoiceManager {
           // Screen share video
           if (sourceStream) knownScreenStreamIds.add(sourceStream.id);
           const videoStream = sourceStream || new MediaStream([track]);
+          console.log("[Voice] routing to onScreenStream", {
+            userId,
+            hasCallback: !!this.onScreenStream,
+            streamActive: videoStream.active,
+            trackCount: videoStream.getTracks().length,
+          });
           if (this.onScreenStream) this.onScreenStream(userId, videoStream);
           track.onunmute = () => {
             setTimeout(() => {
