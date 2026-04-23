@@ -1195,7 +1195,7 @@ app.post('/api/upload-role-icon', uploadLimiter, (req, res) => {
 // Backwards-compat: ?mode=structure → channels,users,settings ;
 //                   ?mode=full      → channels,users,settings,messages,files
 // Token may be passed via ?token=... so the browser can trigger a normal download.
-const ALL_BACKUP_SECTIONS = ['channels', 'users', 'settings', 'messages', 'files'];
+const ALL_BACKUP_SECTIONS = ['channels', 'users', 'settings', 'messages', 'dms', 'files'];
 
 // Build a backup zip buffer from the requested sections. Returns { buf, filename, mode, include }.
 // Used by both the admin download endpoint and the auto-backup scheduler.
@@ -1237,6 +1237,16 @@ function buildBackupBuffer(includeRaw) {
         try { data[tbl] = db.prepare(`SELECT * FROM ${tbl}`).all(); }
         catch { data[tbl] = []; }
       }
+      // Filter out DM channels (and their members) when DMs aren't included.
+      // DM bodies are E2E-encrypted, but the channel rows still leak who
+      // talked to whom — keep the metadata out unless the admin opted in.
+      if (!has('dms') && data.channels) {
+        const dmChannelIds = new Set(data.channels.filter(c => c.is_dm).map(c => c.id));
+        data.channels = data.channels.filter(c => !c.is_dm);
+        if (data.channel_members) {
+          data.channel_members = data.channel_members.filter(m => !dmChannelIds.has(m.channel_id));
+        }
+      }
       if (data.users) {
         data.users = data.users.map(u => {
           const safe = { ...u };
@@ -1262,6 +1272,20 @@ function buildBackupBuffer(includeRaw) {
       try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch {}
       const safePath = tmpDb.replace(/'/g, "''");
       db.prepare(`VACUUM INTO '${safePath}'`).run();
+      // If DMs are NOT included, scrub them from the cloned DB so the backup
+      // doesn't ship encrypted-but-still-private DM ciphertext (or attachment
+      // refs) to wherever the admin stores their backup files.
+      if (!has('dms')) {
+        const Database = require('better-sqlite3');
+        const tmp = new Database(tmpDb);
+        try {
+          tmp.exec('DELETE FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE is_dm = 1)');
+          tmp.exec('DELETE FROM channels WHERE is_dm = 1');
+          tmp.exec('VACUUM');
+        } finally {
+          tmp.close();
+        }
+      }
       zip.addLocalFile(tmpDb, '', 'haven.db');
     }
 
