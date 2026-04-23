@@ -1414,6 +1414,12 @@ class VoiceManager {
       if (!peer) throw new Error("Failed to create peer for incoming offer");
     }
 
+    // Socket retries can occasionally deliver the same offer twice.
+    // Ignore duplicate negotiation IDs we've already applied.
+    if (negotiationId && peer._lastHandledIncomingOfferId === negotiationId) {
+      return;
+    }
+
     const conn = peer.connection;
     const offerVideoCount = (offer.sdp || "").split("\n").filter((l) => l.startsWith("m=video")).length;
     console.log("[Voice] _acceptIncomingOffer", { userId, negotiationId, signalingState: conn.signalingState, offerVideoSections: offerVideoCount });
@@ -1449,6 +1455,9 @@ class VoiceManager {
 
     const answer = await conn.createAnswer();
     await conn.setLocalDescription(answer);
+    if (negotiationId) {
+      peer._lastHandledIncomingOfferId = negotiationId;
+    }
 
     this.socket.emit("voice-answer", {
       code: this.currentChannel,
@@ -1577,6 +1586,20 @@ class VoiceManager {
   // ── Private: Peer connection management ─────────────────
 
   async _createPeer(userId, username, createOffer) {
+    const existingPeer = this.peers.get(userId);
+    if (existingPeer) {
+      existingPeer.username = username || existingPeer.username;
+      if (createOffer && !existingPeer._initialOfferSent) {
+        try {
+          const sent = await this._emitLocalOffer(userId, existingPeer.connection, { iceRestart: false });
+          if (sent) existingPeer._initialOfferSent = true;
+        } catch (err) {
+          console.error("Error creating voice offer:", err);
+        }
+      }
+      return;
+    }
+
     const connection = new RTCPeerConnection(this.rtcConfig);
 
     // Add our local audio tracks
@@ -1748,12 +1771,16 @@ class VoiceManager {
       _pendingLocalOfferId: null,
       _pendingRemoteCandidates: [],
       _remoteUfrag: null,
+      _initialOfferSent: false,
+      _lastHandledIncomingOfferId: null,
     });
 
     // If we're the initiator, create and send an offer
     if (createOffer) {
       try {
-        await this._emitLocalOffer(userId, connection, { iceRestart: false });
+        const sent = await this._emitLocalOffer(userId, connection, { iceRestart: false });
+        const createdPeer = this.peers.get(userId);
+        if (createdPeer && sent) createdPeer._initialOfferSent = true;
       } catch (err) {
         console.error("Error creating voice offer:", err);
       }
