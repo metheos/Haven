@@ -1460,7 +1460,13 @@ class VoiceManager {
 
     const conn = peer.connection;
     const offerVideoCount = (offer.sdp || "").split("\n").filter((l) => l.startsWith("m=video")).length;
-    console.log("[Voice] _acceptIncomingOffer", { userId, negotiationId, allowPeerReset, signalingState: conn.signalingState, offerVideoSections: offerVideoCount });
+    console.log("[Voice] _acceptIncomingOffer", {
+      userId,
+      negotiationId,
+      allowPeerReset,
+      signalingState: conn.signalingState,
+      offerVideoSections: offerVideoCount,
+    });
 
     // Only rollback when we actually have a local offer pending.
     if (conn.signalingState === "have-local-offer") {
