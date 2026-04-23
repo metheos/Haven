@@ -13,6 +13,7 @@ class VoiceManager {
     this.isWebcamActive = false;
     this.peers = new Map(); // userId → { connection, stream, username }
     this._lateRenegotiationTimers = new Map(); // key(type:userId) -> timeout id
+    this._negotiationSeq = 0;
     this.currentChannel = null;
     this.isMuted = false;
     this.isDeafened = false;
@@ -135,7 +136,7 @@ class VoiceManager {
 
     // Received an offer — create peer & answer
     this.socket.on("voice-offer", async (data) => {
-      const { from, offer } = data;
+      const { from, offer, negotiationId } = data;
 
       let peer = this.peers.get(from.id);
       if (!peer) {
@@ -144,7 +145,7 @@ class VoiceManager {
       }
 
       try {
-        await this._acceptIncomingOffer(from.id, from.username, offer);
+        await this._acceptIncomingOffer(from.id, from.username, offer, negotiationId);
       } catch (err) {
         console.error("Error handling voice offer:", err);
       }
@@ -155,12 +156,26 @@ class VoiceManager {
       const peer = this.peers.get(data.from.id);
       if (peer) {
         try {
+          const expectedNegotiationId = peer._pendingLocalOfferId;
+          if (expectedNegotiationId && data.negotiationId && data.negotiationId !== expectedNegotiationId) {
+            return;
+          }
+
           // Only accept answer if we're actually waiting for one
           // (we may have rolled back our offer due to glare)
           if (peer.connection.signalingState === "have-local-offer") {
             await peer.connection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            peer._pendingLocalOfferId = null;
+            peer._remoteUfrag = this._extractSdpUfrag(peer.connection.remoteDescription?.sdp || "");
+            await this._flushQueuedRemoteCandidates(data.from.id);
           }
         } catch (err) {
+          const msg = String(err && (err.message || err));
+          if (msg.includes("Remote description indicates ICE restart but offer did not request ICE restart")) {
+            peer._pendingLocalOfferId = null;
+            this._restartIce(data.from.id, peer.connection);
+            return;
+          }
           console.error("Error handling voice answer:", err);
         }
       }
@@ -170,9 +185,23 @@ class VoiceManager {
     this.socket.on("voice-ice-candidate", async (data) => {
       const peer = this.peers.get(data.from.id);
       if (peer && data.candidate) {
+        const conn = peer.connection;
+        if (!conn.remoteDescription) {
+          if (!peer._pendingRemoteCandidates) peer._pendingRemoteCandidates = [];
+          peer._pendingRemoteCandidates.push(data.candidate);
+          return;
+        }
+
+        const candidateUfrag = data.candidate.usernameFragment || this._extractCandidateUfrag(data.candidate.candidate || "");
+        if (candidateUfrag && peer._remoteUfrag && candidateUfrag !== peer._remoteUfrag) {
+          return;
+        }
+
         try {
-          await peer.connection.addIceCandidate(new RTCIceCandidate(data.candidate));
+          await conn.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (err) {
+          const msg = String(err && (err.message || err));
+          if (msg.includes("Unknown ufrag")) return;
           console.error("Error adding ICE candidate:", err);
         }
       }
@@ -1298,19 +1327,23 @@ class VoiceManager {
 
   async _renegotiate(userId, connection) {
     try {
+      const peer = this.peers.get(userId);
+      const negotiationId = this._nextNegotiationId(userId);
+      if (peer) peer._pendingLocalOfferId = negotiationId;
       const offer = await connection.createOffer();
       await connection.setLocalDescription(offer);
       this.socket.emit("voice-offer", {
         code: this.currentChannel,
         targetUserId: userId,
         offer: offer,
+        negotiationId,
       });
     } catch (err) {
       console.error("Renegotiation failed:", err);
     }
   }
 
-  async _acceptIncomingOffer(userId, username, offer, allowPeerReset = true) {
+  async _acceptIncomingOffer(userId, username, offer, negotiationId, allowPeerReset = true) {
     let peer = this.peers.get(userId);
     if (!peer) {
       await this._createPeer(userId, username, false);
@@ -1323,6 +1356,7 @@ class VoiceManager {
     // Only rollback when we actually have a local offer pending.
     if (conn.signalingState === "have-local-offer") {
       await conn.setLocalDescription({ type: "rollback" });
+      peer._pendingLocalOfferId = null;
     } else if (conn.signalingState !== "stable") {
       // Wait briefly for transitional states to settle, then continue.
       await new Promise((resolve) => setTimeout(resolve, 120));
@@ -1339,11 +1373,14 @@ class VoiceManager {
         // then applying the same incoming offer to a fresh RTCPeerConnection.
         this._removePeer(userId);
         await this._createPeer(userId, username, false);
-        await this._acceptIncomingOffer(userId, username, offer, false);
+        await this._acceptIncomingOffer(userId, username, offer, negotiationId, false);
         return;
       }
       throw err;
     }
+
+    peer._remoteUfrag = this._extractSdpUfrag(conn.remoteDescription?.sdp || "");
+    await this._flushQueuedRemoteCandidates(userId);
 
     const answer = await conn.createAnswer();
     await conn.setLocalDescription(answer);
@@ -1352,7 +1389,48 @@ class VoiceManager {
       code: this.currentChannel,
       targetUserId: userId,
       answer: answer,
+      negotiationId,
     });
+  }
+
+  _nextNegotiationId(userId) {
+    this._negotiationSeq += 1;
+    return `${userId}:${Date.now()}:${this._negotiationSeq}`;
+  }
+
+  _extractSdpUfrag(sdp) {
+    if (!sdp) return null;
+    const match = /a=ice-ufrag:([^\r\n]+)/.exec(sdp);
+    return match ? match[1].trim() : null;
+  }
+
+  _extractCandidateUfrag(candidateLine) {
+    if (!candidateLine) return null;
+    const match = /\bufrag\s+([^\s]+)/.exec(candidateLine);
+    return match ? match[1].trim() : null;
+  }
+
+  async _flushQueuedRemoteCandidates(userId) {
+    const peer = this.peers.get(userId);
+    if (!peer || !peer._pendingRemoteCandidates || peer._pendingRemoteCandidates.length === 0) return;
+    const conn = peer.connection;
+    if (!conn.remoteDescription) return;
+
+    const queued = peer._pendingRemoteCandidates;
+    peer._pendingRemoteCandidates = [];
+
+    for (const c of queued) {
+      const candidateUfrag = c.usernameFragment || this._extractCandidateUfrag(c.candidate || "");
+      if (candidateUfrag && peer._remoteUfrag && candidateUfrag !== peer._remoteUfrag) {
+        continue;
+      }
+      try {
+        await conn.addIceCandidate(new RTCIceCandidate(c));
+      } catch (err) {
+        const msg = String(err && (err.message || err));
+        if (msg.includes("Unknown ufrag")) continue;
+      }
+    }
   }
 
   async _renegotiateStreamForLateJoiner(type, userId, attempt = 0) {
@@ -1571,11 +1649,21 @@ class VoiceManager {
       }
     };
 
-    this.peers.set(userId, { connection, stream: remoteAudioStream, username });
+    this.peers.set(userId, {
+      connection,
+      stream: remoteAudioStream,
+      username,
+      _pendingLocalOfferId: null,
+      _pendingRemoteCandidates: [],
+      _remoteUfrag: null,
+    });
 
     // If we're the initiator, create and send an offer
     if (createOffer) {
       try {
+        const negotiationId = this._nextNegotiationId(userId);
+        const createdPeer = this.peers.get(userId);
+        if (createdPeer) createdPeer._pendingLocalOfferId = negotiationId;
         const offer = await connection.createOffer();
         await connection.setLocalDescription(offer);
 
@@ -1583,6 +1671,7 @@ class VoiceManager {
           code: this.currentChannel,
           targetUserId: userId,
           offer: offer,
+          negotiationId,
         });
       } catch (err) {
         console.error("Error creating voice offer:", err);
@@ -1606,12 +1695,16 @@ class VoiceManager {
 
   async _restartIce(userId, connection) {
     try {
+      const peer = this.peers.get(userId);
+      const negotiationId = this._nextNegotiationId(userId);
+      if (peer) peer._pendingLocalOfferId = negotiationId;
       const offer = await connection.createOffer({ iceRestart: true });
       await connection.setLocalDescription(offer);
       this.socket.emit("voice-offer", {
         code: this.currentChannel,
         targetUserId: userId,
         offer: offer,
+        negotiationId,
       });
     } catch (err) {
       console.error("ICE restart failed for", userId, "— removing peer:", err);
