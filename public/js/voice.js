@@ -175,12 +175,36 @@ class VoiceManager {
           // Only accept answer if we're actually waiting for one
           // (we may have rolled back our offer due to glare)
           if (peer.connection.signalingState === "have-local-offer") {
-            await Promise.race([
-              peer.connection.setRemoteDescription(new RTCSessionDescription(data.answer)),
-              new Promise((_, reject) => {
-                setTimeout(() => reject(new Error("Timed out applying remote answer")), 3000);
-              }),
-            ]);
+            const pendingNegotiationId = peer._pendingLocalOfferId;
+            const answerWatchdog = setTimeout(() => {
+              const currentPeer = this.peers.get(data.from.id);
+              if (!currentPeer) return;
+              if (currentPeer !== peer) return;
+              if (currentPeer._pendingLocalOfferId !== pendingNegotiationId) return;
+              if (currentPeer.connection.signalingState !== "have-local-offer") return;
+
+              console.error("[Voice] voice-answer: apply timed out, rebuilding peer", {
+                from: data.from.id,
+                negotiationId: data.negotiationId,
+                signalingState: currentPeer.connection.signalingState,
+              });
+
+              const username = currentPeer.username;
+              this._removePeer(data.from.id);
+              this._createPeer(data.from.id, username, false).catch((rebuildErr) => {
+                console.error("[Voice] voice-answer: peer rebuild failed", rebuildErr);
+              });
+            }, 3000);
+
+            try {
+              await peer.connection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } finally {
+              clearTimeout(answerWatchdog);
+            }
+
+            if (this.peers.get(data.from.id) !== peer) {
+              return;
+            }
             peer._pendingLocalOfferId = null;
             console.log("[Voice] voice-answer: applied successfully", { from: data.from.id });
             peer._remoteUfrag = this._extractSdpUfrag(peer.connection.remoteDescription?.sdp || "");
