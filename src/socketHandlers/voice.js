@@ -200,6 +200,11 @@ module.exports = function register(socket, ctx) {
   const MAX_SDP_SIZE = 16384; // 16 KB — generous limit for SDP offers/answers
   const MAX_ICE_SIZE = 2048; // 2 KB — ICE candidates are small
 
+  // Dedup map: "senderId→targetId:negotiationId" → expiry timestamp
+  // Prevents the same offer being forwarded to the same recipient more than once.
+  if (!ctx._recentForwardedOffers) ctx._recentForwardedOffers = new Map();
+  const recentOffers = ctx._recentForwardedOffers;
+
   socket.on("voice-offer", (data) => {
     if (!data || typeof data !== "object") return;
     if (!isString(data.code, 8, 8) || !isInt(data.targetUserId) || !data.offer) return;
@@ -207,6 +212,21 @@ module.exports = function register(socket, ctx) {
     if (!voiceUsers.get(data.code)?.has(socket.user.id)) return;
     const target = voiceUsers.get(data.code)?.get(data.targetUserId);
     if (target) {
+      // Server-side dedup: drop duplicate negotiationId from same sender to same target.
+      if (typeof data.negotiationId === "string") {
+        const dedupKey = `${socket.user.id}→${data.targetUserId}:${data.negotiationId}`;
+        const now = Date.now();
+        if (recentOffers.has(dedupKey) && recentOffers.get(dedupKey) > now) {
+          return; // duplicate — drop it
+        }
+        recentOffers.set(dedupKey, now + 10000);
+        // Evict expired entries periodically to avoid memory growth
+        if (recentOffers.size > 500) {
+          for (const [k, exp] of recentOffers) {
+            if (exp <= now) recentOffers.delete(k);
+          }
+        }
+      }
       io.to(target.socketId).emit("voice-offer", {
         from: { id: socket.user.id, username: socket.user.displayName },
         offer: data.offer,

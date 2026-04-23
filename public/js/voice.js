@@ -1430,8 +1430,10 @@ class VoiceManager {
     let peer = this.peers.get(userId);
 
     // Deduplicate: ignore any offer we already processed or are processing right now.
-    // These guards must be synchronous (no await between check and set) so two
-    // queued calls with the same negotiationId can never both slip through.
+    // Both flags are set synchronously (before any await) so concurrent or sequential
+    // duplicate deliveries of the same negotiationId are always blocked.
+    // _lastHandledIncomingOfferId is set eagerly so a failure mid-processing still
+    // prevents re-processing (sharer will retry with a fresh negotiationId if needed).
     if (negotiationId && peer) {
       if (peer._lastHandledIncomingOfferId === negotiationId) {
         return;
@@ -1440,6 +1442,7 @@ class VoiceManager {
         return;
       }
       peer._incomingOfferInFlightId = negotiationId;
+      peer._lastHandledIncomingOfferId = negotiationId;
     }
 
     if (!peer) {
@@ -1491,9 +1494,6 @@ class VoiceManager {
 
     const answer = await conn.createAnswer();
     await conn.setLocalDescription(answer);
-    if (negotiationId) {
-      peer._lastHandledIncomingOfferId = negotiationId;
-    }
 
     this.socket.emit("voice-answer", {
       code: this.currentChannel,
