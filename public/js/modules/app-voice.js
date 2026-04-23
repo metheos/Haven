@@ -952,8 +952,27 @@ export default {
       // video frames inside a display:none container, causing a black rectangle
       // that only fixes itself on layout reflow (e.g. resizing the slider).
       container.style.display = "flex";
+      container.classList.remove("all-streams-popped");
+
+      // If this tile was previously hidden/closed, make it visible again when
+      // a fresh stream arrives for the same user.
+      if (tile.dataset.hidden === "true") {
+        tile.style.display = "";
+        delete tile.dataset.hidden;
+      }
+
+      // If the tile was previously popped out but its PiP overlay is gone,
+      // clear stale popped-out state so the inline video isn't CSS-hidden.
+      const pipId = `stream-pip-${userId || "self"}`;
+      if (tile.classList.contains("stream-popped-out") && !document.getElementById(pipId)) {
+        tile.classList.remove("stream-popped-out");
+        this._updateStreamContainerCollapse();
+      }
 
       const videoEl = tile.querySelector("video");
+      videoEl.style.display = "";
+      videoEl.muted = true;
+      videoEl.defaultMuted = true;
       // Force a layout reflow so the video element has real dimensions
       void videoEl.offsetHeight;
       // Force re-render if the same stream is re-assigned (otherwise it's a no-op → black screen)
@@ -982,6 +1001,15 @@ export default {
           }
           videoEl.play().catch(() => {});
           setTimeout(_retryPlay, 500);
+        } else {
+          console.log("[VoiceUI] screen video rendering", {
+            userId,
+            videoWidth: videoEl.videoWidth,
+            videoHeight: videoEl.videoHeight,
+            readyState: videoEl.readyState,
+            hidden: tile.dataset.hidden === "true",
+            poppedOut: tile.classList.contains("stream-popped-out"),
+          });
         }
       };
       setTimeout(_retryPlay, 600);
