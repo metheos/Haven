@@ -1246,6 +1246,11 @@ class VoiceManager {
     return `${mime}${fmtp}`;
   }
 
+  _shouldForceCodecPreferences() {
+    const ua = navigator.userAgent || "";
+    return !/firefox\//i.test(ua);
+  }
+
   /**
    * Enable hardware acceleration for video by prioritizing hardware-accelerated codecs.
    * H.264 is commonly hardware-accelerated on most devices. This should be called
@@ -1253,6 +1258,7 @@ class VoiceManager {
    */
   _preferHardwareAcceleration(connection) {
     try {
+      const shouldForceCodecPreferences = this._shouldForceCodecPreferences();
       const senders = connection.getSenders();
       const transceivers = connection.getTransceivers();
       for (const sender of senders) {
@@ -1305,7 +1311,8 @@ class VoiceManager {
 
           const defaultPrimaryCodec = capCodecs.find((c) => this._isPrimaryVideoCodec(c));
           const preferredPrimaryCodec = sortedCodecs.find((c) => this._isPrimaryVideoCodec(c));
-          const codecMode = this.videoCodecMode || "preferhwaccel";
+          const requestedCodecMode = this.videoCodecMode || "preferhwaccel";
+          const codecMode = shouldForceCodecPreferences ? requestedCodecMode : "auto";
           this._updateCodecDebugState({
             mode: codecMode,
             defaultCodec: this._getCodecLabel(defaultPrimaryCodec),
@@ -1329,7 +1336,10 @@ class VoiceManager {
             );
             if (transceiver && typeof transceiver.setCodecPreferences === "function") {
               try {
-                if (codecMode === "auto") {
+                if (!shouldForceCodecPreferences) {
+                  transceiver.setCodecPreferences([]);
+                  console.log("[Voice] Firefox detected; using browser default codec negotiation order");
+                } else if (codecMode === "auto") {
                   transceiver.setCodecPreferences([]);
                   console.log("[Voice] Codec preference mode is auto; using browser default negotiation order");
                 } else {
