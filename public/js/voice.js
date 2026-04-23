@@ -1005,37 +1005,46 @@ class VoiceManager {
 
       try {
         const stats = await sender.getStats();
-        let foundVideoReport = false;
-        stats.forEach((report) => {
-          if (report.type === "outbound-rtp" && report.kind === "video") {
-            foundVideoReport = true;
-            const codec = report.codecId ? stats.get(report.codecId) : null;
-            const activeMimeType = codec?.mimeType || "unknown";
-            const sample = this._videoStatsSamples.get(sender);
-            let bitrateBps = 0;
-            if (sample && typeof report.bytesSent === "number" && typeof report.timestamp === "number") {
-              const bytesDelta = report.bytesSent - sample.bytesSent;
-              const timeDeltaMs = report.timestamp - sample.timestamp;
-              if (bytesDelta >= 0 && timeDeltaMs > 0) {
-                bitrateBps = (bytesDelta * 8 * 1000) / timeDeltaMs;
-              }
-            }
-            if (typeof report.bytesSent === "number" && typeof report.timestamp === "number") {
-              this._videoStatsSamples.set(sender, {
-                bytesSent: report.bytesSent,
-                timestamp: report.timestamp,
-              });
-            }
+        let selectedReport = null;
 
-            this._updateCodecDebugState({
-              activeCodec: activeMimeType,
-              liveStats: this._formatCodecLiveStats(report, bitrateBps),
-            });
-          }
+        stats.forEach((report) => {
+          if (selectedReport) return;
+          const mediaType = report.kind || report.mediaType;
+          if (report.type !== "outbound-rtp" || mediaType !== "video") return;
+          // Prefer report tied to this sender track where available.
+          if (report.trackIdentifier && sender.track && report.trackIdentifier !== sender.track.id) return;
+          selectedReport = report;
         });
-        if (!foundVideoReport) {
-          this._updateCodecDebugState({ liveStats: null });
+
+        if (!selectedReport) {
+          this._updateCodecDebugState({ activeCodec: null, liveStats: null });
+          return;
         }
+
+        const codec = selectedReport.codecId ? stats.get(selectedReport.codecId) : null;
+        const activeMimeType = (codec?.mimeType || "unknown").toLowerCase();
+        const isVideoCodec = activeMimeType.startsWith("video/");
+
+        const sample = this._videoStatsSamples.get(sender);
+        let bitrateBps = 0;
+        if (sample && typeof selectedReport.bytesSent === "number" && typeof selectedReport.timestamp === "number") {
+          const bytesDelta = selectedReport.bytesSent - sample.bytesSent;
+          const timeDeltaMs = selectedReport.timestamp - sample.timestamp;
+          if (bytesDelta >= 0 && timeDeltaMs > 0) {
+            bitrateBps = (bytesDelta * 8 * 1000) / timeDeltaMs;
+          }
+        }
+        if (typeof selectedReport.bytesSent === "number" && typeof selectedReport.timestamp === "number") {
+          this._videoStatsSamples.set(sender, {
+            bytesSent: selectedReport.bytesSent,
+            timestamp: selectedReport.timestamp,
+          });
+        }
+
+        this._updateCodecDebugState({
+          activeCodec: isVideoCodec ? activeMimeType : null,
+          liveStats: this._formatCodecLiveStats(selectedReport, bitrateBps),
+        });
       } catch (e) {
         const message = e?.message || String(e);
         const unusable = /no longer usable|not usable|invalid state|closed/i.test(message);
@@ -1273,22 +1282,31 @@ class VoiceManager {
                   return;
                 }
                 const stats = await sender.getStats();
+                let selectedReport = null;
                 stats.forEach((report) => {
-                  if (report.type === "outbound-rtp" && report.kind === "video") {
-                    const codec = report.codecId ? stats.get(report.codecId) : null;
-                    const activeMimeType = codec?.mimeType || "unknown";
-                    const fps = report.framesPerSecond ?? report.frameRate ?? "n/a";
-                    console.log(
-                      "[Voice] Active video codec:",
-                      activeMimeType,
-                      `| Mode: ${codecMode}`,
-                      `| Default(no intervention): ${this._getCodecLabel(defaultPrimaryCodec)}`,
-                      `| Preferred: ${this._getCodecLabel(preferredPrimaryCodec)}`,
-                      `| Frames: ${report.framesSent || 0} | Rate: ${fps}fps`,
-                    );
-                    this._updateCodecDebugState({ activeCodec: activeMimeType });
-                  }
+                  if (selectedReport) return;
+                  const mediaType = report.kind || report.mediaType;
+                  if (report.type !== "outbound-rtp" || mediaType !== "video") return;
+                  if (report.trackIdentifier && sender.track && report.trackIdentifier !== sender.track.id) return;
+                  selectedReport = report;
                 });
+
+                if (!selectedReport) return;
+
+                const codec = selectedReport.codecId ? stats.get(selectedReport.codecId) : null;
+                const activeMimeType = codec?.mimeType || "unknown";
+                const fps = selectedReport.framesPerSecond ?? selectedReport.frameRate ?? "n/a";
+                console.log(
+                  "[Voice] Active video codec:",
+                  activeMimeType,
+                  `| Mode: ${codecMode}`,
+                  `| Default(no intervention): ${this._getCodecLabel(defaultPrimaryCodec)}`,
+                  `| Preferred: ${this._getCodecLabel(preferredPrimaryCodec)}`,
+                  `| Frames: ${selectedReport.framesSent || 0} | Rate: ${fps}fps`,
+                );
+                if (String(activeMimeType).toLowerCase().startsWith("video/")) {
+                  this._updateCodecDebugState({ activeCodec: activeMimeType });
+                }
               } catch (e) {
                 console.warn("[Voice] Could not read video stats:", e.message);
               }
@@ -1502,6 +1520,15 @@ class VoiceManager {
 
   async _createPeer(userId, username, createOffer) {
     const connection = new RTCPeerConnection(this.rtcConfig);
+
+    // When we initiate the call, advertise video receive capability up front
+    // so late joiners can receive active screen/webcam streams in the first answer.
+    if (createOffer) {
+      try {
+        connection.addTransceiver("video", { direction: "recvonly" });
+        connection.addTransceiver("video", { direction: "recvonly" });
+      } catch {}
+    }
 
     // Add our local audio tracks
     if (this.localStream) {
