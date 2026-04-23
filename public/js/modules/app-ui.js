@@ -1524,6 +1524,84 @@ _setupUI() {
     }
   });
 
+  const dmPipReplyClose = document.getElementById('dm-pip-reply-close-btn');
+  if (dmPipReplyClose) dmPipReplyClose.addEventListener('click', () => this._clearDMPiPReply?.());
+
+  // Delegated message-action handler for the DM PiP.  Mirrors the main
+  // #messages handler so reactions/reply/edit/etc. work inside the PiP.
+  const dmPipMessages = document.getElementById('dm-pip-messages');
+  if (dmPipMessages) {
+    dmPipMessages.addEventListener('click', (e) => {
+      // Toolbar action buttons
+      const actionBtn = e.target.closest('[data-action]');
+      if (actionBtn) {
+        const msgEl = actionBtn.closest('.message, .message-compact');
+        if (!msgEl) return;
+        const msgId = parseInt(msgEl.dataset.msgId, 10);
+        if (!msgId) return;
+        const action = actionBtn.dataset.action;
+        if (action === 'react') {
+          this._showReactionPicker?.(msgEl, msgId);
+        } else if (action === 'reply') {
+          this._setDMPiPReply?.(msgEl, msgId);
+        } else if (action === 'quote') {
+          this._quoteDMPiPMessage?.(msgEl);
+        } else if (action === 'edit') {
+          this._startEditMessage?.(msgEl, msgId);
+        } else if (action === 'delete') {
+          if (confirm(t('confirm.delete_message'))) {
+            this.socket.emit('delete-message', { messageId: msgId });
+          }
+        } else if (action === 'pin') {
+          this.socket.emit('pin-message', { messageId: msgId });
+        } else if (action === 'unpin') {
+          this.socket.emit('unpin-message', { messageId: msgId });
+        } else if (action === 'archive') {
+          this.socket.emit('archive-message', { messageId: msgId });
+        } else if (action === 'unarchive') {
+          this.socket.emit('unarchive-message', { messageId: msgId });
+        } else if (action === 'copy-link') {
+          this._copyChannelLink?.(this._activeDMPip, msgId);
+        } else if (action === 'thread') {
+          // Threads aren't supported inside the PiP — escalate to full pane.
+          const code = this._activeDMPip;
+          this._closeDMPiP?.();
+          if (code) this.switchChannel(code);
+          this._openThread?.(msgId);
+        }
+        return;
+      }
+      // Reaction badge toggle
+      const badge = e.target.closest('.reaction-badge');
+      if (badge) {
+        this._hideReactionPopout?.();
+        const msgEl = badge.closest('.message, .message-compact');
+        if (!msgEl) return;
+        const msgId = parseInt(msgEl.dataset.msgId, 10);
+        const emoji = badge.dataset.emoji;
+        if (!msgId || !emoji) return;
+        if (badge.classList.contains('own')) {
+          this.socket.emit('remove-reaction', { messageId: msgId, emoji });
+        } else {
+          this.socket.emit('add-reaction', { messageId: msgId, emoji });
+        }
+        return;
+      }
+      // Reply banner click → jump to original (within the PiP if present)
+      const replyBanner = e.target.closest('.reply-banner');
+      if (replyBanner) {
+        const replyMsgId = parseInt(replyBanner.dataset.replyMsgId || '', 10);
+        if (!replyMsgId) return;
+        const target = dmPipMessages.querySelector(`[data-msg-id="${replyMsgId}"]`);
+        if (target) {
+          target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          target.classList.add('highlight-flash');
+          setTimeout(() => target.classList.remove('highlight-flash'), 1200);
+        }
+      }
+    });
+  }
+
   const threadSendBtn = document.getElementById('thread-send-btn');
   if (threadSendBtn) threadSendBtn.addEventListener('click', () => this._sendThreadMessage());
 

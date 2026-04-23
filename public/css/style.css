@@ -3226,9 +3226,12 @@ html.rgb-cycling *::after {
 }
 
 /* ── DM Picture-in-Picture floating panel ──────────
-   A draggable/resizable overlay that hosts a DM without
-   leaving the user's current channel. Mirrors the thread
-   PiP pattern.                                          */
+   A draggable/resizable overlay that hosts a full-fidelity DM
+   without leaving the user's current channel. Reuses the same
+   message DOM (.message / .message-compact) as the main pane,
+   with avatars hidden and spacing tightened for the smaller
+   footprint. A subtle banner image (server banner) bleeds
+   through behind the messages.                        */
 .dm-pip-panel {
   position: fixed;
   z-index: 950;
@@ -3243,47 +3246,159 @@ html.rgb-cycling *::after {
   min-width: 320px;
   min-height: 280px;
 }
+/* Banner background — rendered behind everything else */
+.dm-pip-banner {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.18;
+  filter: saturate(1.1);
+  pointer-events: none;
+  z-index: 0;
+}
+.dm-pip-panel::after {
+  /* Soft dark gradient overlay so message text remains readable
+     when a banner image is set. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+.dm-pip-panel.no-banner::after { background: transparent; }
+.dm-pip-header,
+.dm-pip-messages,
+.dm-pip-reply-bar,
+.dm-pip-input-area { position: relative; z-index: 1; }
 .dm-pip-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 10px;
-  background: var(--bg-secondary, #2a2a2a);
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--border, #444);
   cursor: move;
   user-select: none;
 }
-.dm-pip-icon { font-size: 14px; }
-.dm-pip-title { font-weight: 600; }
+.dm-pip-avatar-wrap {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-secondary, #2a2a2a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.dm-pip-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.dm-pip-avatar-wrap.avatar-square { border-radius: 6px; }
+.dm-pip-avatar-wrap.avatar-rounded { border-radius: 8px; }
+.dm-pip-title { font-weight: 600; font-size: 13px; }
 .dm-pip-spacer { flex: 1; }
 .dm-pip-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 10px;
+  padding: 6px 8px 8px;
   font-size: 13px;
   line-height: 1.4;
 }
-.dm-pip-message {
-  margin-bottom: 6px;
-  word-wrap: break-word;
-}
-.dm-pip-author {
-  font-weight: 600;
-  margin-right: 6px;
-  color: var(--text-secondary, #aaa);
-}
 .dm-pip-loading {
-  opacity: 0.6;
+  opacity: 0.7;
   font-style: italic;
   text-align: center;
   padding: 12px;
 }
+/* ── Reuse main message DOM but compact it for PiP ── */
+.dm-pip-messages .message,
+.dm-pip-messages .message-compact {
+  padding: 2px 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.dm-pip-messages .message-row {
+  gap: 0;
+}
+/* Hide per-message avatars — header already shows the partner pfp */
+.dm-pip-messages .message-avatar,
+.dm-pip-messages .message-avatar-img {
+  display: none !important;
+}
+.dm-pip-messages .message .message-body,
+.dm-pip-messages .message-compact .message-body {
+  margin-left: 0;
+  padding-left: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.dm-pip-messages .message-header {
+  gap: 6px;
+  margin-bottom: 1px;
+}
+.dm-pip-messages .message-author { font-size: 12.5px; font-weight: 600; }
+.dm-pip-messages .message-time { font-size: 10.5px; opacity: 0.7; }
+.dm-pip-messages .message-content {
+  font-size: 13px;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+.dm-pip-messages .message-compact .compact-time {
+  font-size: 10px;
+  width: 36px;
+  text-align: right;
+  padding-right: 4px;
+}
+/* Slim reactions, polls, link previews to fit the smaller frame */
+.dm-pip-messages .reactions-row { gap: 4px; margin-top: 2px; }
+.dm-pip-messages .reaction-badge {
+  padding: 1px 6px;
+  font-size: 11px;
+}
+.dm-pip-messages .reply-banner {
+  font-size: 11px;
+  padding: 2px 6px;
+  margin-bottom: 2px;
+}
+.dm-pip-messages img,
+.dm-pip-messages video,
+.dm-pip-messages .link-preview {
+  max-width: 100%;
+}
+.dm-pip-messages .link-preview { font-size: 11px; }
+/* Toolbar buttons stay clickable but become more compact */
+.dm-pip-messages .msg-toolbar { font-size: 11px; }
+.dm-pip-messages .msg-toolbar button { padding: 2px 4px; }
+.dm-pip-reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(20, 20, 20, 0.65);
+  border-top: 1px solid var(--border, #444);
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+}
+.dm-pip-reply-bar > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dm-pip-input-area {
   display: flex;
   gap: 6px;
   padding: 8px;
   border-top: 1px solid var(--border, #444);
-  background: var(--bg-secondary, #2a2a2a);
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .dm-pip-input {
   flex: 1;
@@ -3304,6 +3419,9 @@ html.rgb-cycling *::after {
   border-radius: 6px;
   padding: 0 10px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .dm-pip-send:hover { filter: brightness(1.1); }
 

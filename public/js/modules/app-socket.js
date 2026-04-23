@@ -794,7 +794,7 @@ _setupSocketListeners() {
 
   // ── Reactions ──────────────────────────────────────
   this.socket.on('reactions-updated', (data) => {
-    if (data.channelCode === this.currentChannel) {
+    if (data.channelCode === this.currentChannel || data.channelCode === this._activeDMPip) {
       this._updateMessageReactions(data.messageId, data.reactions);
     }
   });
@@ -1099,31 +1099,28 @@ _setupSocketListeners() {
   });
 
   // ── Message edit / delete ──────────────────────────
-  this.socket.on('message-edited', async (data) => {    if (data.channelCode === this.currentChannel) {
-      const msgEl = document.querySelector(`[data-msg-id="${data.messageId}"]`);
-      if (!msgEl) return;
-      const contentEl = msgEl.querySelector('.message-content, .thread-msg-content');
-      if (contentEl) {
-        // E2E: decrypt if needed
-        let displayContent = data.content;
-        if (HavenE2E.isEncrypted(data.content)) {
-          const partner = this._getE2EPartner();
-          if (partner) {
-            try {
-              const plain = await this.e2e.decrypt(data.content, partner.userId, partner.publicKeyJwk);
-              if (plain !== null) displayContent = plain;
-              else displayContent = t('header.messages.decrypt_failed');
-            } catch { displayContent = t('header.messages.decrypt_failed'); }
-          } else {
-            displayContent = t('header.messages.decrypt_failed');
-          }
+  this.socket.on('message-edited', async (data) => {    if (data.channelCode === this.currentChannel || data.channelCode === this._activeDMPip) {
+      const msgEls = document.querySelectorAll(`[data-msg-id="${data.messageId}"]`);
+      if (!msgEls.length) return;
+      // E2E: decrypt once if needed (same content for both copies)
+      let displayContent = data.content;
+      if (HavenE2E.isEncrypted(data.content)) {
+        const partner = this._getE2EPartnerFor(data.channelCode);
+        if (partner) {
+          try {
+            const plain = await this.e2e.decrypt(data.content, partner.userId, partner.publicKeyJwk);
+            if (plain !== null) displayContent = plain;
+            else displayContent = t('header.messages.decrypt_failed');
+          } catch { displayContent = t('header.messages.decrypt_failed'); }
+        } else {
+          displayContent = t('header.messages.decrypt_failed');
         }
+      }
+      msgEls.forEach((msgEl) => {
+        const contentEl = msgEl.querySelector('.message-content, .thread-msg-content');
+        if (!contentEl) return;
         contentEl.innerHTML = this._formatContent(displayContent);
-        // Keep raw content in sync so the edit box is always seeded with
-        // the clean markdown source (not textContent which strips formatting
-        // and includes the '(edited)' tag text).
         msgEl.dataset.rawContent = data.content;
-        // Add or update edited indicator
         let editedTag = msgEl.querySelector('.edited-tag');
         if (!editedTag) {
           editedTag = document.createElement('span');
@@ -1132,7 +1129,7 @@ _setupSocketListeners() {
           editedTag.textContent = t('header.messages.edited');
           contentEl.appendChild(editedTag);
         }
-      }
+      });
     }
   });
 
@@ -1154,16 +1151,15 @@ _setupSocketListeners() {
   });
 
   this.socket.on('message-deleted', (data) => {
-    if (data.channelCode === this.currentChannel) {
-      const msgEl = document.querySelector(`[data-msg-id="${data.messageId}"]`);
-      if (msgEl) {
-        // If the next sibling is a compact message (grouped), promote it to a full message
+    if (data.channelCode === this.currentChannel || data.channelCode === this._activeDMPip) {
+      const msgEls = document.querySelectorAll(`[data-msg-id="${data.messageId}"]`);
+      msgEls.forEach((msgEl) => {
         const next = msgEl.nextElementSibling;
         if (next && next.classList.contains('message-compact')) {
           try { this._promoteCompactToFull(next); } catch (e) { /* don't let promotion failure block removal */ }
         }
         msgEl.remove();
-      }
+      });
     }
   });
 

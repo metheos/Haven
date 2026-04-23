@@ -983,24 +983,20 @@ _renderReactions(msgId, reactions) {
 },
 
 _updateMessageReactions(messageId, reactions) {
-  const msgEl = document.querySelector(`[data-msg-id="${messageId}"]`);
-  if (!msgEl) return;
+  // Update both the main pane and the DM PiP if either contains this message.
+  const els = document.querySelectorAll(`[data-msg-id="${messageId}"]`);
+  if (!els.length) return;
 
   const wasAtBottom = this._coupledToBottom;
-
-  // Remove old reactions row
-  const oldRow = msgEl.querySelector('.reactions-row');
-  if (oldRow) oldRow.remove();
-
-  // Add new reactions
   const html = this._renderReactions(messageId, reactions);
-  if (!html) { if (wasAtBottom) this._scrollToBottom(true); return; }
 
-  // Find where to insert — after main or thread message content
-  const content = msgEl.querySelector('.message-content, .thread-msg-content');
-  if (content) {
-    content.insertAdjacentHTML('afterend', html);
-  }
+  els.forEach((msgEl) => {
+    const oldRow = msgEl.querySelector('.reactions-row');
+    if (oldRow) oldRow.remove();
+    if (!html) return;
+    const content = msgEl.querySelector('.message-content, .thread-msg-content');
+    if (content) content.insertAdjacentHTML('afterend', html);
+  });
 
   if (wasAtBottom) this._scrollToBottom(true);
 },
@@ -1600,6 +1596,41 @@ _openDMPiP(code) {
   const titleEl = document.getElementById('dm-pip-title');
   if (titleEl) titleEl.textContent = ch.is_self_dm ? `📝 ${partnerName} (you)` : `@ ${partnerName}`;
 
+  // Header avatar — pulled from the partner's online presence (best effort)
+  const avatarWrap = document.getElementById('dm-pip-avatar-wrap');
+  if (avatarWrap) {
+    const partnerId = ch.dm_target && ch.dm_target.id;
+    const onlinePartner = partnerId && this.users
+      ? this.users.find(u => u.id === partnerId)
+      : null;
+    const avatarUrl = (onlinePartner && onlinePartner.avatar) || (ch.dm_target && ch.dm_target.avatar);
+    const shape = (onlinePartner && onlinePartner.avatarShape)
+      || (ch.dm_target && ch.dm_target.avatarShape)
+      || 'circle';
+    avatarWrap.className = `dm-pip-avatar-wrap avatar-${shape}`;
+    if (avatarUrl) {
+      avatarWrap.innerHTML = `<img src="${this._escapeHtml(avatarUrl)}" alt="">`;
+    } else {
+      const initial = (partnerName || '?').charAt(0).toUpperCase();
+      const color = this._getUserColor(partnerName || '');
+      avatarWrap.style.backgroundColor = color;
+      avatarWrap.textContent = initial;
+    }
+  }
+
+  // Banner background — use server banner as a subtle backdrop
+  const bannerEl = document.getElementById('dm-pip-banner');
+  const bannerUrl = this.serverSettings && this.serverSettings.server_banner;
+  if (bannerEl) {
+    if (bannerUrl) {
+      bannerEl.style.backgroundImage = `url("${bannerUrl.replace(/"/g, '\\"')}")`;
+      panel.classList.remove('no-banner');
+    } else {
+      bannerEl.style.backgroundImage = '';
+      panel.classList.add('no-banner');
+    }
+  }
+
   // Restore geometry from localStorage
   this._applyDMPiPGeometry(panel);
   // Bind drag once
@@ -1614,6 +1645,9 @@ _openDMPiP(code) {
   }
   this.socket.emit('get-messages', { code });
 
+  // Clear any stale reply state
+  this._clearDMPiPReply();
+
   // Focus input
   const input = document.getElementById('dm-pip-input');
   if (input) input.focus();
@@ -1621,6 +1655,7 @@ _openDMPiP(code) {
 
 _closeDMPiP() {
   this._activeDMPip = null;
+  this._dmPipReplyingTo = null;
   try { localStorage.removeItem('haven_active_dm_pip'); } catch {}
   const panel = document.getElementById('dm-pip-panel');
   if (panel) panel.style.display = 'none';
@@ -1689,30 +1724,97 @@ _bindDMPiPDrag() {
   }
 },
 
-// Render a DM message in the PiP panel (very minimal — text only)
+// Render a DM message in the PiP panel using the same DOM structure as
+// the main pane.  Avatars are hidden via CSS — partner pfp lives in the
+// header instead, since DMs are 1-on-1 and the per-row pfp is redundant.
 _appendDMPiPMessage(msg) {
   const list = document.getElementById('dm-pip-messages');
   if (!list) return;
-  // Skip if we're already showing this id
-  if (msg && msg.id && list.querySelector(`[data-pip-msg-id="${msg.id}"]`)) return;
-  // Clear any "loading" placeholder
+  if (msg && msg.id && list.querySelector(`[data-msg-id="${msg.id}"]`)) return;
   const ph = list.querySelector('.dm-pip-loading');
   if (ph) ph.remove();
-  const row = document.createElement('div');
-  row.className = 'dm-pip-message';
-  row.dataset.pipMsgId = msg.id || '';
-  const author = this._escapeHtml(msg.username || '');
-  const body = this._escapeHtml(msg.content || '');
-  row.innerHTML = `<span class="dm-pip-author">${author}</span><span class="dm-pip-body">${body}</span>`;
-  list.appendChild(row);
-  list.scrollTop = list.scrollHeight;
+  // Use the previous message in the PiP list as the "prev" reference so
+  // grouping into compact messages still works.
+  let prevMsg = null;
+  const lastEl = list.lastElementChild;
+  if (lastEl && lastEl.dataset && lastEl.dataset.userId && lastEl.dataset.msgId) {
+    prevMsg = {
+      user_id: parseInt(lastEl.dataset.userId, 10),
+      created_at: lastEl.dataset.time
+    };
+  }
+  const wasAtBottom = (list.scrollHeight - list.clientHeight - list.scrollTop) < 80;
+  const el = this._createMessageEl(msg, prevMsg);
+  list.appendChild(el);
+  // Async content (link previews, E2E images, videos) — hook into existing pipelines
+  try { this._fetchLinkPreviews?.(el); } catch {}
+  try { this._setupVideos?.(el); } catch {}
+  try { this._decryptE2EImages?.(el); } catch {}
+  if (wasAtBottom) list.scrollTop = list.scrollHeight;
 },
 
 _renderDMPiPHistory(messages) {
   const list = document.getElementById('dm-pip-messages');
   if (!list) return;
   list.innerHTML = '';
-  (messages || []).forEach(m => this._appendDMPiPMessage(m));
+  (messages || []).forEach((m, i) => {
+    const prev = i > 0 ? messages[i - 1] : null;
+    const el = this._createMessageEl(m, prev);
+    list.appendChild(el);
+  });
+  try { this._fetchLinkPreviews?.(list); } catch {}
+  try { this._setupVideos?.(list); } catch {}
+  try { this._decryptE2EImages?.(list); } catch {}
+  list.scrollTop = list.scrollHeight;
+},
+
+_setDMPiPReply(msgEl, msgId) {
+  let author = msgEl.querySelector('.message-author')?.textContent;
+  if (!author) {
+    let prev = msgEl.previousElementSibling;
+    while (prev) {
+      const a = prev.querySelector('.message-author');
+      if (a) { author = a.textContent; break; }
+      prev = prev.previousElementSibling;
+    }
+  }
+  author = author || 'someone';
+  const content = msgEl.querySelector('.message-content')?.textContent || '';
+  const preview = content.length > 60 ? content.substring(0, 60) + '…' : content;
+  this._dmPipReplyingTo = { id: msgId, username: author, content };
+  const bar = document.getElementById('dm-pip-reply-bar');
+  if (bar) {
+    bar.style.display = 'flex';
+    const txt = document.getElementById('dm-pip-reply-preview-text');
+    if (txt) txt.innerHTML = `Replying to <strong>${this._escapeHtml(author)}</strong>: ${this._escapeHtml(preview)}`;
+  }
+  document.getElementById('dm-pip-input')?.focus();
+},
+
+_clearDMPiPReply() {
+  this._dmPipReplyingTo = null;
+  const bar = document.getElementById('dm-pip-reply-bar');
+  if (bar) bar.style.display = 'none';
+},
+
+_quoteDMPiPMessage(msgEl) {
+  const rawContent = msgEl.dataset.rawContent || msgEl.querySelector('.message-content')?.textContent || '';
+  let author = msgEl.querySelector('.message-author')?.textContent;
+  if (!author) {
+    let prev = msgEl.previousElementSibling;
+    while (prev) {
+      const a = prev.querySelector('.message-author');
+      if (a) { author = a.textContent; break; }
+      prev = prev.previousElementSibling;
+    }
+  }
+  author = author || 'someone';
+  const quotedLines = rawContent.split('\n').map(l => `> ${l}`).join('\n');
+  const quoteText = `> @${author} wrote:\n${quotedLines}\n`;
+  const input = document.getElementById('dm-pip-input');
+  if (!input) return;
+  input.value = input.value ? `${input.value}\n${quoteText}` : quoteText;
+  input.focus();
 },
 
 _sendDMPiPMessage() {
@@ -1720,9 +1822,42 @@ _sendDMPiPMessage() {
   if (!input || !this._activeDMPip) return;
   const content = (input.value || '').trim();
   if (!content) return;
-  this.socket.emit('send-message', { code: this._activeDMPip, content });
+  const code = this._activeDMPip;
+  const replyTo = this._dmPipReplyingTo ? this._dmPipReplyingTo.id : null;
+
+  // Clear the UI immediately so the input feels responsive.
   input.value = '';
+  this._clearDMPiPReply();
   input.focus();
+
+  // E2E-encrypt for the PiP's DM channel (not the active currentChannel).
+  (async () => {
+    const ch = this.channels.find(c => c.code === code);
+    const isDm = ch && ch.is_dm && ch.dm_target;
+    let partner = isDm ? this._getE2EPartnerFor(code) : null;
+    if (isDm && !partner && this.e2e && this.e2e.ready) {
+      try {
+        const jwk = await this.e2e.requestPartnerKey(this.socket, ch.dm_target.id);
+        if (jwk) {
+          this._dmPublicKeys[ch.dm_target.id] = jwk;
+          partner = this._getE2EPartnerFor(code);
+        }
+      } catch {}
+    }
+    const payload = { code, content };
+    if (replyTo) payload.replyTo = replyTo;
+    if (partner) {
+      try {
+        const encrypted = await this.e2e.encrypt(content, partner.userId, partner.publicKeyJwk);
+        payload.content = encrypted;
+        payload.encrypted = true;
+      } catch (err) {
+        console.warn('[E2E][PiP] Encryption failed:', err);
+      }
+    }
+    this.socket.emit('send-message', payload);
+    try { this.notifications?.play?.('sent'); } catch {}
+  })();
 },
 
 _openThread(parentId) {
@@ -2069,8 +2204,11 @@ _startEditMessage(msgEl, msgId) {
     if (!newContent) return cancel();
     if (newContent === rawText) return cancel();
 
-    // E2E: encrypt edited DM content
-    const partner = this._getE2EPartner();
+    // E2E: encrypt edited DM content. The PiP can edit a DM that isn't
+    // the active channel, so resolve the partner against the container's
+    // channel code when available.
+    const pipContext = msgEl.closest('#dm-pip-messages') ? this._activeDMPip : null;
+    const partner = pipContext ? this._getE2EPartnerFor(pipContext) : this._getE2EPartner();
     if (partner) {
       try {
         newContent = await this.e2e.encrypt(newContent, partner.userId, partner.publicKeyJwk);

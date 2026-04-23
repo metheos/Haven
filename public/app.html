@@ -719,14 +719,19 @@
   <!-- Thread Panel (slides in from right) -->
   <!-- DM PiP floating panel (overlay; doesn't switch the active channel) -->
   <div id="dm-pip-panel" class="dm-pip-panel" style="display:none">
+    <div id="dm-pip-banner" class="dm-pip-banner" aria-hidden="true"></div>
     <div class="dm-pip-header">
-      <span class="dm-pip-icon">💬</span>
+      <div id="dm-pip-avatar-wrap" class="dm-pip-avatar-wrap" aria-hidden="true"></div>
       <span id="dm-pip-title" class="dm-pip-title">DM</span>
       <div class="dm-pip-spacer"></div>
       <button id="dm-pip-fullscreen" class="icon-btn small" title="Open in full pane">▣</button>
       <button id="dm-pip-close" class="icon-btn small" title="Close">&times;</button>
     </div>
     <div id="dm-pip-messages" class="dm-pip-messages"></div>
+    <div id="dm-pip-reply-bar" class="dm-pip-reply-bar" style="display:none">
+      <span id="dm-pip-reply-preview-text"></span>
+      <button id="dm-pip-reply-close-btn" class="icon-btn small" aria-label="Cancel reply">&times;</button>
+    </div>
     <div class="dm-pip-input-area">
       <textarea id="dm-pip-input" class="dm-pip-input" placeholder="Reply…" rows="1"></textarea>
       <button id="dm-pip-send" class="dm-pip-send" title="Send">

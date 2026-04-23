@@ -815,8 +815,14 @@ _closeE2EPasswordModal() {
  * Returns { userId, publicKeyJwk } or null.
  */
 _getE2EPartner() {
+  return this._getE2EPartnerFor(this.currentChannel);
+},
+
+/** Like _getE2EPartner but for an arbitrary DM channel code (used by the
+ *  DM PiP, which sends to its own code while another channel is active). */
+_getE2EPartnerFor(code) {
   if (!this.e2e || !this.e2e.ready) return null;
-  const ch = this.channels.find(c => c.code === this.currentChannel);
+  const ch = this.channels.find(c => c.code === code);
   if (!ch || !ch.is_dm || !ch.dm_target) return null;
   const jwk = this._dmPublicKeys[ch.dm_target.id];
   return jwk ? { userId: ch.dm_target.id, publicKeyJwk: jwk } : null;
