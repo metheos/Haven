@@ -268,6 +268,38 @@ _formatContent(str) {
   // ── Horizontal rules: --- or ___ on their own line (3+ chars) ──
   html = html.replace(/(^|\n)([-]{3,}|[_]{3,})\s*(?=\n|$)/g, '$1<hr class="chat-hr">');
 
+  // ── Markdown tables ──
+  // | h1 | h2 |
+  // |----|----|
+  // | a  | b  |
+  // Run before lists/line-break conversion. Cell text passes through
+  // already-resolved emoji / custom-emoji / mention HTML, so emoji
+  // (unicode and :name:) render naturally inside cells. (#5286)
+  const tablePlaceholders = [];
+  const splitRow = (line) => line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+  const tableRe = /(^|\n)((?:\|[^\n]*\|\s*\n)+)\|\s*:?-{2,}:?(?:\s*\|\s*:?-{2,}:?)+\s*\|\s*(?:\n((?:\|[^\n]*\|\s*(?:\n|$))*))?/g;
+  html = html.replace(tableRe, (full, pre, headBlock, bodyBlock) => {
+    // headBlock holds 1+ leading rows; the last one is the header (the rest
+    // would only happen with malformed input — drop them safely by taking
+    // just the last row as header).
+    const headRows = headBlock.trim().split('\n').filter(l => /^\s*\|.*\|\s*$/.test(l));
+    if (headRows.length === 0) return full;
+    const headerCells = splitRow(headRows[headRows.length - 1]);
+    const bodyRows = (bodyBlock || '').trim().split('\n').filter(l => /^\s*\|.*\|\s*$/.test(l));
+    const thead = `<thead><tr>${headerCells.map(c => `<th>${c}</th>`).join('')}</tr></thead>`;
+    const tbody = bodyRows.length
+      ? `<tbody>${bodyRows.map(row => {
+          const cells = splitRow(row);
+          // Pad / trim to header width
+          while (cells.length < headerCells.length) cells.push('');
+          return `<tr>${cells.slice(0, headerCells.length).map(c => `<td>${c}</td>`).join('')}</tr>`;
+        }).join('')}</tbody>`
+      : '';
+    const idx = tablePlaceholders.length;
+    tablePlaceholders.push(`<div class="chat-table-wrap"><table class="chat-table">${thead}${tbody}</table></div>`);
+    return `${pre}\x00TABLE_${idx}\x00`;
+  });
+
   // ── Unordered lists: consecutive lines starting with "- " ──
   html = html.replace(/((?:(?:^|\n)- .+)+)/g, (match) => {
     const items = match.trim().split('\n').map(line =>
@@ -287,6 +319,11 @@ _formatContent(str) {
   });
 
   html = html.replace(/\n/g, '<br>');
+
+  // ── Restore tables (do this after <br> so they aren't broken up) ──
+  tablePlaceholders.forEach((tbl, idx) => {
+    html = html.replace(new RegExp(`(?:<br>)?\\x00TABLE_${idx}\\x00(?:<br>)?`), tbl);
+  });
 
   blockquotes.forEach((block, idx) => {
     html = html.replace(`\x00BLOCKQUOTE_${idx}\x00`, block);

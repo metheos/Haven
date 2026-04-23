@@ -1266,39 +1266,78 @@ _openMemberChannelPicker(userId, username, mode) {
     : t('settings.admin.picker_remove_title', { name: this._escapeHtml(username) });
 
   const allCheckboxId = `aml-ch-all-${userId}-${mode}`;
+  const searchId = `aml-ch-search-${userId}-${mode}`;
+  const isAdd = mode === 'add';
 
   overlay.innerHTML = `
-    <div class="modal" style="max-width:380px;max-height:60vh;display:flex;flex-direction:column">
-      <h4>${title}</h4>
-      <div style="margin-bottom:8px">
-        <label class="toggle-row" style="font-size:13px;gap:6px;cursor:pointer">
+    <div class="modal aml-ch-picker">
+      <div class="aml-ch-picker-header">
+        <h4 class="aml-ch-picker-title">${title}</h4>
+        <label class="aml-ch-picker-selectall">
           <input type="checkbox" id="${allCheckboxId}">
           <span>${t('settings.admin.select_all')}</span>
         </label>
       </div>
-      <div class="aml-channel-list" style="overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:2px">
+      <div class="aml-ch-picker-subtitle">
+        <span class="aml-ch-picker-count">0 / ${channels.length}</span>
+        <input type="search" id="${searchId}" class="aml-ch-picker-search"
+               placeholder="${t('settings.admin.select_all') === 'Select All' ? 'Filter channels…' : ''}">
+      </div>
+      <div class="aml-channel-list">
         ${channels.map(c => `
-          <label class="aml-channel-row" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer">
+          <label class="aml-channel-row" data-name-lower="${this._escapeHtml((c.name || '').toLowerCase())}">
             <input type="checkbox" class="aml-ch-check" value="${c.id}" data-name="${this._escapeHtml(c.name)}">
-            <span style="font-size:13px">#${this._escapeHtml(c.name)}</span>
+            <span class="aml-ch-hash">#</span>
+            <span class="aml-ch-name">${this._escapeHtml(c.name)}</span>
           </label>
         `).join('')}
       </div>
-      <div class="modal-actions" style="margin-top:8px">
+      <div class="modal-actions aml-ch-picker-actions">
         <button class="btn-sm aml-ch-cancel">${t('modals.common.cancel')}</button>
-        <button class="btn-sm btn-accent aml-ch-confirm">${mode === 'add' ? t('settings.admin.picker_confirm_add') : t('settings.admin.picker_confirm_remove')}</button>
+        <button class="btn-sm ${isAdd ? 'btn-accent' : 'btn-danger'} aml-ch-confirm" disabled>
+          ${isAdd ? t('settings.admin.picker_confirm_add') : t('settings.admin.picker_confirm_remove')}
+        </button>
       </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
 
-  // Select All checkbox
+  // Select All checkbox + count + filter wiring
   const allCheck = overlay.querySelector(`#${allCheckboxId}`);
   const checks = overlay.querySelectorAll('.aml-ch-check');
+  const confirmBtn = overlay.querySelector('.aml-ch-confirm');
+  const countEl = overlay.querySelector('.aml-ch-picker-count');
+  const search = overlay.querySelector(`#${searchId}`);
+
+  const updateState = () => {
+    const visible = [...checks].filter(cb => cb.closest('.aml-channel-row').style.display !== 'none');
+    const checked = visible.filter(cb => cb.checked);
+    countEl.textContent = `${checked.length} / ${visible.length}`;
+    confirmBtn.disabled = checked.length === 0;
+    allCheck.checked = visible.length > 0 && checked.length === visible.length;
+    allCheck.indeterminate = checked.length > 0 && checked.length < visible.length;
+  };
+
   allCheck.addEventListener('change', () => {
-    checks.forEach(cb => { cb.checked = allCheck.checked; });
+    checks.forEach(cb => {
+      if (cb.closest('.aml-channel-row').style.display !== 'none') cb.checked = allCheck.checked;
+    });
+    updateState();
   });
+  checks.forEach(cb => cb.addEventListener('change', updateState));
+
+  if (search) {
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      overlay.querySelectorAll('.aml-channel-row').forEach(row => {
+        const name = row.dataset.nameLower || '';
+        row.style.display = !q || name.includes(q) ? '' : 'none';
+      });
+      updateState();
+    });
+  }
+  updateState();
 
   // Close
   overlay.querySelector('.aml-ch-cancel').addEventListener('click', () => overlay.remove());

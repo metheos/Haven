@@ -1098,7 +1098,12 @@ _decryptE2EImages(root) {
   const imgs = root.querySelectorAll('img.e2e-img-pending');
   if (!imgs.length) return;
 
-  const partner = this._getE2EPartner();
+  // If the root is inside the DM PiP overlay, derive the partner from the
+  // active PiP channel rather than the currently-focused main channel.
+  const inPip = !!(root.id === 'dm-pip-messages' || (root.closest && root.closest('#dm-pip-messages')));
+  const partner = inPip && this._activeDMPip
+    ? this._getE2EPartnerFor(this._activeDMPip)
+    : this._getE2EPartner();
   if (!partner) return;
 
   imgs.forEach(img => {

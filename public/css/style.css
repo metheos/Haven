@@ -9126,6 +9126,125 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
   opacity: 0.7;
 }
 
+/* ── Channel Picker (Add/Remove user from channels) ── */
+.aml-ch-picker {
+  max-width: 420px;
+  width: 100%;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 10px;
+}
+.aml-ch-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.06));
+}
+.aml-ch-picker-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aml-ch-picker-selectall {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.aml-ch-picker-selectall input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+.aml-ch-picker-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.aml-ch-picker-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.aml-ch-picker-search {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--bg-input, rgba(0,0,0,0.25));
+  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text);
+  outline: none;
+}
+.aml-ch-picker-search:focus {
+  border-color: var(--accent, #5865f2);
+}
+.aml-channel-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px;
+  margin: 0 -2px;
+}
+.aml-channel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.aml-channel-row:hover {
+  background: var(--bg-hover, rgba(255,255,255,0.04));
+}
+.aml-channel-row input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.aml-ch-hash {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.aml-ch-name {
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aml-channel-row:has(input:checked) {
+  background: var(--bg-hover, rgba(88,101,242,0.10));
+}
+.aml-channel-row:has(input:checked) .aml-ch-name {
+  font-weight: 500;
+}
+.aml-ch-picker-actions {
+  margin-top: 4px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* ── Member List Action Buttons ── */
 .aml-actions {
   display: flex;
@@ -11236,6 +11355,41 @@ video:-webkit-full-screen {
   border-radius: 6px;
   max-width: fit-content;
 }
+
+/* ── Markdown tables ────────────────────────────────── */
+.chat-table-wrap {
+  margin: 4px 0;
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  max-width: 100%;
+}
+.chat-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: auto;
+  min-width: 200px;
+  background: var(--bg-tertiary, rgba(0,0,0,0.15));
+}
+.chat-table th,
+.chat-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border-right: 1px solid var(--border-color, rgba(255,255,255,0.04));
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.chat-table th:last-child,
+.chat-table td:last-child { border-right: none; }
+.chat-table tr:last-child td { border-bottom: none; }
+.chat-table th {
+  background: rgba(255,255,255,0.04);
+  font-weight: 600;
+  color: var(--text);
+}
+.chat-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+.chat-table .custom-emoji { width: 1.1em; height: 1.1em; vertical-align: -0.15em; }
 .chat-blockquote-author {
   font-style: normal;
   font-weight: 600;
