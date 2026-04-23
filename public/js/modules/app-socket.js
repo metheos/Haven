@@ -540,8 +540,14 @@ _setupSocketListeners() {
     // E2E: decrypt single message if encrypted
     await this._decryptMessages([data.message], data.channelCode);
 
-    if (data.channelCode === this.currentChannel && !document.hidden) {
+    if (data.channelCode === this.currentChannel) {
       const isOwnMessage = data.message.user_id === this.user.id;
+      // Treat the channel as "not actively being read" when the page is
+      // hidden — this happens for backgrounded server BrowserViews in
+      // Desktop, and for any tab the user has alt-tabbed away from. We
+      // still want to append the message so it's there when they come
+      // back, but we skip mark-read and bump the unread badge instead.
+      const isActivelyViewing = !document.hidden;
 
       // If the user is scrolled into history and the DOM window has been
       // trimmed (doesn't include the latest messages), skip appending —
@@ -564,11 +570,19 @@ _setupSocketListeners() {
           this._appendMessage(data.message, isOwnMessage);
           this._newestMsgId = data.message.id;
         }
-        this._markRead(data.message.id);
-        // Clear any stale badge — but only when the user has actually seen
-        // the new message (coupled to the bottom of the feed).
-        if (this._coupledToBottom && this.unreadCounts[data.channelCode]) {
-          this.unreadCounts[data.channelCode] = 0;
+        if (isActivelyViewing) {
+          this._markRead(data.message.id);
+          // Clear any stale badge — but only when the user has actually seen
+          // the new message (coupled to the bottom of the feed).
+          if (this._coupledToBottom && this.unreadCounts[data.channelCode]) {
+            this.unreadCounts[data.channelCode] = 0;
+            this._updateBadge(data.channelCode);
+          }
+        } else if (!isOwnMessage) {
+          // Page hidden (backgrounded server view, alt-tabbed, minimised) —
+          // count it as unread even though it's the "current" channel, so
+          // the sidebar dot + taskbar badge actually fire.
+          this.unreadCounts[data.channelCode] = (this.unreadCounts[data.channelCode] || 0) + 1;
           this._updateBadge(data.channelCode);
         }
       }
