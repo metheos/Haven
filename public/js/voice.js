@@ -1665,6 +1665,23 @@ class VoiceManager {
     }
 
     this._clearLateRenegotiationRetry(retryKey);
+
+    const hasVideoTransceiver = conn.getTransceivers().some((transceiver) => {
+      return transceiver.sender?.track?.kind === "video" || transceiver.receiver?.track?.kind === "video";
+    });
+
+    if (!hasVideoTransceiver) {
+      try {
+        conn.addTransceiver("video", { direction: "recvonly" });
+        console.log("[Voice] request-screen: added recvonly video transceiver", { userId });
+      } catch (err) {
+        console.warn("[Voice] request-screen: could not add recvonly transceiver", {
+          userId,
+          error: String(err && (err.message || err)),
+        });
+      }
+    }
+
     await this._renegotiate(userId, conn);
   }
 
