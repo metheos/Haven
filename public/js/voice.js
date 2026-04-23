@@ -12,6 +12,7 @@ class VoiceManager {
     this.isScreenSharing = false;
     this.isWebcamActive = false;
     this.peers = new Map(); // userId → { connection, stream, username }
+    this._lateRenegotiationTimers = new Map(); // key(type:userId) -> timeout id
     this.currentChannel = null;
     this.isMuted = false;
     this.isDeafened = false;
@@ -296,51 +297,14 @@ class VoiceManager {
 
     // Server asks us to renegotiate our screen share with a late joiner
     this.socket.on("renegotiate-screen", async (data) => {
-      if (!this.screenStream || !this.isScreenSharing) return;
-      const peer = this.peers.get(data.targetUserId);
-      if (!peer) return;
-      const conn = peer.connection;
-
-      // Add screen share tracks if they weren't negotiated in the initial exchange
-      const senders = conn.getSenders();
-      const hasVideo = senders.some((s) => s.track && s.track.kind === "video");
-      if (!hasVideo) {
-        this.screenStream
-          .getTracks()
-          .filter((t) => t.readyState === "live")
-          .forEach((track) => {
-            conn.addTrack(track, this.screenStream);
-          });
-        // Enable hardware acceleration for video codec
-        this._preferHardwareAcceleration(conn);
-        // Cap bitrate for this peer
-        const res = this.screenResolution;
-        const maxBitrate = this._screenBitrates[res] || this._screenBitrates[0];
-        this._applyScreenBitrate(conn, maxBitrate);
-      }
-
-      // Renegotiate to include the video tracks
-      await this._renegotiate(data.targetUserId, conn);
+      if (!this.screenStream || !this.isScreenSharing || !data || !data.targetUserId) return;
+      await this._renegotiateStreamForLateJoiner("screen", data.targetUserId);
     });
 
     // Server asks us to renegotiate our webcam with a late joiner
     this.socket.on("renegotiate-webcam", async (data) => {
-      if (!this.webcamStream || !this.isWebcamActive) return;
-      const peer = this.peers.get(data.targetUserId);
-      if (!peer) return;
-      const conn = peer.connection;
-
-      // Add webcam track if not already on this peer
-      const senders = conn.getSenders();
-      const webcamTrack = this.webcamStream.getVideoTracks()[0];
-      const alreadySent = webcamTrack && senders.some((s) => s.track === webcamTrack);
-      if (!alreadySent && webcamTrack) {
-        conn.addTrack(webcamTrack, this.webcamStream);
-        // Enable hardware acceleration for video codec
-        this._preferHardwareAcceleration(conn);
-      }
-
-      await this._renegotiate(data.targetUserId, conn);
+      if (!this.webcamStream || !this.isWebcamActive || !data || !data.targetUserId) return;
+      await this._renegotiateStreamForLateJoiner("webcam", data.targetUserId);
     });
   }
 
@@ -543,6 +507,11 @@ class VoiceManager {
       }
       this._disconnectTimers = {};
     }
+
+    for (const [, timer] of this._lateRenegotiationTimers) {
+      clearTimeout(timer);
+    }
+    this._lateRenegotiationTimers.clear();
   }
 
   /**
@@ -612,6 +581,11 @@ class VoiceManager {
       }
       this._disconnectTimers = {};
     }
+
+    for (const [, timer] of this._lateRenegotiationTimers) {
+      clearTimeout(timer);
+    }
+    this._lateRenegotiationTimers.clear();
     // NOTE: leaves haven_voice_channel in localStorage so auto-rejoin on reconnect works
   }
 
@@ -1347,6 +1321,71 @@ class VoiceManager {
       });
     } catch (err) {
       console.error("Renegotiation failed:", err);
+    }
+  }
+
+  async _renegotiateStreamForLateJoiner(type, userId, attempt = 0) {
+    const retryKey = `${type}:${userId}`;
+    const peer = this.peers.get(userId);
+    const conn = peer?.connection;
+
+    const hasRequiredLocalStream = type === "screen" ? this.screenStream && this.isScreenSharing : this.webcamStream && this.isWebcamActive;
+    if (!hasRequiredLocalStream || !this.inVoice) {
+      this._clearLateRenegotiationRetry(retryKey);
+      return;
+    }
+
+    // New joiners may not have a peer yet (or signaling may still be mid-offer/answer).
+    // Retry a few times instead of dropping the renegotiation request.
+    if (!conn || conn.signalingState !== "stable") {
+      if (attempt >= 12) {
+        this._clearLateRenegotiationRetry(retryKey);
+        return;
+      }
+      this._scheduleLateRenegotiationRetry(type, userId, attempt + 1);
+      return;
+    }
+
+    this._clearLateRenegotiationRetry(retryKey);
+
+    if (type === "screen") {
+      const senders = conn.getSenders();
+      const screenTrackSet = new Set(this.screenStream.getTracks().filter((t) => t.readyState === "live"));
+      for (const track of screenTrackSet) {
+        const alreadySent = senders.some((s) => s.track === track);
+        if (!alreadySent) conn.addTrack(track, this.screenStream);
+      }
+      this._preferHardwareAcceleration(conn);
+      const res = this.screenResolution;
+      const maxBitrate = this._screenBitrates[res] || this._screenBitrates[0];
+      this._applyScreenBitrate(conn, maxBitrate);
+    } else {
+      const webcamTrack = this.webcamStream.getVideoTracks()[0];
+      if (!webcamTrack) return;
+      const senders = conn.getSenders();
+      const alreadySent = senders.some((s) => s.track === webcamTrack);
+      if (!alreadySent) conn.addTrack(webcamTrack, this.webcamStream);
+      this._preferHardwareAcceleration(conn);
+    }
+
+    await this._renegotiate(userId, conn);
+  }
+
+  _scheduleLateRenegotiationRetry(type, userId, attempt) {
+    const retryKey = `${type}:${userId}`;
+    this._clearLateRenegotiationRetry(retryKey);
+    const timer = setTimeout(() => {
+      this._lateRenegotiationTimers.delete(retryKey);
+      this._renegotiateStreamForLateJoiner(type, userId, attempt).catch(() => {});
+    }, 500);
+    this._lateRenegotiationTimers.set(retryKey, timer);
+  }
+
+  _clearLateRenegotiationRetry(retryKey) {
+    const timer = this._lateRenegotiationTimers.get(retryKey);
+    if (timer) {
+      clearTimeout(timer);
+      this._lateRenegotiationTimers.delete(retryKey);
     }
   }
 
