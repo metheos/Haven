@@ -1,5 +1,27 @@
 // Apply saved theme immediately to prevent flash of unstyled content
 (function() {
+  // Disable browser scroll restoration. With body { overflow: hidden } the
+  // app shouldn't ever be "scrolled" at the document level, but Android
+  // Chrome can scroll the html element when the visual viewport changes
+  // (URL bar / keyboard) and then persist that scroll across reloads.
+  // That's what made the entire UI appear shifted up after a refresh in
+  // issue #5285. Force-reset on every load.
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e) {}
+  function resetDocScroll() {
+    try {
+      if (window.scrollY || window.scrollX) window.scrollTo(0, 0);
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    } catch(e) {}
+  }
+  resetDocScroll();
+  window.addEventListener('load', resetDocScroll);
+  window.addEventListener('pageshow', resetDocScroll);
+  window.addEventListener('resize', resetDocScroll);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resetDocScroll);
+    window.visualViewport.addEventListener('scroll', resetDocScroll);
+  }
   var t = localStorage.getItem('haven_theme');
   if (t) document.documentElement.setAttribute('data-theme', t);
   // Apply effect overlay system (stackable) — always strip theme pseudo-element effects

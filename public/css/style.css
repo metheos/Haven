@@ -1750,13 +1750,28 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Lock the document root so the html element itself can never scroll.
+   On mobile (Android Chrome especially), body { height: 100vh } makes the
+   body taller than the visible layout viewport when the URL bar is shown
+   or the on-screen keyboard opens. Without this, html ends up scrolling
+   and the entire UI slides up off-screen, leaving a blank gap at the
+   bottom (issue #5285). */
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 body {
   font-family: var(--font-main);
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.5;
   overflow: hidden;
-  height: 100vh;
+  height: 100%;
+  /* Prefer the dynamic viewport unit when supported so resizes (URL bar
+     show/hide, keyboard open/close) don't leave us taller than visible. */
+  height: 100dvh;
 }
 
 /* Scanline overlay for Matrix theme */
