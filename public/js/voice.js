@@ -893,6 +893,18 @@ class VoiceManager {
       this._updateCodecDebugState({ activeCodec: null, liveStats: null });
     }
 
+    const peersToRebuild = Array.from(this.peers.entries()).map(([userId, peer]) => ({
+      userId,
+      username: peer.username,
+    }));
+    for (const { userId } of peersToRebuild) {
+      this._clearPeerRenegotiationRetries(userId);
+      this._removePeer(userId);
+    }
+    for (const { userId, username } of peersToRebuild) {
+      await this._createPeer(userId, username, true);
+    }
+
     this.socket.emit("screen-share-stopped", { code: this.currentChannel });
     // Notify local UI — pass localUserId so tile is found by its real ID
     if (this.onScreenStream) this.onScreenStream(this.localUserId, null);
