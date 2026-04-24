@@ -1568,6 +1568,7 @@ class VoiceManager {
     } catch (err) {
       const msg = String(err && (err.message || err));
       const isHeaderExtConflict = msg.includes("Failed to update RTP header extensions") || msg.includes("RTP extension ID reassignment");
+      const isUnexpectedRemoteIceChange = msg.includes("Remote description indicates ICE restart but offer did not request ICE restart");
 
       console.error("[Voice] _acceptIncomingOffer: setRemoteDescription failed", {
         userId,
@@ -1575,6 +1576,7 @@ class VoiceManager {
         allowPeerReset,
         signalingState: conn.signalingState,
         isHeaderExtConflict,
+        isUnexpectedRemoteIceChange,
         error: msg,
       });
 
@@ -1599,6 +1601,19 @@ class VoiceManager {
         await this._acceptIncomingOffer(userId, username, offer, negotiationId, false);
         return;
       }
+
+      if (allowPeerReset && isUnexpectedRemoteIceChange) {
+        const oldQueued = peer._pendingRemoteCandidates ? [...peer._pendingRemoteCandidates] : [];
+        this._removePeer(userId);
+        await this._createPeer(userId, username, false);
+        const newPeer = this.peers.get(userId);
+        if (newPeer && oldQueued.length > 0) {
+          newPeer._pendingRemoteCandidates = oldQueued;
+        }
+        await this._acceptIncomingOffer(userId, username, offer, negotiationId, false);
+        return;
+      }
+
       throw err;
     } finally {
       if (negotiationId && peer._incomingOfferInFlightId === negotiationId) {
