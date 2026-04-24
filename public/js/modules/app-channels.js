@@ -2000,7 +2000,13 @@ _updateBadge(code) {
 _updateTabTitle() {
   const validCodes = new Set((this.channels || []).map(c => c.code));
   const total = Object.entries(this.unreadCounts).reduce((s, [k, v]) => validCodes.has(k) ? s + v : s, 0);
-  document.title = total > 0 ? `(${total}) Haven` : 'Haven';
+  // Include the server's display name so multiple Haven tabs are easy to tell
+  // apart at a glance (issue #5284).
+  const serverName = (this.serverSettings && this.serverSettings.server_name) || '';
+  const base = serverName && serverName.toLowerCase() !== 'haven'
+    ? `Haven: ${serverName}`
+    : 'Haven';
+  document.title = total > 0 ? `(${total}) ${base}` : base;
 },
 
 _updateDesktopBadge() {

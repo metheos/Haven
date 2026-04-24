@@ -841,6 +841,32 @@ _applyServerBranding() {
       preview.innerHTML = '<span class="server-icon-text">⬡</span>';
     }
   }
+
+  // Browser tab branding (issue #5284)
+  // Refresh the document title with the new server name, and swap the favicon
+  // to the server icon when one is set so multi-server tab juggling is easier.
+  this._updateTabTitle?.();
+  this._applyFaviconBranding?.(icon);
+},
+
+_applyFaviconBranding(iconUrl) {
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  if (iconUrl) {
+    // Remember the original (default) favicon so we can restore it if the
+    // server icon is later removed.
+    if (!this._defaultFaviconHref) this._defaultFaviconHref = link.getAttribute('href') || '';
+    if (!this._defaultFaviconType) this._defaultFaviconType = link.getAttribute('type') || '';
+    link.removeAttribute('type');
+    link.href = iconUrl;
+  } else if (this._defaultFaviconHref) {
+    if (this._defaultFaviconType) link.type = this._defaultFaviconType;
+    link.href = this._defaultFaviconHref;
+  }
 },
 
 _initServerBranding() {
