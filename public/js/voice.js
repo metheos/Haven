@@ -1579,17 +1579,23 @@ class VoiceManager {
       });
 
       if (allowPeerReset && isHeaderExtConflict) {
-        // Recover from extmap conflicts by rebuilding only this peer connection,
-        // then applying the same incoming offer to a fresh RTCPeerConnection.
-        // Preserve any queued ICE candidates from the old peer so they can be
-        // flushed against the new connection once setRemoteDescription succeeds.
-        const oldQueued = peer._pendingRemoteCandidates ? [...peer._pendingRemoteCandidates] : [];
+        // Recover from extmap conflicts by rebuilding only this peer connection.
+        // For video offers, request a fresh receiver-driven negotiation instead of
+        // reapplying the stale failed offer. That matches the observed behavior
+        // where a later fresh negotiation succeeds while the original offer does not.
+        const shouldRequestFreshVideoOffer = offerVideoCount > 0;
         this._removePeer(userId);
         await this._createPeer(userId, username, false);
-        const newPeer = this.peers.get(userId);
-        if (newPeer && oldQueued.length > 0) {
-          newPeer._pendingRemoteCandidates = oldQueued;
+        if (shouldRequestFreshVideoOffer) {
+          console.warn("[Voice] _acceptIncomingOffer: rebuilding peer and requesting fresh video negotiation", {
+            userId,
+            negotiationId,
+          });
+          await this._requestRemoteScreenRenegotiation(userId);
+          return;
         }
+
+        const newPeer = this.peers.get(userId);
         await this._acceptIncomingOffer(userId, username, offer, negotiationId, false);
         return;
       }
