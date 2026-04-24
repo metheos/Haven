@@ -69,6 +69,22 @@
       const titleEl = document.getElementById('server-title');
       if (titleEl) titleEl.textContent = d.server_title;
     }
+    // Tab branding for the login page (issue #5284). Mirrors what the
+    // authenticated app does so multi-server tabs stay distinguishable
+    // even before signing in.
+    if (d.server_name && d.server_name.toLowerCase() !== 'haven') {
+      document.title = `Haven: ${d.server_name}`;
+    }
+    if (d.server_icon) {
+      let link = document.querySelector('link[rel="icon"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.removeAttribute('type');
+      link.href = d.server_icon;
+    }
     if (d.custom_tos) {
       const section = document.getElementById('custom-tos-section');
       const content = document.getElementById('custom-tos-content');

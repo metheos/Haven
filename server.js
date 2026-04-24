@@ -636,10 +636,16 @@ app.get('/api/public-config', (req, res) => {
     const themeRow = db.prepare("SELECT value FROM server_settings WHERE key = 'default_theme'").get();
     const titleRow = db.prepare("SELECT value FROM server_settings WHERE key = 'server_title'").get();
     const tosRow = db.prepare("SELECT value FROM server_settings WHERE key = 'custom_tos'").get();
+    const nameRow = db.prepare("SELECT value FROM server_settings WHERE key = 'server_name'").get();
+    const iconRow = db.prepare("SELECT value FROM server_settings WHERE key = 'server_icon'").get();
     res.json({
       default_theme: themeRow?.value || '',
       server_title: titleRow?.value || '',
-      custom_tos: tosRow?.value || ''
+      custom_tos: tosRow?.value || '',
+      // Expose name + icon so the login page can brand its tab title and
+      // favicon (issue #5284). These are already public via /api/health.
+      server_name: nameRow?.value || process.env.SERVER_NAME || '',
+      server_icon: iconRow?.value || ''
     });
   } catch {
     res.json({ default_theme: '', server_title: '' });
