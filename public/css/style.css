@@ -7367,6 +7367,9 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
 }
 .thread-msg-header-spacer { flex: 1; }
 .thread-msg-toolbar {
+  position: absolute;
+  top: 2px;
+  right: 8px;
   display: none;
   gap: 2px;
   background: var(--bg-card);
@@ -7374,8 +7377,17 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
   border-radius: 8px;
   padding: 2px 4px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 10;
 }
-.thread-message:hover .thread-msg-toolbar,
+/* Only show toolbar on real mouse hover so it doesn't appear on touch
+   taps and doesn't reflow the message header (matches main message
+   toolbar behavior). */
+@media (hover: hover) and (pointer: fine) {
+  .thread-message:hover .thread-msg-toolbar,
+  .thread-message.showing-picker .thread-msg-toolbar {
+    display: inline-flex;
+  }
+}
 .thread-message.showing-picker .thread-msg-toolbar {
   display: inline-flex;
 }
