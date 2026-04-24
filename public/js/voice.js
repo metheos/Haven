@@ -428,7 +428,7 @@ class VoiceManager {
         audioTrack.onended = () => {
           this.screenHasAudio = false;
         };
-        const screenAudioSource = this.livekit.Track.Source.ScreenShareAudio || this.livekit.Track.Source.ScreenShare;
+        const screenAudioSource = this._getScreenAudioSource();
         await this.room.localParticipant.publishTrack(audioTrack, {
           source: screenAudioSource,
           name: "screen-audio",
@@ -1182,12 +1182,17 @@ class VoiceManager {
     }
 
     if (source === this.livekit.Track.Source.ScreenShare) {
+      if (mediaTrack.kind === "audio") {
+        this.screenSharers.add(userId);
+        this._playScreenAudio(userId, stream);
+        return;
+      }
       this.screenSharers.add(userId);
       if (this.onScreenStream) this.onScreenStream(userId, stream);
       return;
     }
 
-    const screenAudioSource = this.livekit.Track.Source.ScreenShareAudio || "__screen_audio__";
+    const screenAudioSource = this._getScreenAudioSource();
     if (source === screenAudioSource) {
       this.screenSharers.add(userId);
       this._playScreenAudio(userId, stream);
@@ -1200,7 +1205,8 @@ class VoiceManager {
   _handleTrackUnsubscribed(publication, participant) {
     const userId = this._getParticipantUserId(participant);
     const source = publication?.source;
-    const screenAudioSource = this.livekit.Track.Source.ScreenShareAudio || "__screen_audio__";
+    const screenAudioSource = this._getScreenAudioSource();
+    const isAudioPublication = publication?.kind === this.livekit.Track.Kind.Audio || publication?.kind === "audio";
 
     if (source === this.livekit.Track.Source.Camera) {
       this._clearWebcamMedia(userId);
@@ -1210,6 +1216,10 @@ class VoiceManager {
     }
 
     if (source === this.livekit.Track.Source.ScreenShare) {
+      if (isAudioPublication) {
+        this._clearScreenAudio(userId);
+        return;
+      }
       this._clearScreenMedia(userId, { clearAudio: false });
       return;
     }
@@ -1231,6 +1241,10 @@ class VoiceManager {
     this.talkingState.delete(userId);
     if (this.onTalkingChange) this.onTalkingChange(userId, false);
     if (removePeer) this.peers.delete(userId);
+  }
+
+  _getScreenAudioSource() {
+    return this.livekit.Track.Source.ScreenShareAudio || this.livekit.Track.Source.ScreenShare;
   }
 
   _clearVoiceAudio(userId) {
