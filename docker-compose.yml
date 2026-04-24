@@ -1,7 +1,7 @@
 # ── Haven Docker Compose ─────────────────────────────────
 # Quick start:  docker compose up -d
 # Stop:         docker compose down
-# View logs:    docker compose logs -f haven
+# View logs:    docker compose logs -f haven livekit redis
 # Update:       docker compose pull && docker compose up -d --force-recreate
 # Shell:        docker compose exec haven sh
 # ─────────────────────────────────────────────────────────
@@ -11,9 +11,11 @@ services:
     image: ghcr.io/ancsemi/haven:latest
     # build: .                    # Uncomment to build from source instead of using the pre-built image
     container_name: haven
+    depends_on:
+      - livekit
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"    # Main HTTPS port
-      - "${REDIRECT_PORT:-3001}:${REDIRECT_PORT:-3001}"  # HTTP → HTTPS redirect
+      - "${PORT:-3000}:${PORT:-3000}"    # Main app port
+      - "${REDIRECT_PORT:-3001}:${REDIRECT_PORT:-3001}"  # Optional redirect port when built-in HTTPS is enabled
     volumes:
       - haven_data:/data
       # ── Or use a local folder instead (good for NAS / Synology): ──
@@ -21,14 +23,64 @@ services:
     environment:
       - PORT=${PORT:-3000}
       - HOST=0.0.0.0
+      - FORCE_HTTP=${FORCE_HTTP:-true}
       # - SERVER_NAME=My Haven           # Name shown in the UI
       # - ADMIN_USERNAME=admin            # First account to register becomes admin
       # - GIPHY_API_KEY=                  # Optional: enable GIF search
       # - VAPID_EMAIL=mailto:you@example  # Optional: email for push notifications
-      # - TURN_URL=turn:your-server:3478  # Optional: TURN relay for voice over internet
-      # - TURN_SECRET=your-secret         # Shared secret (coturn --use-auth-secret)
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
+      - LIVEKIT_WS_URL=${LIVEKIT_WS_URL:-ws://localhost:7880}
+      - LIVEKIT_ROOM_PREFIX=${LIVEKIT_ROOM_PREFIX:-haven}
+      # Local default: http://localhost:3000 + ws://localhost:7880
+      # Remote deploys should terminate TLS in front of both Haven and LiveKit,
+      # then change LIVEKIT_WS_URL to a public wss:// endpoint.
     # Uncomment to load settings from a .env file:
     # env_file: .env
+    restart: unless-stopped
+
+  redis:
+    # Shared state backend for LiveKit (rooms, participants, coordination).
+    image: redis:7-alpine
+    container_name: haven-redis
+    # Disable persistence for a lightweight default; switch this if you need Redis durability.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+
+  livekit:
+    # LiveKit SFU: carries voice/video/screen media (Haven still handles auth/presence).
+    image: livekit/livekit-server:latest
+    container_name: haven-livekit
+    depends_on:
+      - redis
+    environment:
+      # Inline LiveKit config so API key/secret stay in sync with Haven env vars.
+      LIVEKIT_CONFIG: |
+        # Signaling/WebSocket port used by clients.
+        port: 7880
+        log_level: info
+        rtc:
+          # TCP fallback when UDP is blocked.
+          tcp_port: 7881
+          # UDP range used for primary WebRTC media transport.
+          port_range_start: ${LIVEKIT_UDP_PORT_START:-50000}
+          port_range_end: ${LIVEKIT_UDP_PORT_END:-50100}
+          # Set true when running behind NAT/public cloud and clients are remote.
+          use_external_ip: ${LIVEKIT_USE_EXTERNAL_IP:-false}
+        redis:
+          address: redis:6379
+        keys:
+          # Must match LIVEKIT_API_KEY / LIVEKIT_API_SECRET in Haven service env.
+          ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
+        room:
+          auto_create: true
+    ports:
+      # Signal/WebSocket endpoint (ws:// / wss:// via proxy).
+      - "${LIVEKIT_PORT:-7880}:7880"
+      # ICE-over-TCP fallback.
+      - "${LIVEKIT_TCP_PORT:-7881}:7881"
+      # UDP media path (low-latency voice/video).
+      - "${LIVEKIT_UDP_PORT_START:-50000}-${LIVEKIT_UDP_PORT_END:-50100}:${LIVEKIT_UDP_PORT_START:-50000}-${LIVEKIT_UDP_PORT_END:-50100}/udp"
     restart: unless-stopped
 
 volumes:

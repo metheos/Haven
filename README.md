@@ -87,13 +87,15 @@ docker pull ghcr.io/ancsemi/haven:latest
 docker run -d -p 3000:3000 -v haven_data:/data ghcr.io/ancsemi/haven:latest
 ```
 
+That single-container command only runs Haven itself. For voice/video, use the bundled compose stack or point Haven at an external LiveKit deployment.
+
 Or with Docker Compose (recommended):
 ```bash
 git clone https://github.com/ancsemi/Haven.git
 cd Haven
 docker compose up -d
 ```
-The shipped `docker-compose.yml` uses the pre-built image by default.
+The shipped `docker-compose.yml` uses the pre-built image by default and starts Haven, Redis, and LiveKit together.
 
 **Option B — Build from source** (only if you need to modify the code):
 ```bash
@@ -105,9 +107,9 @@ Uncomment `build: .` in `docker-compose.yml`, then:
 docker compose up -d
 ```
 
-Open `https://localhost:3000` → Register with username `admin` → Create a channel → Share the code with friends. Done.
+Open `http://localhost:3000` → Register with username `admin` → Create a channel → Share the code with friends. Done.
 
-> Certificate warning is normal — click **Advanced → Proceed**. Haven uses a self-signed cert for encryption.
+> The bundled compose stack defaults to `FORCE_HTTP=true` so localhost can connect to LiveKit over `ws://localhost:7880` without mixed-content issues. For LAN or internet access, put Haven and LiveKit behind trusted TLS and change `LIVEKIT_WS_URL` to a public `wss://` endpoint.
 
 **Updating** — if using the pre-built image (default):
 ```bash
@@ -296,8 +298,15 @@ Haven creates a `.env` config file automatically on first launch — you don't n
 | `SSL_CERT_PATH` | *(auto-detected)* | Path to SSL certificate |
 | `SSL_KEY_PATH` | *(auto-detected)* | Path to SSL private key |
 | `HAVEN_DATA_DIR` | *(see above)* | Override the data directory location |
+| `FORCE_HTTP` | `false` | Skip built-in HTTPS when running behind a reverse proxy, or for localhost LiveKit testing |
+| `LIVEKIT_API_KEY` | `devkey` | LiveKit API key used for Haven-issued room tokens |
+| `LIVEKIT_API_SECRET` | `secret` | Matching LiveKit API secret |
+| `LIVEKIT_WS_URL` | *(unset)* | Public `ws://` or `wss://` URL browsers use to reach LiveKit |
+| `LIVEKIT_ROOM_PREFIX` | `haven` | Prefix added to LiveKit room names per voice channel |
 
 After editing `.env`, restart the server.
+
+For production voice deployments, the browser must be able to reach the LiveKit URL directly. A Docker-internal hostname like `livekit:7880` will not work in the browser. Use a public host or reverse proxy endpoint instead.
 
 ### Running Multiple Servers
 
@@ -359,11 +368,12 @@ Your theme choice persists across sessions.
 4. Adjust anyone's volume with their slider
 5. Click **📞 Leave** when done
 
-Voice is peer-to-peer — audio goes directly between users, not through the server. Requires HTTPS.
+Voice now runs through a LiveKit SFU instead of peer-to-peer mesh signaling. Haven still manages voice presence, permissions, mute/deafen state, and speaking indicators over Socket.IO, while LiveKit carries microphone, webcam, and screen-share media.
 
 - **Join / leave cues** — synthesized audio tones when users enter or leave voice.
 - **Talking indicators** — usernames glow green when speaking (300 ms hysteresis for smooth animation).
 - **Screen sharing** — click **🖥️ Share Screen** to broadcast your display. Multiple users can share simultaneously in a tiled grid.
+- **Independent media tracks** — webcam/video streams stay separate from voice, so video can publish with or without extra audio.
 
 ---
 
