@@ -44,7 +44,7 @@ function getLiveKitRoomName(channelCode) {
 }
 
 // Creates a signed LiveKit JWT granting publish/subscribe access to one room.
-function createLiveKitToken({ identity, name, roomName, metadata }) {
+async function createLiveKitToken({ identity, name, roomName, metadata }) {
   const config = getLiveKitConfig();
   if (!config.enabled) {
     throw new Error("LiveKit is not configured");
@@ -65,7 +65,7 @@ function createLiveKitToken({ identity, name, roomName, metadata }) {
     canPublishData: true,
   });
 
-  return token.toJwt();
+  return await token.toJwt();
 }
 
 module.exports = {

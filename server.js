@@ -385,7 +385,7 @@ app.get("/api/ice-servers", (req, res) => {
 });
 
 // ── LiveKit token minting endpoint ─────────────────────────
-app.post("/api/livekit/token", express.json(), (req, res) => {
+app.post("/api/livekit/token", express.json(), async (req, res) => {
   // Authenticate request using the existing Haven bearer token.
   const token = req.headers.authorization?.split(" ")[1];
   const user = token ? verifyToken(token) : null;
@@ -426,7 +426,7 @@ app.post("/api/livekit/token", express.json(), (req, res) => {
 
     // Map Haven channel -> deterministic LiveKit room and mint a scoped JWT.
     const roomName = getLiveKitRoomName(channelCode);
-    const jwt = createLiveKitToken({
+    const jwt = await createLiveKitToken({
       identity: user.id,
       name: user.displayName || user.username,
       roomName,
