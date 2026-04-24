@@ -800,13 +800,25 @@ _setupSocketListeners() {
   });
 
   // ── Threads ───────────────────────────────────────
-  this.socket.on('thread-messages', (data) => {
+  this.socket.on('thread-messages', async (data) => {
     if (data.parentUsername) {
       this._setThreadParentHeader({
         username: data.parentUsername,
         avatar: data.parentAvatar || null,
         avatarShape: data.parentAvatarShape || 'circle'
       });
+    }
+
+    // E2E: thread lives inside a DM channel — decrypt parent + messages
+    // before rendering so the preview/header and message bodies show plain text.
+    const channelCode = data.channelCode || this.currentChannel;
+    if (data.parentContent && window.HavenE2E && HavenE2E.isEncrypted(data.parentContent)) {
+      const wrapper = [{ content: data.parentContent }];
+      try { await this._decryptMessages(wrapper, channelCode); } catch {}
+      data.parentContent = wrapper[0].content;
+    }
+    if (data.messages && data.messages.length) {
+      try { await this._decryptMessages(data.messages, channelCode); } catch {}
     }
 
     // Update parent preview from server (authoritative source)
@@ -825,7 +837,7 @@ _setupSocketListeners() {
     }
   });
 
-  this.socket.on('new-thread-message', (data) => {
+  this.socket.on('new-thread-message', async (data) => {
     // Detect @mentions / replies-to-self in thread messages, even when the
     // thread (or even the channel) is not currently open. Server broadcasts
     // new-thread-message to the entire channel room, so all members get it.
@@ -852,6 +864,10 @@ _setupSocketListeners() {
     if (data.channelCode !== this.currentChannel) return;
     // If this thread is open, append the message
     if (this._activeThreadParent === data.parentId) {
+      // E2E: decrypt before render for DM threads
+      if (data.message) {
+        try { await this._decryptMessages([data.message], data.channelCode); } catch {}
+      }
       this._appendThreadMessage(data.message);
     }
   });

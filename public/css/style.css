@@ -3438,8 +3438,15 @@ html.rgb-cycling *::after {
   opacity: 0.7;
   transition: opacity 0.15s, background 0.15s;
   align-self: center;
+  color: var(--text-secondary, #ccc);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .pip-input-emoji-btn:hover { opacity: 1; background: var(--bg-tertiary); }
+.pip-input-emoji-btn .tb-icon { display: inline-flex; align-items: center; justify-content: center; }
+.pip-input-emoji-btn .tb-icon-emoji { font-size: 18px; }
+.pip-input-emoji-btn svg { width: 20px; height: 20px; display: block; }
 
 /* ── Private channel styling (muted appearance) ─── */
 .channel-item.private-channel .channel-name { opacity: 0.6; }

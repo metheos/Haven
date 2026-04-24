@@ -555,7 +555,7 @@ _toggleEmojiPicker(anchorEl) {
     if (picker._havenOrigParent) {
       picker._havenOrigParent.appendChild(picker);
       picker._havenOrigParent = null;
-      ['position', 'top', 'left', 'bottom', 'right'].forEach(p => picker.style.removeProperty(p));
+      ['position', 'top', 'left', 'bottom', 'right', 'z-index'].forEach(p => picker.style.removeProperty(p));
     }
     return;
   }
@@ -683,7 +683,9 @@ _toggleEmojiPicker(anchorEl) {
 
   // Anchor-based positioning: used when opening from PiP or thread input buttons.
   // Move the picker to document.body so it escapes any overflow clipping context,
-  // then position it with fixed coords above the anchor button.
+  // then position it with fixed coords above the anchor button. Boost z-index so
+  // it renders above the dm-pip-panel (z-index 950) and pip-mode thread-panel
+  // (z-index 10020).
   if (anchorEl) {
     if (picker.parentElement !== document.body) {
       picker._havenOrigParent = picker.parentElement;
@@ -694,7 +696,7 @@ _toggleEmojiPicker(anchorEl) {
     const pickerH = 368;
     const top = Math.max(4, r.top - pickerH - 4);
     const left = Math.max(4, Math.min(r.left, window.innerWidth - pickerW - 4));
-    picker.style.cssText += '; position:fixed; top:' + top + 'px; left:' + left + 'px; bottom:auto; right:auto;';
+    picker.style.cssText += '; position:fixed; top:' + top + 'px; left:' + left + 'px; bottom:auto; right:auto; z-index:100030;';
   }
 
   picker.style.display = 'flex';
@@ -1323,8 +1325,36 @@ _showReactionPicker(msgEl, msgId) {
 
   msgEl.appendChild(picker);
 
+  // PiP context: the dm-pip-panel and pip-mode thread-panel both have
+  // `overflow: hidden`, which clips this absolute-positioned picker. Pop the
+  // picker out to <body> with fixed positioning so it can render above the
+  // floating panel.
+  const pipParent = msgEl.closest('.dm-pip-panel, .thread-panel.pip');
+  if (pipParent) {
+    const msgRect = msgEl.getBoundingClientRect();
+    document.body.appendChild(picker);
+    picker.style.position = 'fixed';
+    picker.style.zIndex = '100020';
+    // Provisional placement above the message; flip-below check below
+    // adjusts to under the message if there's no room above.
+    const place = () => {
+      const pickerRect = picker.getBoundingClientRect();
+      let top = msgRect.top - pickerRect.height - 6;
+      const below = msgRect.bottom + 6;
+      const tooHigh = top < 4;
+      if (tooHigh) top = below;
+      const right = Math.max(8, window.innerWidth - msgRect.right);
+      picker.style.top = top + 'px';
+      picker.style.right = right + 'px';
+      picker.style.left = 'auto';
+      picker.style.bottom = 'auto';
+    };
+    requestAnimationFrame(place);
+  }
+
   // Flip picker below the message if it would be clipped above
   requestAnimationFrame(() => {
+    if (pipParent) return; // fixed-position branch handles placement
     const pickerRect = picker.getBoundingClientRect();
     const container = msgEl.closest('#thread-messages, #messages, #dm-pip-messages');
     const containerTop = container ? container.getBoundingClientRect().top : 0;

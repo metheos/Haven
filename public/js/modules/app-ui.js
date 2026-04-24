@@ -1812,7 +1812,7 @@ _setupUI() {
       if (picker._havenOrigParent) {
         picker._havenOrigParent.appendChild(picker);
         picker._havenOrigParent = null;
-        ['position', 'top', 'left', 'bottom', 'right'].forEach(p => picker.style.removeProperty(p));
+        ['position', 'top', 'left', 'bottom', 'right', 'z-index'].forEach(p => picker.style.removeProperty(p));
       }
     }
   });
