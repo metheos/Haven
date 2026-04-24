@@ -206,6 +206,7 @@ class VoiceManager {
               return;
             }
             peer._pendingLocalOfferId = null;
+            this._clearPeerRenegotiationRetries(data.from.id);
             console.log("[Voice] voice-answer: applied successfully", { from: data.from.id });
             peer._remoteUfrag = this._extractSdpUfrag(peer.connection.remoteDescription?.sdp || "");
             await this._flushQueuedRemoteCandidates(data.from.id);
@@ -363,6 +364,7 @@ class VoiceManager {
     // Someone stopped screen sharing
     this.socket.on("screen-share-stopped", (data) => {
       this.screenSharers.delete(data.userId);
+      this._clearPeerRenegotiationRetries(data.userId);
       if (this.onScreenStream) this.onScreenStream(data.userId, null);
     });
 
@@ -1291,11 +1293,6 @@ class VoiceManager {
     return `${mime}${fmtp}`;
   }
 
-  _shouldForceCodecPreferences() {
-    const ua = navigator.userAgent || "";
-    return !/firefox\//i.test(ua);
-  }
-
   /**
    * Enable hardware acceleration for video by prioritizing hardware-accelerated codecs.
    * H.264 is commonly hardware-accelerated on most devices. This should be called
@@ -1303,7 +1300,6 @@ class VoiceManager {
    */
   _preferHardwareAcceleration(connection) {
     try {
-      const shouldForceCodecPreferences = this._shouldForceCodecPreferences();
       const senders = connection.getSenders();
       const transceivers = connection.getTransceivers();
       for (const sender of senders) {
@@ -1356,8 +1352,7 @@ class VoiceManager {
 
           const defaultPrimaryCodec = capCodecs.find((c) => this._isPrimaryVideoCodec(c));
           const preferredPrimaryCodec = sortedCodecs.find((c) => this._isPrimaryVideoCodec(c));
-          const requestedCodecMode = this.videoCodecMode || "preferhwaccel";
-          const codecMode = shouldForceCodecPreferences ? requestedCodecMode : "auto";
+          const codecMode = this.videoCodecMode || "preferhwaccel";
           this._updateCodecDebugState({
             mode: codecMode,
             defaultCodec: this._getCodecLabel(defaultPrimaryCodec),
@@ -1381,10 +1376,7 @@ class VoiceManager {
             );
             if (transceiver && typeof transceiver.setCodecPreferences === "function") {
               try {
-                if (!shouldForceCodecPreferences) {
-                  transceiver.setCodecPreferences([]);
-                  console.log("[Voice] Firefox detected; using browser default codec negotiation order");
-                } else if (codecMode === "auto") {
+                if (codecMode === "auto") {
                   transceiver.setCodecPreferences([]);
                   console.log("[Voice] Codec preference mode is auto; using browser default negotiation order");
                 } else {
@@ -1715,6 +1707,12 @@ class VoiceManager {
     await this._renegotiate(userId, conn);
   }
 
+  _clearPeerRenegotiationRetries(userId) {
+    this._clearLateRenegotiationRetry(`screen:${userId}`);
+    this._clearLateRenegotiationRetry(`webcam:${userId}`);
+    this._clearLateRenegotiationRetry(`request-screen:${userId}`);
+  }
+
   async _renegotiateStreamForLateJoiner(type, userId, attempt = 0) {
     const retryKey = `${type}:${userId}`;
     const peer = this.peers.get(userId);
@@ -1905,6 +1903,7 @@ class VoiceManager {
           if (this.onScreenStream) this.onScreenStream(userId, videoStream);
           track.onunmute = () => {
             console.log("[Voice] screen track onunmute", { userId, readyState: track.readyState });
+            this._clearPeerRenegotiationRetries(userId);
             setTimeout(() => {
               const freshStream = new MediaStream([track]);
               if (this.onScreenStream) this.onScreenStream(userId, freshStream);
@@ -1914,6 +1913,7 @@ class VoiceManager {
             console.log("[Voice] screen track muted again", { userId, readyState: track.readyState });
           };
           track.onended = () => {
+            this._clearPeerRenegotiationRetries(userId);
             if (this.onScreenStream) this.onScreenStream(userId, null);
           };
           // Check if any deferred audio belongs to this screen stream
