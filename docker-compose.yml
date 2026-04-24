@@ -8,8 +8,8 @@
 
 services:
   haven:
-    image: ghcr.io/ancsemi/haven:latest
-    # build: .                    # Uncomment to build from source instead of using the pre-built image
+    # image: ghcr.io/ancsemi/haven:latest
+    build: .                    # Uncomment to build from source instead of using the pre-built image
     container_name: haven
     depends_on:
       - livekit
@@ -17,9 +17,10 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"    # Main app port
       - "${REDIRECT_PORT:-3001}:${REDIRECT_PORT:-3001}"  # Optional redirect port when built-in HTTPS is enabled
     volumes:
-      - haven_data:/data
-      # ── Or use a local folder instead (good for NAS / Synology): ──
-      # - ./haven-data:/data
+      - ${HAVEN_DATA_MOUNT:-haven_data}:/data
+      # Examples:
+      # HAVEN_DATA_MOUNT=haven_data      (named volume, default)
+      # HAVEN_DATA_MOUNT=./haven-data    (bind mount, NAS / Synology friendly)
     environment:
       - PORT=${PORT:-3000}
       - HOST=0.0.0.0
@@ -36,7 +37,7 @@ services:
       # Remote deploys should terminate TLS in front of both Haven and LiveKit,
       # then change LIVEKIT_WS_URL to a public wss:// endpoint.
     # Uncomment to load settings from a .env file:
-    # env_file: .env
+    env_file: .env
     restart: unless-stopped
 
   redis:
