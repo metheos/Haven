@@ -5295,6 +5295,18 @@ select.cfn-select.cfn-input {
 
 .server-icon.remote:hover .server-remove { display: flex; }
 
+/* Server bar drag-and-drop reordering */
+.server-icon.remote[draggable="true"] { cursor: grab; }
+.server-icon.remote[draggable="true"]:active { cursor: grabbing; }
+.server-icon.server-dragging { opacity: 0.4; }
+.server-drop-indicator {
+  height: 2px;
+  background: var(--accent, #7c5cfc);
+  margin: 2px 8px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
 /* Manage Servers gear button */
 .server-icon.manage-servers {
   background: transparent;

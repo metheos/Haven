@@ -3774,6 +3774,67 @@ _updateServerBadgeDots(badges) {
   this._reportKnownServerUrls();
 },
 
+// Drag-and-drop reordering of remote server icons in the sidebar.
+// Mirrors the channel sidebar drag pattern: event delegation on the list
+// container, drop reorders the underlying ServerManager list, then
+// re-renders. Idempotent — only attaches handlers once per list element.
+_setupServerBarDrag(list) {
+  if (!list || list._serverDragSetup) return;
+  list._serverDragSetup = true;
+
+  const indicator = document.createElement('div');
+  indicator.className = 'server-drop-indicator';
+
+  const cleanup = () => {
+    if (list._serverDragSrc) list._serverDragSrc.classList.remove('server-dragging');
+    list._serverDragSrc = null;
+    indicator.remove();
+  };
+
+  list.addEventListener('dragstart', (e) => {
+    const el = e.target.closest('.server-icon.remote[draggable="true"]');
+    if (!el) return;
+    list._serverDragSrc = el;
+    el.classList.add('server-dragging');
+    try { e.dataTransfer.effectAllowed = 'move'; } catch {}
+    try { e.dataTransfer.setData('text/plain', el.dataset.url || ''); } catch {}
+  });
+
+  list.addEventListener('dragover', (e) => {
+    if (!list._serverDragSrc) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'move'; } catch {}
+    const tgt = e.target.closest('.server-icon.remote');
+    if (!tgt || tgt === list._serverDragSrc) { indicator.remove(); return; }
+    const rect = tgt.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    if (before) list.insertBefore(indicator, tgt);
+    else list.insertBefore(indicator, tgt.nextSibling);
+  });
+
+  list.addEventListener('dragleave', (e) => {
+    if (!list.contains(e.relatedTarget)) indicator.remove();
+  });
+
+  list.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const src = list._serverDragSrc;
+    if (!src || !indicator.parentNode) { cleanup(); return; }
+    indicator.parentNode.insertBefore(src, indicator);
+    indicator.remove();
+    src.classList.remove('server-dragging');
+    list._serverDragSrc = null;
+    const orderedUrls = Array.from(list.querySelectorAll('.server-icon.remote')).map(el => el.dataset.url);
+    if (this.serverManager?.reorder) {
+      this.serverManager.reorder(orderedUrls);
+      this._pushServerListToServer?.();
+      this._renderServerBar();
+    }
+  });
+
+  list.addEventListener('dragend', cleanup);
+},
+
 // Tell the desktop main process which server URLs this view recognises
 // (its own origin + every remote icon currently in its sidebar). Main
 // uses this to filter the taskbar overlay so it never shows a badge for
@@ -3840,7 +3901,7 @@ _renderServerBar() {
         ? `<img src="${this._escapeHtml(s.iconData)}" class="server-icon-img" alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
         : `<span class="server-icon-text">${this._escapeHtml(initial)}</span>`);
     return `
-      <div class="server-icon remote" data-url="${this._escapeHtml(s.url)}"
+      <div class="server-icon remote" data-url="${this._escapeHtml(s.url)}" draggable="true"
            title="${this._escapeHtml(s.name)} — ${statusText}">
         ${iconContent}
         <span class="server-status-dot ${statusClass}"></span>
@@ -3893,6 +3954,10 @@ _renderServerBar() {
       this._editServer(el.dataset.url);
     });
   });
+
+  // Drag-and-drop reordering of remote server icons. Idempotent: handlers
+  // live on the list container so re-rendering doesn't double-bind.
+  this._setupServerBarDrag(list);
 
   // Also update mobile sidebar server bubbles
   this._renderMobileSidebarServers();
