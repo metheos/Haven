@@ -883,7 +883,8 @@ _renderOrganizeList() {
       const tagKey = group.tag || '__untagged__';
       const label = group.tag ? this._escapeHtml(group.tag) : t('channels.untagged');
       const isTagSelected = this._organizeSelectedTag === tagKey;
-      html += `<div class="organize-tag-header${isTagSelected ? ' selected' : ''}" data-tag-key="${this._escapeHtml(tagKey)}">
+      html += `<div class="organize-tag-header${isTagSelected ? ' selected' : ''}" data-tag-key="${this._escapeHtml(tagKey)}" draggable="true">
+        <span class="organize-tag-drag" title="${t('channels.drag_to_reorder') || 'Drag to reorder'}">⋮⋮</span>
         <span>${label}</span>
         <select class="tag-sort-select" data-tag="${this._escapeHtml(tagKey)}" title="Sort this group">
           <option value="manual"${group.sort === 'manual' ? ' selected' : ''}>${t('channels.sort.manual')}</option>
@@ -960,6 +961,66 @@ _renderOrganizeList() {
         this.socket.emit('update-server-setting', { key: 'channel_tag_sorts', value: JSON.stringify(this._organizeTagSorts) });
       }
       this._renderOrganizeList();
+    });
+  });
+
+  // ── Drag-and-drop reordering of category headers ──────
+  // Mirrors sidebar channel drag pattern. Dropping a category header onto
+  // another header reorders the categories and switches sort to manual,
+  // persisting both to localStorage and (for server-level) server settings.
+  let _dragKey = null;
+  listEl.querySelectorAll('.organize-tag-header').forEach(header => {
+    header.addEventListener('dragstart', (e) => {
+      _dragKey = header.dataset.tagKey;
+      header.classList.add('org-dragging');
+      try { e.dataTransfer.setData('text/plain', _dragKey); } catch {}
+      try { e.dataTransfer.effectAllowed = 'move'; } catch {}
+    });
+    header.addEventListener('dragend', () => {
+      header.classList.remove('org-dragging');
+      listEl.querySelectorAll('.organize-tag-header').forEach(h => h.classList.remove('org-drop-above', 'org-drop-below'));
+    });
+    header.addEventListener('dragover', (e) => {
+      if (!_dragKey || header.dataset.tagKey === _dragKey) return;
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = 'move'; } catch {}
+      const rect = header.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      header.classList.toggle('org-drop-above', before);
+      header.classList.toggle('org-drop-below', !before);
+    });
+    header.addEventListener('dragleave', () => {
+      header.classList.remove('org-drop-above', 'org-drop-below');
+    });
+    header.addEventListener('drop', (e) => {
+      e.preventDefault();
+      header.classList.remove('org-drop-above', 'org-drop-below');
+      if (!_dragKey || header.dataset.tagKey === _dragKey) { _dragKey = null; return; }
+      const rect = header.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      // Build current visual order from rendered DOM
+      const currentOrder = Array.from(listEl.querySelectorAll('.organize-tag-header'))
+        .map(h => h.dataset.tagKey);
+      const fromIdx = currentOrder.indexOf(_dragKey);
+      const targetIdx = currentOrder.indexOf(header.dataset.tagKey);
+      if (fromIdx === -1 || targetIdx === -1) { _dragKey = null; return; }
+      currentOrder.splice(fromIdx, 1);
+      const insertAt = currentOrder.indexOf(header.dataset.tagKey) + (before ? 0 : 1);
+      currentOrder.splice(insertAt, 0, _dragKey);
+
+      this._organizeCatSort = 'manual';
+      this._organizeCatOrder = currentOrder;
+      const sortSel = document.getElementById('organize-cat-sort');
+      if (sortSel) sortSel.value = 'manual';
+      localStorage.setItem(`haven_cat_order_${this._organizeParentCode}`, JSON.stringify(currentOrder));
+      localStorage.setItem(`haven_cat_sort_${this._organizeParentCode}`, 'manual');
+      if (this._organizeServerLevel && (this.user?.isAdmin || this._hasPerm('manage_server'))) {
+        this.socket.emit('update-server-setting', { key: 'channel_cat_order', value: JSON.stringify(currentOrder) });
+        this.socket.emit('update-server-setting', { key: 'channel_cat_sort', value: 'manual' });
+      }
+      _dragKey = null;
+      this._renderOrganizeList();
+      this._renderChannels();
     });
   });
 
@@ -1084,7 +1145,10 @@ _moveCategoryInOrder(direction) {
   }
 
   this._renderOrganizeList();
-  if (this._organizeServerLevel) this._renderChannels();
+  // Always re-render the sidebar so sub-channel category moves take effect
+  // immediately (previously this was server-level-only and the sidebar lagged
+  // behind the modal for sub-channel reordering). #4 in the bug list.
+  this._renderChannels();
 },
 
 /* ── DM Organize (client-side, localStorage) ─────────── */
@@ -2047,7 +2111,15 @@ _saveDragDropOrder(el) {
   if (el.classList.contains('sub-tag-label')) {
     const parentCode = el.dataset.parentCode;
     if (!parentCode) return;
-    const newOrder = [...list.querySelectorAll(`.sub-tag-label[data-parent-code="${CSS.escape(parentCode)}"]`)].map(e => e.dataset.tagName || '__untagged__');
+    // Map the literal "Untagged" tag name back to the __untagged__ placeholder
+    // that the organize modal uses, so the saved order matches what the modal
+    // reads on next open.
+    const newOrder = [...list.querySelectorAll(`.sub-tag-label[data-parent-code="${CSS.escape(parentCode)}"]`)]
+      .map(e => {
+        const t = e.dataset.tagName;
+        if (!t || t === 'Untagged') return '__untagged__';
+        return t;
+      });
     localStorage.setItem(`haven_cat_order_${parentCode}`, JSON.stringify(newOrder));
     localStorage.setItem(`haven_cat_sort_${parentCode}`, 'manual');
     return;
