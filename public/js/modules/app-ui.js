@@ -2385,7 +2385,8 @@ _setupUI() {
         || this._hasPerm?.('manage_emojis')
         || this._hasPerm?.('manage_soundboard')
         || this._hasPerm?.('manage_roles')
-        || this._hasPerm?.('manage_server');
+        || this._hasPerm?.('manage_server')
+        || this._hasPerm?.('view_audit_log');
       if (!hasAdminAccess) return this._switchSettingsTab('user');
       if (userBody) userBody.style.display = 'none';
       if (adminBody) adminBody.style.display = '';

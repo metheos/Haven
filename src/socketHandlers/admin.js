@@ -520,7 +520,7 @@ module.exports = function register(socket, ctx) {
     if (typeof cb !== 'function') return;
     if (!socket.user) return cb({ error: 'Not authenticated' });
     const isAdmin = socket.user.isAdmin;
-    const canView = isAdmin || userHasPermission(socket.user.id, 'manage_server');
+    const canView = isAdmin || userHasPermission(socket.user.id, 'view_audit_log');
     if (!canView) return cb({ error: 'Permission denied' });
     try {
       const limit = Math.max(1, Math.min(200, parseInt(opts && opts.limit, 10) || 50));

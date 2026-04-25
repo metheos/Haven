@@ -5,7 +5,7 @@ const ALL_PERMS = [
   'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
   'create_channel', 'create_temp_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
   'view_all_members', 'view_channel_members', 'manage_emojis', 'manage_soundboard', 'manage_music_queue', 'promote_user', 'transfer_admin',
-  'manage_roles', 'manage_server', 'delete_channel', 'read_only_override'
+  'manage_roles', 'manage_server', 'delete_channel', 'read_only_override', 'view_audit_log'
 ];
 //Similarly flavored solution to perm labels
 const PERM_LABELS = {
@@ -40,7 +40,8 @@ const PERM_LABELS = {
   get manage_roles() { return t('permissions.manage_roles'); },
   get manage_server() { return t('permissions.manage_server'); },
   get delete_channel() { return t('permissions.delete_channel'); },
-  get read_only_override() { return t('permissions.read_only_override'); }
+  get read_only_override() { return t('permissions.read_only_override'); },
+  get view_audit_log() { return t('permissions.view_audit_log'); }
 };
 
 export default {
@@ -546,6 +547,15 @@ _syncSettingsNav() {
   const serverNavItem = document.querySelector('.settings-nav-item[data-target="section-server"]');
   if (serverNavItem && !isAdmin && canManageServer) {
     serverNavItem.style.display = '';
+  }
+  // Show Audit Log nav item for users with view_audit_log permission
+  const canViewAuditLog = isAdmin || this._hasPerm('view_audit_log');
+  const auditNavItem = document.querySelector('.settings-nav-item[data-target="section-audit-log"]');
+  if (auditNavItem) auditNavItem.style.display = canViewAuditLog ? '' : 'none';
+  // Make sure the admin tab/group/body are visible if the user only has audit-log access
+  if (canViewAuditLog && !hasAnyAdminAccess) {
+    if (adminTab) adminTab.style.display = '';
+    if (adminNavGroup) adminNavGroup.style.display = '';
   }
   // Also show save bar for users with manage_server perm (when admin tab active)
   if (saveBar && !isAdmin && this._hasPerm('manage_server')) {
