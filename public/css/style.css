@@ -2127,6 +2127,7 @@ html.rgb-cycling *::after {
 .theme-btn[data-theme="scripture"]{ background: #1a1610; color: #c8a84c; }
 .theme-btn[data-theme="chapel"] { background: #0e0c18; color: #8a5cf0; }
 .theme-btn[data-theme="gospel"] { background: #f5f0e8; color: #8b2032; }
+.theme-btn[data-theme="midnightpurple"] { background: #0d0820; color: #8a5cf6; }
 .theme-btn[data-theme="crt"]    { background: #080808; color: #ffb000; text-shadow: 0 0 4px rgba(255,176,0,0.5); }
 .theme-btn[data-theme="win95"]  { background: #c0c0c0; color: #000; border: 2px outset #fff; }
 .theme-btn[data-theme="custom"] { background: linear-gradient(135deg, #ff2d6f, #faa61a, #43b581, #7c5cfc); color: #fff; }

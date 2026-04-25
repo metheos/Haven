@@ -1950,10 +1950,15 @@ _setupChannelDragDrop() {
   const list = document.getElementById('channel-list');
   if (!list || !canManage) return;
 
-  // Make eligible items draggable
+  // Make eligible items draggable (idempotent — safe to re-run each render)
   list.querySelectorAll(
     '.channel-item:not(.sub-channel-item):not(.dm-item):not(.temp-channel-create-btn), .category-label, .sub-channel-item'
   ).forEach(el => el.setAttribute('draggable', 'true'));
+
+  // Listeners must only be attached ONCE per container — re-renders would
+  // otherwise stack duplicate handlers and cause channels to spasm/jump.
+  if (list._dragSetupDone) return;
+  list._dragSetupDone = true;
 
   let dragSrc = null;
   const indicator = document.createElement('div');
@@ -2115,6 +2120,9 @@ _setupDmDragDrop() {
   if (!dmList) return;
 
   dmList.querySelectorAll('.dm-item').forEach(el => el.setAttribute('draggable', 'true'));
+
+  if (dmList._dragSetupDone) return;
+  dmList._dragSetupDone = true;
 
   let dragSrc = null;
   const indicator = document.createElement('div');

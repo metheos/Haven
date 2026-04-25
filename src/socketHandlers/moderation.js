@@ -467,10 +467,15 @@ module.exports = function register(socket, ctx) {
 
   // ── Ban / deleted-user lists ────────────────────────────
   socket.on('get-bans', () => {
-    if (!socket.user.isAdmin) return;
+    // Anyone with ban permission can view the ban list (mirrors ban-user perm check)
+    if (!socket.user.isAdmin && !userHasPermission(socket.user.id, 'ban_user')) {
+      return socket.emit('ban-list', []);
+    }
+    // LEFT JOIN so bans referencing a since-deleted user still appear
     const bans = db.prepare(`
-      SELECT b.id, b.user_id, b.reason, b.created_at, COALESCE(u.display_name, u.username) as username
-      FROM bans b JOIN users u ON b.user_id = u.id ORDER BY b.created_at DESC
+      SELECT b.id, b.user_id, b.reason, b.created_at,
+             COALESCE(u.display_name, u.username, '[deleted user]') as username
+      FROM bans b LEFT JOIN users u ON b.user_id = u.id ORDER BY b.created_at DESC
     `).all();
     bans.forEach(b => { b.created_at = utcStamp(b.created_at); });
     socket.emit('ban-list', bans);
