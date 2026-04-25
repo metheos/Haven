@@ -11,6 +11,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.9.0] — 2026-04-25
+
+### Added
+- **Drag-and-drop tag categories in the Organize modal** — category headers in the Organize Sub-channels / Channels modal can now be reordered by dragging, mirroring how channels and sub-channels are already reordered. The new order persists to localStorage and (for server-level reorders by admins) syncs to all members through server settings.
+- **Audit Log** — a new admin/moderator-visible record of significant server actions: server settings changes, channel create/delete/rename, role create/update/delete, role assign/revoke, member kicks, bans, unbans, mutes, unmutes, and display-name renames. Open it from Settings → Admin → Audit Log. Includes filtering by action type and actor, paginated loading, and a JSON export button.
+- **Modal expand and close controls** — list-heavy modals now show top-right expand and close buttons even when the modal heading is wrapped in a flex container (previously the auto-injected controls were misplaced or hidden on those modals).
+
+### Changed
+- **Resizable list modals fill their available space** — the Organize, Banned Users, and Deleted Users modals no longer waste vertical space when resized; the inner list grows to fill the modal height. Other list-style modals can opt in by wrapping their body in a `modal-flex-body` container.
+
+### Fixed
+- **Sidebar lagging behind the Organize modal for sub-channel category moves** — moving a category up or down inside a sub-channel Organize modal now refreshes the sidebar immediately. Previously the sidebar only re-rendered for server-level category moves, leaving sub-channel order out of sync until the next render.
+- **Sub-channel "Untagged" group order not persisting** — the saved category order now uses the same `__untagged__` placeholder that the Organize modal reads on next open, so dragging the Untagged group around no longer silently resets on reload.
+
+---
+
 ## [3.8.0] — 2026-04-23
 
 ### Added
