@@ -1583,7 +1583,9 @@ _setupUI() {
             this.socket.emit('delete-message', { messageId: msgId });
           }
         } else if (action === 'pin') {
-          this.socket.emit('pin-message', { messageId: msgId });
+          if (confirm(t('confirm.pin_message'))) {
+            this.socket.emit('pin-message', { messageId: msgId });
+          }
         } else if (action === 'unpin') {
           this.socket.emit('unpin-message', { messageId: msgId });
         } else if (action === 'archive') {
@@ -1885,7 +1887,9 @@ _setupUI() {
         this.socket.emit('delete-message', { messageId: msgId });
       }
     } else if (action === 'pin') {
-      this.socket.emit('pin-message', { messageId: msgId });
+      if (confirm(t('confirm.pin_message'))) {
+        this.socket.emit('pin-message', { messageId: msgId });
+      }
     } else if (action === 'unpin') {
       this.socket.emit('unpin-message', { messageId: msgId });
     } else if (action === 'archive') {
