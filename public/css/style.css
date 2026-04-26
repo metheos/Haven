@@ -14171,6 +14171,7 @@ ul.chat-list { list-style-type: disc; }
   align-items: flex-start;
   gap: 12px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 .server-icon-preview {
   width: 52px;
@@ -14197,6 +14198,8 @@ ul.chat-list { list-style-type: disc; }
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .server-bar .server-icon.home img {
   width: 100%;
@@ -14210,9 +14213,11 @@ ul.chat-list { list-style-type: disc; }
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .server-banner-preview {
   width: 200px;
+  max-width: 100%;
   height: 60px;
   border-radius: 8px;
   background: var(--bg-tertiary);
@@ -14227,6 +14232,8 @@ ul.chat-list { list-style-type: disc; }
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* ── Server Banner Display (always behind all content) ─── */

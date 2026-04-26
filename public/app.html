@@ -1844,8 +1844,8 @@
           </div>
           <div class="settings-group" style="margin-top:14px">
             <small class="settings-group-label" data-i18n="settings.admin.backup_restore_label">Restore From Backup</small>
-            <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-              <input type="file" id="backup-restore-file" accept=".zip" style="flex:1">
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
+              <input type="file" id="backup-restore-file" accept=".zip" style="flex:1 1 200px;min-width:0;max-width:100%">
               <button class="btn-sm" id="backup-restore-btn">⬆️ <span data-i18n="settings.admin.backup_restore_btn">Restore</span></button>
             </div>
             <small class="settings-hint" style="margin-top:6px;display:block;color:var(--danger,#e84a4a)" data-i18n="settings.admin.backup_restore_warning"><strong>Warning:</strong> Restoring overwrites the current server data. The server will restart automatically — your hosting setup must support auto-restart (Docker, systemd, the Haven installer service, etc.). The previous database is preserved as <code>haven.db.pre-restore</code> for one cycle.</small>
