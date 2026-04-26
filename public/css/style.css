@@ -3375,6 +3375,15 @@ html.rgb-cycling *::after {
   width: 36px;
   text-align: right;
   padding-right: 4px;
+  /* Cap the absolute-positioned timestamp to the gutter so it doesn't
+     bleed across the message body when the content area is wider than
+     the gutter. (#5292) */
+  left: 0;
+}
+/* Reserve gutter space on hover so the absolutely-positioned compact
+   timestamp doesn't overlap the message text in the narrow PiP layout. */
+@media (hover: hover) {
+  .dm-pip-messages .message-compact:hover { padding-left: 44px; }
 }
 /* Slim reactions, polls, link previews to fit the smaller frame */
 .dm-pip-messages .reactions-row { gap: 4px; margin-top: 2px; }
