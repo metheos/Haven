@@ -15326,13 +15326,14 @@ ul.chat-list { list-style-type: disc; }
 
 .server-icon .server-unread-dot {
   position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 10px;
-  height: 10px;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
   background: var(--danger, #ed4245);
   border-radius: 50%;
   border: 2px solid var(--bg-secondary, #2b2d31);
+  box-shadow: 0 0 0 1px rgba(237, 66, 69, 0.45), 0 0 8px rgba(237, 66, 69, 0.5);
   pointer-events: none;
   display: none;
 }
