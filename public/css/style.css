@@ -7568,6 +7568,8 @@ html:not([data-toolbaricons="emoji"]):not([data-toolbaricons="color"]) .tb-icon-
   padding: 10px 14px;
   border-top: 1px solid var(--border-light);
   flex-shrink: 0;
+  /* Anchor for autocomplete dropdowns positioned with bottom: 100% (#5296) */
+  position: relative;
 }
 .thread-reply-bar {
   display: flex;

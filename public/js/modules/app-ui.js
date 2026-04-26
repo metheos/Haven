@@ -2,6 +2,51 @@ export default {
 
 // ── UI Event Bindings ─────────────────────────────────
 
+// Shared keydown handler for any input that supports @mention / :emoji /
+// /slash autocomplete. Returns true if the event was consumed. (#5296)
+_handleAutocompleteKeydown(e) {
+  const emojiDd = document.getElementById('emoji-dropdown');
+  if (emojiDd && emojiDd.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateEmojiDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const active = emojiDd.querySelector('.emoji-ac-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideEmojiDropdown(); return true; }
+  }
+  const slashDd = document.getElementById('slash-dropdown');
+  if (slashDd && slashDd.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateSlashDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Tab') {
+      const active = slashDd.querySelector('.slash-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideSlashDropdown(); return true; }
+  }
+  const dropdown = document.getElementById('mention-dropdown');
+  if (dropdown && dropdown.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateMentionDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const active = dropdown.querySelector('.mention-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideMentionDropdown(); return true; }
+  }
+  return false;
+},
+
 _setupUI() {
   const msgInput = document.getElementById('message-input');
 
@@ -1518,10 +1563,17 @@ _setupUI() {
   if (dmPipSend) dmPipSend.addEventListener('click', () => this._sendDMPiPMessage?.());
   const dmPipInput = document.getElementById('dm-pip-input');
   if (dmPipInput) dmPipInput.addEventListener('keydown', (e) => {
+    // Autocomplete navigation/insert hijacks first. (#5296)
+    if (this._handleAutocompleteKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this._sendDMPiPMessage?.();
     }
+  });
+  if (dmPipInput) dmPipInput.addEventListener('input', () => {
+    this._checkMentionTrigger(dmPipInput);
+    this._checkEmojiTrigger(dmPipInput);
+    this._checkSlashTrigger(dmPipInput);
   });
 
   // Paste images / files into the DM PiP input — uploads to the active PiP DM
@@ -1668,10 +1720,17 @@ _setupUI() {
   const threadInput = document.getElementById('thread-input');
   if (threadInput) {
     threadInput.addEventListener('keydown', (e) => {
+      // Autocomplete navigation/insert hijacks first. (#5296)
+      if (this._handleAutocompleteKeydown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this._sendThreadMessage();
       }
+    });
+    threadInput.addEventListener('input', () => {
+      this._checkMentionTrigger(threadInput);
+      this._checkEmojiTrigger(threadInput);
+      this._checkSlashTrigger(threadInput);
     });
   }
 

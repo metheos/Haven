@@ -1436,6 +1436,10 @@ _checkMentionTrigger(inputEl) {
 
 _showMentionDropdown() {
   const dropdown = document.getElementById('mention-dropdown');
+  // Re-parent so the absolute-positioned dropdown anchors above the active
+  // input (works for thread input + DM PiP input + main input). (#5296)
+  const host = (this._mentionInput && this._mentionInput.parentElement) || null;
+  if (host && dropdown.parentElement !== host) host.appendChild(dropdown);
   const query = this.mentionQuery;
   const filtered = this.channelMembers.filter(m => {
     const dn = (m.username || '').toLowerCase();
@@ -1530,6 +1534,10 @@ _checkEmojiTrigger(inputEl) {
 
 _showEmojiDropdown(query) {
   const dd = document.getElementById('emoji-dropdown');
+  // Re-parent so the absolute-positioned dropdown anchors above the active
+  // input (works for thread input + DM PiP input + main input). (#5296)
+  const host = (this._emojiAcInput && this._emojiAcInput.parentElement) || null;
+  if (host && dd.parentElement !== host) host.appendChild(dd);
   dd.innerHTML = '';
 
   let results = [];
@@ -1622,8 +1630,9 @@ _insertEmojiAc(insert) {
 // SLASH COMMAND AUTOCOMPLETE
 // ═══════════════════════════════════════════════════════
 
-_checkSlashTrigger() {
-  const input = document.getElementById('message-input');
+_checkSlashTrigger(inputEl) {
+  const input = inputEl || document.getElementById('message-input');
+  this._slashInput = input;
   const text = input.value;
 
   // Only activate if text starts with / and cursor is in the first word
@@ -1637,6 +1646,10 @@ _checkSlashTrigger() {
 
 _showSlashDropdown(query) {
   const dropdown = document.getElementById('slash-dropdown');
+  // Re-parent so the absolute-positioned dropdown anchors above the active
+  // input (works for thread input + DM PiP input + main input). (#5296)
+  const host = (this._slashInput && this._slashInput.parentElement) || null;
+  if (host && dropdown.parentElement !== host) host.appendChild(dropdown);
   const filtered = this.slashCommands.filter(c =>
     c.cmd.startsWith(query)
   ).slice(0, 10);
@@ -1692,7 +1705,7 @@ _navigateSlashDropdown(direction) {
 },
 
 _insertSlashCommand(cmd) {
-  const input = document.getElementById('message-input');
+  const input = this._slashInput || document.getElementById('message-input');
   const cmdDef = this.slashCommands.find(c => c.cmd === cmd);
   const needsArg = cmdDef && cmdDef.args && cmdDef.args.startsWith('<');
   input.value = '/' + cmd + (needsArg ? ' ' : '');
