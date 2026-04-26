@@ -3344,6 +3344,15 @@ html.rgb-cycling *::after {
   margin: 0;
   font-size: 13px;
 }
+/* Defeat density-overrides (e.g. [data-density="compact"] .message-compact
+   { padding-left: 44px }) that would otherwise recess follow-up messages
+   in the PiP, making them look misaligned with the first message in a
+   group. PiP always uses a flush left edge for both root and follow-ups. */
+.dm-pip-panel .dm-pip-messages .message,
+.dm-pip-panel .dm-pip-messages .message-compact {
+  padding-left: 6px;
+  padding-right: 6px;
+}
 .dm-pip-messages .message-row {
   gap: 0;
 }
