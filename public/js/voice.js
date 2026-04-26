@@ -183,6 +183,14 @@ class VoiceManager {
     this.socket.on('voice-speaking', (data) => {
       if (data && data.userId != null) {
         const uid = data.userId === this.localUserId ? 'self' : data.userId;
+        // Persist to talkingState so a re-render of the voice user list
+        // (e.g. after mute toggle or user join/leave) doesn't wipe the
+        // talking-class highlight on the local user.  For remote users
+        // _startAnalyser already keeps this in sync via WebRTC analysis,
+        // but the local user has no peer analyser, so we mirror the
+        // server-relayed state here.
+        if (data.speaking) this.talkingState.set(uid, true);
+        else this.talkingState.delete(uid);
         if (this.onTalkingChange) this.onTalkingChange(uid, !!data.speaking);
       }
     });
