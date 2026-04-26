@@ -7,7 +7,9 @@ export default {
 
 async _sendMessage() {
   const input = document.getElementById('message-input');
-  const content = input.value.trim();
+  // `let` (not `const`) — DM slash commands like /me, /shrug rewrite this
+  // before E2E encryption further down. (#5297)
+  let content = input.value.trim();
   const hasImages = this._imageQueue && this._imageQueue.length > 0;
   if (!content && !hasImages) return;
   if (!this.currentChannel) return;
