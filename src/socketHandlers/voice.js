@@ -124,7 +124,9 @@ module.exports = function register(socket, ctx) {
     voiceLastActivity.set(socket.user.id, Date.now());
 
     const lkRoomName = `${process.env.LIVEKIT_ROOM_PREFIX || "haven"}-${code}`;
-    console.log(`[voice] JOIN  user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${code} room="${lkRoomName}" peers=${existingUsers.length} [${existingUsers.map((u) => u.username).join(", ") || "none"}]`);
+    console.log(
+      `[voice] JOIN  user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${code} room="${lkRoomName}" peers=${existingUsers.length} [${existingUsers.map((u) => u.username).join(", ") || "none"}]`,
+    );
 
     socket.emit("voice-existing-users", {
       channelCode: code,
@@ -193,7 +195,9 @@ module.exports = function register(socket, ctx) {
     if (!isString(data.code, 8, 8)) return;
     const lkRoomNameLeave = `${process.env.LIVEKIT_ROOM_PREFIX || "haven"}-${data.code}`;
     const roomSizeLeave = voiceUsers.get(data.code)?.size ?? 0;
-    console.log(`[voice] LEAVE user="${socket.user.displayName}" (id=${socket.user.id}) ← channel=${data.code} room="${lkRoomNameLeave}" remaining=${Math.max(0, roomSizeLeave - 1)}`);
+    console.log(
+      `[voice] LEAVE user="${socket.user.displayName}" (id=${socket.user.id}) ← channel=${data.code} room="${lkRoomNameLeave}" remaining=${Math.max(0, roomSizeLeave - 1)}`,
+    );
     handleVoiceLeave(socket, data.code);
     if (typeof callback === "function") callback({ ok: true });
   });
@@ -253,7 +257,9 @@ module.exports = function register(socket, ctx) {
       }
     }
 
-    console.log(`[voice] KICK  "${target.username}" (id=${data.userId}) kicked from channel=${data.code} by "${socket.user.displayName}" (id=${socket.user.id})`);
+    console.log(
+      `[voice] KICK  "${target.username}" (id=${data.userId}) kicked from channel=${data.code} by "${socket.user.displayName}" (id=${socket.user.id})`,
+    );
 
     io.to(target.socketId).emit("voice-kicked", {
       channelCode: data.code,
@@ -289,7 +295,9 @@ module.exports = function register(socket, ctx) {
     if (!activeScreenSharers.has(data.code)) activeScreenSharers.set(data.code, new Set());
     activeScreenSharers.get(data.code).add(socket.user.id);
     const screenAudienceCount = voiceRoom.size - 1;
-    console.log(`[voice] SCREEN START  user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${data.code} hasAudio=${!!data.hasAudio} audience=${screenAudienceCount}`);
+    console.log(
+      `[voice] SCREEN START  user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${data.code} hasAudio=${!!data.hasAudio} audience=${screenAudienceCount}`,
+    );
     for (const [uid, user] of voiceRoom) {
       if (uid !== socket.user.id) {
         io.to(user.socketId).emit("screen-share-started", {
@@ -340,7 +348,9 @@ module.exports = function register(socket, ctx) {
     // Track webcam publisher and fan out event to other users.
     if (!activeWebcamUsers.has(data.code)) activeWebcamUsers.set(data.code, new Set());
     activeWebcamUsers.get(data.code).add(socket.user.id);
-    console.log(`[voice] WEBCAM START  user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${data.code} audience=${voiceRoom.size - 1}`);
+    console.log(
+      `[voice] WEBCAM START  user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${data.code} audience=${voiceRoom.size - 1}`,
+    );
 
     for (const [uid, user] of voiceRoom) {
       if (uid !== socket.user.id) {
@@ -520,7 +530,9 @@ module.exports = function register(socket, ctx) {
 
     const existingUsers = Array.from(voiceUsers.get(code).values()).filter((u) => u.id !== socket.user.id);
     const lkRoomNameRejoin = `${process.env.LIVEKIT_ROOM_PREFIX || "haven"}-${code}`;
-    console.log(`[voice] REJOIN user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${code} room="${lkRoomNameRejoin}" peers=${existingUsers.length} [${existingUsers.map((u) => u.username).join(", ") || "none"}]`);
+    console.log(
+      `[voice] REJOIN user="${socket.user.displayName}" (id=${socket.user.id}) → channel=${code} room="${lkRoomNameRejoin}" peers=${existingUsers.length} [${existingUsers.map((u) => u.username).join(", ") || "none"}]`,
+    );
 
     socket.emit("voice-existing-users", {
       channelCode: code,

@@ -594,7 +594,9 @@ function setupSocketHandlers(io, db) {
 
     const lkRoomNameHvl = `${process.env.LIVEKIT_ROOM_PREFIX || "haven"}-${code}`;
     const remainingHvl = Math.max(0, voiceRoom.size - 1);
-    console.log(`[voice] LEAVE user="${socket.user.displayName}" (id=${socket.user.id}) \u2190 channel=${code} room="${lkRoomNameHvl}" remaining=${remainingHvl}`);
+    console.log(
+      `[voice] LEAVE user="${socket.user.displayName}" (id=${socket.user.id}) \u2190 channel=${code} room="${lkRoomNameHvl}" remaining=${remainingHvl}`,
+    );
 
     voiceRoom.delete(socket.user.id);
     socket.leave(`voice:${code}`);

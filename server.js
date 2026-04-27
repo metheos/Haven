@@ -467,9 +467,9 @@ app.post("/api/livekit/token", express.json(), async (req, res) => {
 //       - http://haven:<PORT>/api/livekit/webhook
 
 // Human-readable maps for protobuf enum values sent by LiveKit.
-const LIVEKIT_TRACK_TYPE  = { 0: "AUDIO", 1: "VIDEO", 2: "DATA" };
-const LIVEKIT_TRACK_SRC   = { 0: "UNKNOWN", 1: "CAMERA", 2: "MICROPHONE", 3: "SCREEN_SHARE", 4: "SCREEN_SHARE_AUDIO" };
-const LIVEKIT_PART_STATE  = { 0: "JOINING", 1: "JOINED", 2: "ACTIVE", 3: "DISCONNECTING", 4: "DISCONNECTED" };
+const LIVEKIT_TRACK_TYPE = { 0: "AUDIO", 1: "VIDEO", 2: "DATA" };
+const LIVEKIT_TRACK_SRC = { 0: "UNKNOWN", 1: "CAMERA", 2: "MICROPHONE", 3: "SCREEN_SHARE", 4: "SCREEN_SHARE_AUDIO" };
+const LIVEKIT_PART_STATE = { 0: "JOINING", 1: "JOINED", 2: "ACTIVE", 3: "DISCONNECTING", 4: "DISCONNECTED" };
 
 function _lkFmtRoom(room) {
   if (!room) return "(no room)";
@@ -479,7 +479,13 @@ function _lkFmtRoom(room) {
 function _lkFmtParticipant(p) {
   if (!p) return "(no participant)";
   const state = LIVEKIT_PART_STATE[p.state] ?? p.state;
-  const meta = (() => { try { return JSON.parse(p.metadata || "{}"); } catch { return {}; } })();
+  const meta = (() => {
+    try {
+      return JSON.parse(p.metadata || "{}");
+    } catch {
+      return {};
+    }
+  })();
   const userId = meta.userId ?? p.identity;
   const displayName = meta.displayName || meta.username || p.name || p.identity;
   return `user="${displayName}" (userId=${userId} identity=${p.identity} sid=${p.sid} state=${state} publisher=${p.isPublisher ?? "?"})`;
@@ -488,18 +494,18 @@ function _lkFmtParticipant(p) {
 function _lkFmtTrack(t) {
   if (!t) return "(no track)";
   const type = LIVEKIT_TRACK_TYPE[t.type] ?? t.type;
-  const src  = LIVEKIT_TRACK_SRC[t.source] ?? t.source;
-  const dims = (t.width && t.height) ? ` ${t.width}x${t.height}` : "";
+  const src = LIVEKIT_TRACK_SRC[t.source] ?? t.source;
+  const dims = t.width && t.height ? ` ${t.width}x${t.height}` : "";
   return `track=${type}/${src} name="${t.name}" sid=${t.sid} muted=${t.muted} mime=${t.mimeType || "?"}${dims}`;
 }
 
 function logLiveKitEvent(evt) {
   const room = evt.room;
-  const p    = evt.participant;
-  const t    = evt.track;
-  const R    = _lkFmtRoom(room);
-  const P    = _lkFmtParticipant(p);
-  const T    = _lkFmtTrack(t);
+  const p = evt.participant;
+  const t = evt.track;
+  const R = _lkFmtRoom(room);
+  const P = _lkFmtParticipant(p);
+  const T = _lkFmtTrack(t);
 
   switch (evt.event) {
     case "room_started":
