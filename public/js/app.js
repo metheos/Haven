@@ -193,6 +193,7 @@ class HavenApp {
     this._setupImageModePicker();
     this._setupRoleDisplayPicker();
     this._setupToolbarIconPicker();
+    this._setupDebugSection();
     this._setupLightbox();
     this._setupOnlineOverlay();
     this._setupModalExpand();

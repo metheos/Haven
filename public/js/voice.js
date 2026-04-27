@@ -1750,9 +1750,14 @@ class VoiceManager {
 
       this._localTalkAnalyser = { analyser, source };
       const setSelfTalking = (talking) => {
-        // Update local talkingState immediately so re-renders of the voice
-        // user list keep the highlight on the local user even if the server
-        // echo is delayed or dropped.
+        // Optional debug mode: highlight the local user as soon as the mic
+        // crosses the talk threshold, instead of waiting for the server to
+        // echo voice-speaking back. The default behaviour (off) keeps the
+        // highlight tied to the server echo so it doubles as confirmation
+        // that the server actually heard you.
+        try {
+          if (localStorage.getItem('debug_local_talk_indicator') !== '1') return;
+        } catch { return; }
         if (talking) this.talkingState.set('self', true);
         else this.talkingState.delete('self');
         if (this.onTalkingChange) this.onTalkingChange('self', talking);

@@ -1065,6 +1065,7 @@
           <div class="settings-nav-item" data-target="section-plugins">🧩 <span data-i18n="settings.nav.plugins">Plugins & Themes</span></div>
           <div class="settings-nav-item" data-target="section-desktop-shortcuts" id="desktop-shortcuts-nav" style="display:none">⌨️ <span data-i18n="settings.nav.shortcuts">Shortcuts</span></div>
           <div class="settings-nav-item" data-target="section-desktop-app" id="desktop-app-nav" style="display:none">🖥️ <span data-i18n="settings.nav.desktop_app">Desktop App</span></div>
+          <div class="settings-nav-item" data-target="section-debug">🐞 <span data-i18n="settings.nav.debug">Debug</span></div>
           </div>
           <div class="settings-nav-admin-group" style="display:none">
           <div class="settings-nav-item settings-nav-admin" data-target="section-branding" style="display:none">🏠 <span data-i18n="settings.nav.branding">Branding</span></div>
@@ -1651,6 +1652,20 @@
 
         <div class="desktop-pref-row" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
           <span class="settings-hint" id="desktop-version-info" style="opacity:0.6"></span>
+        </div>
+      </div>
+
+      <!-- Debug Section -->
+      <div class="settings-section" id="section-debug">
+        <h5 class="settings-section-title">🐞 <span data-i18n="settings.debug_section.title">Debug</span></h5>
+        <p class="settings-desc" data-i18n="settings.debug_section.desc">Experimental client-side toggles. These don't change anything on the server.</p>
+
+        <div class="desktop-pref-row">
+          <label class="toggle-row">
+            <input type="checkbox" id="pref-debug-local-talk-indicator">
+            <span class="toggle-label" data-i18n="settings.debug_section.local_talk_indicator">Local mic talk indicator</span>
+          </label>
+          <p class="settings-hint" data-i18n="settings.debug_section.local_talk_indicator_hint">Highlight your own avatar the moment your mic crosses the talk threshold, instead of waiting for the server to echo it back. Default off — the server echo is usually preferred because it confirms your audio actually reached the server.</p>
         </div>
       </div>
 

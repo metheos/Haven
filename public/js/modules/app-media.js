@@ -1543,6 +1543,20 @@ _setupEmojiSizePicker() {
   });
 },
 
+// ── Debug Section ──
+
+_setupDebugSection() {
+  const cb = document.getElementById('pref-debug-local-talk-indicator');
+  if (!cb) return;
+  try { cb.checked = localStorage.getItem('debug_local_talk_indicator') === '1'; } catch {}
+  cb.addEventListener('change', () => {
+    try {
+      if (cb.checked) localStorage.setItem('debug_local_talk_indicator', '1');
+      else localStorage.removeItem('debug_local_talk_indicator');
+    } catch {}
+  });
+},
+
 // ── Image Display Mode Picker ──
 
 _setupImageModePicker() {
