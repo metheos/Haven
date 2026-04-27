@@ -1668,7 +1668,7 @@ _setupUI() {
           this._startEditMessage?.(msgEl, msgId);
         } else if (action === 'delete') {
           if (confirm(t('confirm.delete_message'))) {
-            this.socket.emit('delete-message', { messageId: msgId });
+            this.socket.emit('delete-message', { messageId: msgId, attachments: this._getMessageAttachments?.(msgId) });
           }
         } else if (action === 'pin') {
           if (confirm(t('confirm.pin_message'))) {
@@ -1979,7 +1979,7 @@ _setupUI() {
       this._startEditMessage(msgEl, msgId);
     } else if (action === 'delete') {
       if (confirm(t('confirm.delete_message'))) {
-        this.socket.emit('delete-message', { messageId: msgId });
+        this.socket.emit('delete-message', { messageId: msgId, attachments: this._getMessageAttachments?.(msgId) });
       }
     } else if (action === 'pin') {
       if (confirm(t('confirm.pin_message'))) {
@@ -2036,7 +2036,7 @@ _setupUI() {
           this._startEditMessage(msgEl, msgId);
         } else if (action === 'delete') {
           if (confirm(t('confirm.delete_message'))) {
-            this.socket.emit('delete-message', { messageId: msgId });
+            this.socket.emit('delete-message', { messageId: msgId, attachments: this._getMessageAttachments?.(msgId) });
           }
         }
         return;

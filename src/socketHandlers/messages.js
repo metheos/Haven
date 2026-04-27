@@ -567,7 +567,7 @@ module.exports = function register(socket, ctx) {
     const code = socket.currentChannel;
     if (!code) return;
 
-    const channel = db.prepare('SELECT id FROM channels WHERE code = ?').get(code);
+    const channel = db.prepare('SELECT id, is_dm FROM channels WHERE code = ?').get(code);
     if (!channel) return;
 
     const msg = db.prepare(
@@ -615,6 +615,25 @@ module.exports = function register(socket, ctx) {
       const dst = path.join(DELETED_ATTACHMENTS_DIR, m[1]);
       if (fs.existsSync(src)) {
         try { fs.renameSync(src, dst); } catch { /* file locked or already moved */ }
+      }
+    }
+
+    // For E2E DMs, the message content is encrypted ciphertext, so the
+    // upload regex above can't find attachments. The client (which has the
+    // decrypted content) passes the URLs in `data.attachments`. We only
+    // honor this for DM channels and only when the requester is the message
+    // author — i.e. they uploaded the file as part of their own message.
+    if (channel.is_dm && msg.user_id === socket.user.id && Array.isArray(data.attachments)) {
+      const safeName = /^[\w\-.]+$/;
+      for (const url of data.attachments) {
+        if (typeof url !== 'string') continue;
+        const match = url.match(/^\/uploads\/((?!deleted-attachments)[\w\-.]+)$/);
+        if (!match || !safeName.test(match[1])) continue;
+        const src = path.join(UPLOADS_DIR, match[1]);
+        const dst = path.join(DELETED_ATTACHMENTS_DIR, match[1]);
+        if (fs.existsSync(src)) {
+          try { fs.renameSync(src, dst); } catch { /* ignore */ }
+        }
       }
     }
 

@@ -45,6 +45,21 @@ _isImageUrl(str) {
   return false;
 },
 
+// Extract /uploads/<file> attachment paths from a (decrypted) message's
+// content. Used when emitting delete-message so the server can clean up
+// E2E DM attachments whose URL is hidden inside the ciphertext.
+_getMessageAttachments(messageId) {
+  if (!messageId) return [];
+  const msgs = this._lastRenderedMessages || [];
+  const msg = msgs.find(m => m && m.id === messageId);
+  if (!msg || typeof msg.content !== 'string') return [];
+  const out = [];
+  const re = /\/uploads\/((?!deleted-attachments)[\w\-.]+)/g;
+  let m;
+  while ((m = re.exec(msg.content)) !== null) out.push('/uploads/' + m[1]);
+  return out;
+},
+
 _highlightSearch(escapedHtml, query) {
   if (!query) return escapedHtml;
   const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -708,12 +723,18 @@ _toggleEmojiPicker(anchorEl) {
       if (customMatch) {
         const ce = self.customEmojis.find(e => e.name === customMatch[1]);
         if (ce) {
-          btn.innerHTML = `<img src="${self._escapeHtml(ce.url)}" alt=":${self._escapeHtml(ce.name)}:" title=":${self._escapeHtml(ce.name)}:" class="custom-emoji">`;
+          btn.innerHTML = `<img src="${self._escapeHtml(ce.url)}" alt=":${self._escapeHtml(ce.name)}:" class="custom-emoji">`;
+          btn.title = `:${ce.name}:`;
         } else {
           btn.textContent = emoji;
+          btn.title = emoji;
         }
       } else {
         btn.textContent = emoji;
+        // Use the first keyword (canonical name) as the tooltip,
+        // matching the reaction picker behavior.
+        const names = self.emojiNames && self.emojiNames[emoji];
+        btn.title = names ? names.split(/\s+/)[0] : emoji;
       }
       btn.addEventListener('click', () => {
         // Insert into the active edit textarea if editing, otherwise the main input
