@@ -84,6 +84,11 @@ _setupSocketListeners() {
   });
 
   this.socket.on('connect', () => {
+    if (this._voiceDisconnectCleanupTimer) {
+      clearTimeout(this._voiceDisconnectCleanupTimer);
+      this._voiceDisconnectCleanupTimer = null;
+    }
+
     this._setLed('connection-led', 'on');
     this._setLed('status-server-led', 'on');
     document.getElementById('status-server-text').textContent = 'Connected';
@@ -216,14 +221,22 @@ _setupSocketListeners() {
     this._setLed('status-server-led', 'danger pulse');
     document.getElementById('status-server-text').textContent = 'Disconnected';
     document.getElementById('status-ping').textContent = '--';
-    // Mobile fix: if we were in voice when the socket dropped, clean up local
-    // voice state so the UI resets and auto-rejoin can work on reconnect.
-    if (this.voice && this.voice.inVoice) {
-      this.voice._softLeave();
-      this._updateVoiceButtons(false);
-      this._updateVoiceStatus(false);
-      this._updateVoiceBar();
+
+    // Grace period: transient socket drops can happen during tab/screen-share
+    // handoff; avoid tearing down LiveKit unless we're still disconnected.
+    if (this._voiceDisconnectCleanupTimer) {
+      clearTimeout(this._voiceDisconnectCleanupTimer);
     }
+    this._voiceDisconnectCleanupTimer = setTimeout(() => {
+      this._voiceDisconnectCleanupTimer = null;
+      if (this.socket?.connected) return;
+      if (this.voice && this.voice.inVoice) {
+        this.voice._softLeave();
+        this._updateVoiceButtons(false);
+        this._updateVoiceStatus(false);
+        this._updateVoiceBar();
+      }
+    }, 8000);
   });
 
   this.socket.on('connect_error', (err) => {

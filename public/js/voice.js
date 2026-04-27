@@ -22,6 +22,8 @@ class VoiceManager {
     this.currentMicLevel = 0;
     this.audioCtx = null;
     this.gainNodes = new Map();
+    this.sourceNodes = new Map();
+    this.screenSourceNodes = new Map();
     this.localUserId = null;
     this.onScreenStream = null;
     this.onWebcamStream = null;
@@ -216,6 +218,18 @@ class VoiceManager {
       this.room = this._createRoom();
       this._roomDisconnectExpected = false;
       await this.room.connect(tokenData.url, tokenData.token);
+
+      // Bootstrap: process tracks from participants already in the room.
+      // TrackSubscribed fires during connect but can be missed in timing races
+      // when the room already has many participants.
+      for (const [, participant] of this.room.remoteParticipants) {
+        this._rememberParticipant(participant);
+        for (const [, publication] of participant.trackPublications) {
+          if (publication.isSubscribed && publication.track) {
+            this._handleTrackSubscribed(publication.track, publication, participant);
+          }
+        }
+      }
 
       this.currentChannel = channelCode;
       this.inVoice = true;
@@ -737,22 +751,28 @@ class VoiceManager {
     }
     audioEl.srcObject = stream;
 
+    // Disconnect and discard previous source + gain nodes for this user.
+    const existingScreenSource = this.screenSourceNodes.get(userId);
+    if (existingScreenSource) {
+      try { existingScreenSource.disconnect(); } catch {}
+      this.screenSourceNodes.delete(userId);
+    }
     const existingGain = this.screenGainNodes.get(userId);
     if (existingGain) {
-      try {
-        existingGain.disconnect();
-      } catch {}
+      try { existingGain.disconnect(); } catch {}
       this.screenGainNodes.delete(userId);
     }
 
     try {
       if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (this.audioCtx.state === "suspended") this.audioCtx.resume().catch(() => {});
+      const resumeCtx = this.audioCtx.state === "suspended" ? this.audioCtx.resume() : Promise.resolve();
+      resumeCtx.catch(() => {});
       const source = this.audioCtx.createMediaStreamSource(stream);
       const gainNode = this.audioCtx.createGain();
       gainNode.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedStreamVolume(userId));
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
+      this.screenSourceNodes.set(userId, source);
       this.screenGainNodes.set(userId, gainNode);
       audioEl.volume = 0;
     } catch {
@@ -1020,22 +1040,28 @@ class VoiceManager {
     }
     audioEl.srcObject = stream;
 
+    // Disconnect and discard previous source + gain nodes for this user.
+    const existingSource = this.sourceNodes.get(userId);
+    if (existingSource) {
+      try { existingSource.disconnect(); } catch {}
+      this.sourceNodes.delete(userId);
+    }
     const existingGain = this.gainNodes.get(userId);
     if (existingGain) {
-      try {
-        existingGain.disconnect();
-      } catch {}
+      try { existingGain.disconnect(); } catch {}
       this.gainNodes.delete(userId);
     }
 
     try {
       if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (this.audioCtx.state === "suspended") this.audioCtx.resume();
+      const resumeCtx = this.audioCtx.state === "suspended" ? this.audioCtx.resume() : Promise.resolve();
+      resumeCtx.catch(() => {});
       const source = this.audioCtx.createMediaStreamSource(stream);
       const gainNode = this.audioCtx.createGain();
       gainNode.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedVolume(userId));
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
+      this.sourceNodes.set(userId, source);
       this.gainNodes.set(userId, gainNode);
       audioEl.volume = 0;
     } catch {
@@ -1253,6 +1279,12 @@ class VoiceManager {
       audioEl.srcObject = null;
       audioEl.remove();
     }
+    const sourceNode = this.sourceNodes.get(userId) || this.sourceNodes.get(String(userId));
+    if (sourceNode) {
+      try { sourceNode.disconnect(); } catch {}
+    }
+    this.sourceNodes.delete(userId);
+    this.sourceNodes.delete(String(userId));
     const gainNode = this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
     if (gainNode) {
       try {
@@ -1269,6 +1301,12 @@ class VoiceManager {
       audioEl.srcObject = null;
       audioEl.remove();
     }
+    const screenSource = this.screenSourceNodes.get(userId) || this.screenSourceNodes.get(String(userId));
+    if (screenSource) {
+      try { screenSource.disconnect(); } catch {}
+    }
+    this.screenSourceNodes.delete(userId);
+    this.screenSourceNodes.delete(String(userId));
     const gainNode = this.screenGainNodes.get(userId) || this.screenGainNodes.get(String(userId));
     if (gainNode) {
       try {
@@ -1331,6 +1369,12 @@ class VoiceManager {
       audio.remove();
     });
 
+    for (const sourceNode of this.sourceNodes.values()) {
+      try { sourceNode.disconnect(); } catch {}
+    }
+    for (const sourceNode of this.screenSourceNodes.values()) {
+      try { sourceNode.disconnect(); } catch {}
+    }
     for (const gainNode of this.gainNodes.values()) {
       try {
         gainNode.disconnect();
@@ -1341,6 +1385,8 @@ class VoiceManager {
         gainNode.disconnect();
       } catch {}
     }
+    this.sourceNodes.clear();
+    this.screenSourceNodes.clear();
     this.gainNodes.clear();
     this.screenGainNodes.clear();
 
