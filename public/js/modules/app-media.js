@@ -1846,9 +1846,6 @@ _setupModalExpand() {
       // but inject the expand toggle next to it.
       const settingsClose = modal.querySelector('.settings-close-btn');
 
-      const group = document.createElement('div');
-      group.className = 'modal-controls';
-
       const expandBtn = document.createElement('button');
       expandBtn.type = 'button';
       expandBtn.className = 'modal-expand-btn';
@@ -1860,10 +1857,19 @@ _setupModalExpand() {
         expandBtn.textContent = isMax ? '⊖' : '⛶';
         expandBtn.title = isMax ? 'Restore size' : 'Expand';
       });
-      group.appendChild(expandBtn);
 
-      // Only add an X close if there isn't already a settings-close-btn
-      if (!settingsClose) {
+      // When a settings-style header is present, slot the expand button
+      // directly next to its close button so the two stay aligned on
+      // every viewport size. Otherwise drop both controls into a floating
+      // group at the top-right of the modal.
+      if (settingsClose) {
+        expandBtn.classList.add('modal-expand-btn-inline');
+        settingsClose.parentElement.insertBefore(expandBtn, settingsClose);
+      } else {
+        const group = document.createElement('div');
+        group.className = 'modal-controls';
+        group.appendChild(expandBtn);
+
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.className = 'modal-expand-btn';
@@ -1880,9 +1886,8 @@ _setupModalExpand() {
           }
         });
         group.appendChild(closeBtn);
+        modal.appendChild(group);
       }
-
-      modal.appendChild(group);
     });
   };
   _injectModalControls();

@@ -5637,6 +5637,22 @@ select.cfn-select.cfn-input {
   border-color: rgba(255,255,255,0.2);
 }
 
+/* When the expand button is slotted directly inside a settings-style
+   header (next to .settings-close-btn) it needs to match the close
+   button's box and lose the floating-group margin so the two stay
+   aligned across viewport sizes — including narrow mobile widths
+   where the absolute .modal-controls wrap was misaligning with the
+   close × in the header. */
+.modal-expand-btn.modal-expand-btn-inline {
+  width: 32px;
+  height: 32px;
+  margin-left: 0;
+  margin-right: 4px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+}
+
 .modal h3 {
   font-size: 20px;
   font-weight: 700;
