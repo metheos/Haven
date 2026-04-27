@@ -11,6 +11,8 @@ async switchChannel(code) {
   // Voice persists across channel switches — no auto-disconnect
 
   this.currentChannel = code;
+  // Reset pin indicator until message-history reports the count for this channel
+  this._updatePinIndicator?.(this._pinnedCountByChannel?.[code] || 0);
   this._coupledToBottom = true;
   const jumpBtn = document.getElementById('jump-to-bottom');
   if (jumpBtn) jumpBtn.classList.remove('visible');
