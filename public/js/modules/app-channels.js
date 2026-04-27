@@ -1947,6 +1947,9 @@ _renderChannels() {
         } else {
           this._openDMPiP?.(ch.code);
         }
+        // On mobile, the sidebar covers the chat — close it so the user
+        // can actually see the DM they just picked.
+        this._closeMobilePanels?.();
       });
       el.addEventListener('dblclick', () => {
         if (localStorage.getItem('haven_dm_fullscreen_default') === 'true') {
@@ -1956,6 +1959,7 @@ _renderChannels() {
           this._closeDMPiP?.();
           this.switchChannel(ch.code);
         }
+        this._closeMobilePanels?.();
       });
       return el;
     };
