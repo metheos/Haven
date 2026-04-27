@@ -68,7 +68,6 @@ const { startTunnel, stopTunnel, getTunnelStatus, registerProcessCleanup } = req
 const { initFcm } = require("./src/fcm");
 const createPermissions = require("./src/socketHandlers/permissions");
 const { createLiveKitToken, getLiveKitConfig, getLiveKitRoomName } = require("./src/livekit");
-const { WebhookReceiver } = require("livekit-server-sdk/dist/WebhookReceiver.cjs");
 
 const app = express();
 
@@ -567,6 +566,7 @@ app.post("/api/livekit/webhook", express.raw({ type: "*/*" }), async (req, res) 
   if (!config.enabled) return res.sendStatus(200);
 
   try {
+    const { WebhookReceiver } = await import("livekit-server-sdk");
     const receiver = new WebhookReceiver(config.apiKey, config.apiSecret);
     const event = await receiver.receive(req.body.toString("utf8"), req.headers.authorization);
     logLiveKitEvent(event);
