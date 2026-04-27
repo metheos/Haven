@@ -2466,9 +2466,11 @@ _updateChannelVoiceIndicators() {
         userList.className = 'channel-voice-users';
         el.after(userList);
       }
-      userList.innerHTML = users.map(u =>
-        `<div class="channel-voice-user" data-user-id="${u.id}" data-username="${this._escapeHtml(u.username)}"><span class="cvu-mic${u.isMuted ? ' is-muted' : ''}" title="${u.isMuted ? 'Muted' : ''}">🎙️</span><span class="cvu-deafen${u.isDeafened ? ' is-deafened' : ''}" title="${u.isDeafened ? 'Deafened' : ''}">🔊</span>${this._escapeHtml(u.username)}</div>`
-      ).join('');
+      userList.innerHTML = users.map(u => {
+        const isSelf = u.id === this.user.id;
+        const isTalking = this.voice && ((isSelf && this.voice.talkingState.get('self')) || this.voice.talkingState.get(u.id));
+        return `<div class="channel-voice-user${isTalking ? ' talking' : ''}" data-user-id="${u.id}" data-username="${this._escapeHtml(u.username)}"><span class="cvu-mic${u.isMuted ? ' is-muted' : ''}" title="${u.isMuted ? 'Muted' : ''}">🎙️</span><span class="cvu-deafen${u.isDeafened ? ' is-deafened' : ''}" title="${u.isDeafened ? 'Deafened' : ''}">🔊</span>${this._escapeHtml(u.username)}</div>`;
+      }).join('');
       // Right-click on a left-sidebar voice user → same voice options menu
       userList.querySelectorAll('.channel-voice-user').forEach(item => {
         item.addEventListener('contextmenu', (e) => {

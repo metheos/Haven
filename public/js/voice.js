@@ -1749,11 +1749,20 @@ class VoiceManager {
       const HOLD_MS = 300;
 
       this._localTalkAnalyser = { analyser, source };
+      const setSelfTalking = (talking) => {
+        // Update local talkingState immediately so re-renders of the voice
+        // user list keep the highlight on the local user even if the server
+        // echo is delayed or dropped.
+        if (talking) this.talkingState.set('self', true);
+        else this.talkingState.delete('self');
+        if (this.onTalkingChange) this.onTalkingChange('self', talking);
+      };
       this._localTalkInterval = setInterval(() => {
         if (this.isMuted) {
           if (wasTalking) {
             wasTalking = false;
             if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+            setSelfTalking(false);
             if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
           }
           return;
@@ -1768,6 +1777,7 @@ class VoiceManager {
           if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
           if (!wasTalking) {
             wasTalking = true;
+            setSelfTalking(true);
             if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: true });
           }
           // Notify server of voice activity for AFK tracking (throttled to once per 15s)
@@ -1779,6 +1789,7 @@ class VoiceManager {
           holdTimer = setTimeout(() => {
             wasTalking = false;
             holdTimer = null;
+            setSelfTalking(false);
             if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
           }, HOLD_MS);
         }
@@ -1791,6 +1802,7 @@ class VoiceManager {
       clearInterval(this._localTalkInterval);
       this._localTalkInterval = null;
       this._localTalkAnalyser = null;
+      this.talkingState.delete('self');
       if (this.socket && this.inVoice) this.socket.emit('voice-speaking', { speaking: false });
       if (this.onTalkingChange) this.onTalkingChange('self', false);
     }
