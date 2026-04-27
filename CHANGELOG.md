@@ -13,6 +13,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.10.3] — 2026-04-27
+
+### Added
+- **`#channel` autocomplete in the message composer** — typing `#` while composing now opens a live channel picker, matching the existing `@` and `:emoji:` autocompletes. Underscores in channel names are handled correctly so the inserted link works as soon as it lands in the input.
+
+### Fixed
+- **DM picture-in-picture panel hidden behind the input action bar** — the PiP panel's z-index was lower than the chat input's action buttons, so on some layouts the bottom of the panel was clipped. Bumped the PiP z-index above the input row.
+- **Inviting a user to a channel showed a red error toast even on success** — the invite handler reused the error-toast style for its confirmation. Successful invites now produce a normal green success toast.
+- **DM attachments orphaned on disk after delete** — deleting an end-to-end-encrypted DM message now also removes its uploaded attachment files instead of leaving them sitting in the uploads folder.
+- **Server admins couldn't toggle the auto-backup settings from the UI** — the `update-server-setting` handler's allow-list was missing the `auto_backup_*` keys, so toggling them silently no-op'd. Whitelisted them.
+- **Mobile: sidebar stayed open after tapping a DM** — opening a DM from the sidebar list now collapses the sidebar automatically, matching channel-tap behavior.
+- **Mobile: modal expand and close buttons drifted out of alignment** — the two corner buttons in list-heavy modals are now aligned on small screens.
+- **Voice: self-talking highlight didn't survive a left-sidebar re-render** — your own avatar's "talking" outline now persists locally and is reapplied whenever the sidebar redraws, instead of dropping for a frame.
+- **Voice: regression where the local talk highlight was always on for everyone** — the always-on local highlight added in 3.10.2 was reverted; it is now gated behind a Debug-section toggle and defaults off, so the server echo continues to drive the indicator for almost everyone.
+- **Settings: Force SDR toggle showed up in the web client** — the Force SDR (sRGB) preference is desktop-only and is now hidden when running outside Haven Desktop. It also moved to the Debug section, where the rest of the related toggles live.
+
+---
+
 ## [3.10.2] — 2026-04-26
 
 ### Added
