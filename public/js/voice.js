@@ -754,12 +754,16 @@ class VoiceManager {
     // Disconnect and discard previous source + gain nodes for this user.
     const existingScreenSource = this.screenSourceNodes.get(userId);
     if (existingScreenSource) {
-      try { existingScreenSource.disconnect(); } catch {}
+      try {
+        existingScreenSource.disconnect();
+      } catch {}
       this.screenSourceNodes.delete(userId);
     }
     const existingGain = this.screenGainNodes.get(userId);
     if (existingGain) {
-      try { existingGain.disconnect(); } catch {}
+      try {
+        existingGain.disconnect();
+      } catch {}
       this.screenGainNodes.delete(userId);
     }
 
@@ -1043,12 +1047,16 @@ class VoiceManager {
     // Disconnect and discard previous source + gain nodes for this user.
     const existingSource = this.sourceNodes.get(userId);
     if (existingSource) {
-      try { existingSource.disconnect(); } catch {}
+      try {
+        existingSource.disconnect();
+      } catch {}
       this.sourceNodes.delete(userId);
     }
     const existingGain = this.gainNodes.get(userId);
     if (existingGain) {
-      try { existingGain.disconnect(); } catch {}
+      try {
+        existingGain.disconnect();
+      } catch {}
       this.gainNodes.delete(userId);
     }
 
@@ -1281,7 +1289,9 @@ class VoiceManager {
     }
     const sourceNode = this.sourceNodes.get(userId) || this.sourceNodes.get(String(userId));
     if (sourceNode) {
-      try { sourceNode.disconnect(); } catch {}
+      try {
+        sourceNode.disconnect();
+      } catch {}
     }
     this.sourceNodes.delete(userId);
     this.sourceNodes.delete(String(userId));
@@ -1303,7 +1313,9 @@ class VoiceManager {
     }
     const screenSource = this.screenSourceNodes.get(userId) || this.screenSourceNodes.get(String(userId));
     if (screenSource) {
-      try { screenSource.disconnect(); } catch {}
+      try {
+        screenSource.disconnect();
+      } catch {}
     }
     this.screenSourceNodes.delete(userId);
     this.screenSourceNodes.delete(String(userId));
@@ -1370,10 +1382,14 @@ class VoiceManager {
     });
 
     for (const sourceNode of this.sourceNodes.values()) {
-      try { sourceNode.disconnect(); } catch {}
+      try {
+        sourceNode.disconnect();
+      } catch {}
     }
     for (const sourceNode of this.screenSourceNodes.values()) {
-      try { sourceNode.disconnect(); } catch {}
+      try {
+        sourceNode.disconnect();
+      } catch {}
     }
     for (const gainNode of this.gainNodes.values()) {
       try {

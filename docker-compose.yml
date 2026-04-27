@@ -75,6 +75,11 @@ services:
           ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
         room:
           auto_create: true
+        webhook:
+          # POST signed event payloads to Haven for server-side logging.
+          # Haven verifies the HMAC signature using the same API key/secret.
+          urls:
+            - http://haven:${PORT:-3000}/api/livekit/webhook
     ports:
       # Signal/WebSocket endpoint (ws:// / wss:// via proxy).
       - "${LIVEKIT_PORT:-7880}:7880"

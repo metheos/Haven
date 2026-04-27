@@ -68,6 +68,7 @@ const { startTunnel, stopTunnel, getTunnelStatus, registerProcessCleanup } = req
 const { initFcm } = require("./src/fcm");
 const createPermissions = require("./src/socketHandlers/permissions");
 const { createLiveKitToken, getLiveKitConfig, getLiveKitRoomName } = require("./src/livekit");
+const { WebhookReceiver } = require("livekit-server-sdk/dist/WebhookReceiver.cjs");
 
 const app = express();
 
@@ -439,6 +440,7 @@ app.post("/api/livekit/token", express.json(), async (req, res) => {
     });
 
     // Return the browser-connectable LiveKit URL and token payload.
+    console.log(`[livekit/token] minted for user="${user.displayName || user.username}" (id=${user.id}) → room="${roomName}" channel=${channelCode}`);
     res.json({
       enabled: true,
       url: config.publicUrl,
@@ -450,6 +452,123 @@ app.post("/api/livekit/token", express.json(), async (req, res) => {
   } catch (err) {
     console.error("[livekit/token]", err);
     res.status(500).json({ error: "Failed to create LiveKit token" });
+  }
+});
+
+// ── LiveKit webhook receiver ────────────────────────────────
+// LiveKit server POSTs signed event payloads here for every room/participant/
+// track lifecycle transition.  We verify the HMAC signature and log each event
+// in detail so voice routing can be monitored and debugged without a full SFU
+// dashboard.
+//
+// Webhook delivery must be enabled in LIVEKIT_CONFIG (docker-compose.yml):
+//   webhook:
+//     urls:
+//       - http://haven:<PORT>/api/livekit/webhook
+
+// Human-readable maps for protobuf enum values sent by LiveKit.
+const LIVEKIT_TRACK_TYPE  = { 0: "AUDIO", 1: "VIDEO", 2: "DATA" };
+const LIVEKIT_TRACK_SRC   = { 0: "UNKNOWN", 1: "CAMERA", 2: "MICROPHONE", 3: "SCREEN_SHARE", 4: "SCREEN_SHARE_AUDIO" };
+const LIVEKIT_PART_STATE  = { 0: "JOINING", 1: "JOINED", 2: "ACTIVE", 3: "DISCONNECTING", 4: "DISCONNECTED" };
+
+function _lkFmtRoom(room) {
+  if (!room) return "(no room)";
+  return `room="${room.name}" sid=${room.sid} participants=${room.numParticipants ?? "?"} publishers=${room.numPublishers ?? "?"}`;
+}
+
+function _lkFmtParticipant(p) {
+  if (!p) return "(no participant)";
+  const state = LIVEKIT_PART_STATE[p.state] ?? p.state;
+  const meta = (() => { try { return JSON.parse(p.metadata || "{}"); } catch { return {}; } })();
+  const userId = meta.userId ?? p.identity;
+  const displayName = meta.displayName || meta.username || p.name || p.identity;
+  return `user="${displayName}" (userId=${userId} identity=${p.identity} sid=${p.sid} state=${state} publisher=${p.isPublisher ?? "?"})`;
+}
+
+function _lkFmtTrack(t) {
+  if (!t) return "(no track)";
+  const type = LIVEKIT_TRACK_TYPE[t.type] ?? t.type;
+  const src  = LIVEKIT_TRACK_SRC[t.source] ?? t.source;
+  const dims = (t.width && t.height) ? ` ${t.width}x${t.height}` : "";
+  return `track=${type}/${src} name="${t.name}" sid=${t.sid} muted=${t.muted} mime=${t.mimeType || "?"}${dims}`;
+}
+
+function logLiveKitEvent(evt) {
+  const room = evt.room;
+  const p    = evt.participant;
+  const t    = evt.track;
+  const R    = _lkFmtRoom(room);
+  const P    = _lkFmtParticipant(p);
+  const T    = _lkFmtTrack(t);
+
+  switch (evt.event) {
+    case "room_started":
+      console.log(`[livekit] ┌ ROOM STARTED       ${R}`);
+      break;
+    case "room_finished":
+      console.log(`[livekit] └ ROOM FINISHED      ${R}`);
+      break;
+    case "participant_joined":
+      console.log(`[livekit] ├ PARTICIPANT JOINED  ${P}`);
+      console.log(`[livekit] │                    └─ ${R}`);
+      break;
+    case "participant_left":
+      console.log(`[livekit] ├ PARTICIPANT LEFT    ${P}`);
+      console.log(`[livekit] │                    └─ ${R}`);
+      break;
+    case "track_published":
+      console.log(`[livekit] ├ TRACK PUBLISHED     ${T}`);
+      console.log(`[livekit] │   by ${P}`);
+      console.log(`[livekit] │   in ${R}`);
+      break;
+    case "track_unpublished":
+      console.log(`[livekit] ├ TRACK UNPUBLISHED   ${T}`);
+      console.log(`[livekit] │   by ${P}`);
+      console.log(`[livekit] │   in ${R}`);
+      break;
+    case "track_subscribed":
+      console.log(`[livekit] ├ TRACK SUBSCRIBED    ${T}`);
+      console.log(`[livekit] │   subscriber ${P}`);
+      console.log(`[livekit] │   in ${R}`);
+      break;
+    case "track_unsubscribed":
+      console.log(`[livekit] ├ TRACK UNSUBSCRIBED  ${T}`);
+      console.log(`[livekit] │   subscriber ${P}`);
+      console.log(`[livekit] │   in ${R}`);
+      break;
+    case "track_published_for_user":
+      console.log(`[livekit] ├ TRACK AVAILABLE     ${T}`);
+      console.log(`[livekit] │   published for ${P}`);
+      console.log(`[livekit] │   in ${R}`);
+      break;
+    case "track_unpublished_for_user":
+      console.log(`[livekit] ├ TRACK REMOVED       ${T}`);
+      console.log(`[livekit] │   for ${P}`);
+      console.log(`[livekit] │   in ${R}`);
+      break;
+    case "active_speakers_changed":
+      // Can be noisy; log compactly.
+      if (room) console.log(`[livekit] · ACTIVE SPEAKERS    ${R}`);
+      break;
+    default:
+      console.log(`[livekit] · ${String(evt.event).toUpperCase().padEnd(20)} ${R}${p ? " | " + P : ""}`);
+  }
+}
+
+app.post("/api/livekit/webhook", express.raw({ type: "*/*" }), async (req, res) => {
+  const config = getLiveKitConfig();
+  // If LiveKit is not configured just ack so we don't block anything.
+  if (!config.enabled) return res.sendStatus(200);
+
+  try {
+    const receiver = new WebhookReceiver(config.apiKey, config.apiSecret);
+    const event = await receiver.receive(req.body.toString("utf8"), req.headers.authorization);
+    logLiveKitEvent(event);
+    res.sendStatus(200);
+  } catch (err) {
+    // Signature mismatch or malformed body — reject but don't crash.
+    console.warn("[livekit/webhook] rejected payload:", err.message);
+    res.sendStatus(401);
   }
 });
 
