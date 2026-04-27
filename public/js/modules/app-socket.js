@@ -647,11 +647,25 @@ _setupSocketListeners() {
     } else {
       const _mutedChs2 = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
       const _isMuted2 = _mutedChs2.includes(data.channelCode);
+      // If this message is for the active DM PiP and the user is actively
+      // viewing the app, treat it as read instead of bumping the unread
+      // badge — the message is already visible in the floating PiP panel.
+      const _inActivePiP = this._activeDMPip && data.channelCode === this._activeDMPip && !document.hidden;
       // Only count unread for messages from other users — own message echoes arriving after a
       // channel switch (race condition) would otherwise trigger a ghost badge.
       if (data.message.user_id !== this.user.id) {
-        this.unreadCounts[data.channelCode] = (this.unreadCounts[data.channelCode] || 0) + 1;
-        this._updateBadge(data.channelCode);
+        if (_inActivePiP) {
+          // Keep the PiP DM cleared and tell the server we've read it.
+          this.unreadCounts[data.channelCode] = 0;
+          this._updateBadge(data.channelCode);
+          clearTimeout(this._markReadTimer);
+          this._markReadTimer = setTimeout(() => {
+            this.socket.emit('mark-read', { code: data.channelCode, messageId: data.message.id });
+          }, 500);
+        } else {
+          this.unreadCounts[data.channelCode] = (this.unreadCounts[data.channelCode] || 0) + 1;
+          this._updateBadge(data.channelCode);
+        }
       }
       // Don't play notification sounds for your own messages in other channels
       if (data.message.user_id !== this.user.id && !_isMuted2) {
