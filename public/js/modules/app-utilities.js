@@ -287,7 +287,11 @@ _formatContent(str) {
     }
     if (chanByName.size > 0) {
       html = html.replace(/(?<![\w#&])#([\p{L}\p{N}\p{Emoji_Presentation}_-][\p{L}\p{N}\p{Emoji_Presentation}_-]{0,49})/gu, (match, name) => {
-        const code = chanByName.get(name.toLowerCase());
+        const lower = name.toLowerCase();
+        // Names with spaces are typed as #foo_bar — try the literal form
+        // first, then fall back to a space-substituted lookup so spaced
+        // channel names resolve too.
+        let code = chanByName.get(lower) || chanByName.get(lower.replace(/_/g, ' '));
         if (!code) return match;
         return `<span class="channel-link" data-channel-code="${this._escapeHtml(code)}">#${this._escapeHtml(name)}</span>`;
       });
@@ -2460,6 +2464,7 @@ _startEditMessage(msgEl, msgId) {
   // Enable @mention and :emoji autocomplete in edit textarea
   textarea.addEventListener('input', () => {
     this._checkMentionTrigger(textarea);
+    this._checkChannelTrigger(textarea);
     this._checkEmojiTrigger(textarea);
   });
 

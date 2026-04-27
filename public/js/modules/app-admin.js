@@ -1544,6 +1544,106 @@ _insertMention(username) {
 },
 
 // ═══════════════════════════════════════════════════════
+// #CHANNEL AUTOCOMPLETE
+// ═══════════════════════════════════════════════════════
+
+_checkChannelTrigger(inputEl) {
+  const input = inputEl || document.getElementById('message-input');
+  this._channelAcInput = input;
+  const cursor = input.selectionStart;
+  const text = input.value.substring(0, cursor);
+  // Match a # that follows a non-word, non-# boundary, plus up to 50 trailing
+  // chars allowed in channel-link names (letters, numbers, emoji, _ and -).
+  // Spaces aren't allowed in the trigger query — channels with spaces are
+  // resolved with underscores at insert time so the autolink regex picks
+  // them up.
+  const match = text.match(/(?:^|[^\w#&])#([\p{L}\p{N}\p{Emoji_Presentation}_-]{0,50})$/u);
+  if (match && Array.isArray(this.channels) && this.channels.length) {
+    // Anchor start at the '#' itself
+    this.channelAcStart = cursor - match[1].length - 1;
+    this.channelAcQuery = match[1].toLowerCase();
+    this._showChannelDropdown();
+  } else {
+    this._hideChannelDropdown();
+  }
+},
+
+_showChannelDropdown() {
+  const dropdown = document.getElementById('channel-dropdown');
+  if (!dropdown) return;
+  const host = (this._channelAcInput && this._channelAcInput.parentElement) || null;
+  if (host && dropdown.parentElement !== host) host.appendChild(dropdown);
+
+  const query = this.channelAcQuery || '';
+  const queryNormalized = query.replace(/_/g, ' ');
+
+  // Filter to non-DM channels the user can see, matching by name (case
+  // insensitive, accepting either spaces or underscores in the query).
+  const filtered = (this.channels || [])
+    .filter(c => c && c.name && c.code && !c.is_dm)
+    .filter(c => {
+      const n = String(c.name).toLowerCase();
+      if (!query) return true;
+      return n.includes(query) || n.includes(queryNormalized);
+    })
+    // Prefer prefix matches first
+    .sort((a, b) => {
+      const an = a.name.toLowerCase(), bn = b.name.toLowerCase();
+      const aStarts = an.startsWith(query) || an.startsWith(queryNormalized) ? 0 : 1;
+      const bStarts = bn.startsWith(query) || bn.startsWith(queryNormalized) ? 0 : 1;
+      if (aStarts !== bStarts) return aStarts - bStarts;
+      return an.localeCompare(bn);
+    })
+    .slice(0, 8);
+
+  if (filtered.length === 0) {
+    dropdown.style.display = 'none';
+    return;
+  }
+
+  dropdown.innerHTML = filtered.map((c, i) => {
+    const insertName = String(c.name).replace(/\s+/g, '_');
+    return `<div class="mention-item${i === 0 ? ' active' : ''}" data-channel-insert="${this._escapeHtml(insertName)}"><strong>#${this._escapeHtml(c.name)}</strong></div>`;
+  }).join('');
+  dropdown.style.display = 'block';
+  dropdown.querySelectorAll('.mention-item').forEach(item => {
+    item.addEventListener('click', () => this._insertChannelMention(item.dataset.channelInsert));
+  });
+},
+
+_hideChannelDropdown() {
+  const dropdown = document.getElementById('channel-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+  this.channelAcStart = -1;
+  this.channelAcQuery = '';
+},
+
+_navigateChannelDropdown(direction) {
+  const dropdown = document.getElementById('channel-dropdown');
+  if (!dropdown) return;
+  const items = dropdown.querySelectorAll('.mention-item');
+  if (items.length === 0) return;
+  let activeIdx = -1;
+  items.forEach((item, i) => { if (item.classList.contains('active')) activeIdx = i; });
+  items.forEach(item => item.classList.remove('active'));
+  let next = activeIdx + direction;
+  if (next < 0) next = items.length - 1;
+  if (next >= items.length) next = 0;
+  items[next].classList.add('active');
+},
+
+_insertChannelMention(insertName) {
+  const input = this._channelAcInput || document.getElementById('message-input');
+  if (!input || this.channelAcStart < 0) return;
+  const before = input.value.substring(0, this.channelAcStart);
+  const after = input.value.substring(input.selectionStart);
+  input.value = before + '#' + insertName + ' ' + after;
+  input.selectionStart = input.selectionEnd = this.channelAcStart + insertName.length + 2;
+  input.focus();
+  this._hideChannelDropdown();
+},
+
+// ═══════════════════════════════════════════════════════
 // EMOJI AUTOCOMPLETE  (:name)
 // ═══════════════════════════════════════════════════════
 

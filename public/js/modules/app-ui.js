@@ -44,6 +44,19 @@ _handleAutocompleteKeydown(e) {
     }
     if (e.key === 'Escape') { this._hideMentionDropdown(); return true; }
   }
+  const channelDd = document.getElementById('channel-dropdown');
+  if (channelDd && channelDd.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateChannelDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const active = channelDd.querySelector('.mention-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideChannelDropdown(); return true; }
+  }
   return false;
 },
 
@@ -108,6 +121,21 @@ _setupUI() {
       }
     }
 
+    // If channel dropdown is visible, hijack arrow keys and enter
+    const channelDd = document.getElementById('channel-dropdown');
+    if (channelDd && channelDd.style.display !== 'none') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        this._navigateChannelDropdown(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        const active = channelDd.querySelector('.mention-item.active');
+        if (active) { e.preventDefault(); active.click(); return; }
+      }
+      if (e.key === 'Escape') { this._hideChannelDropdown(); return; }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this._sendMessage();
@@ -141,6 +169,8 @@ _setupUI() {
 
     // Check for @mention trigger
     this._checkMentionTrigger();
+    // Check for #channel trigger
+    this._checkChannelTrigger();
     // Check for :emoji autocomplete trigger
     this._checkEmojiTrigger();
     // Check for /command trigger
@@ -1590,6 +1620,7 @@ _setupUI() {
   });
   if (dmPipInput) dmPipInput.addEventListener('input', () => {
     this._checkMentionTrigger(dmPipInput);
+    this._checkChannelTrigger(dmPipInput);
     this._checkEmojiTrigger(dmPipInput);
     this._checkSlashTrigger(dmPipInput);
   });
@@ -1747,6 +1778,7 @@ _setupUI() {
     });
     threadInput.addEventListener('input', () => {
       this._checkMentionTrigger(threadInput);
+      this._checkChannelTrigger(threadInput);
       this._checkEmojiTrigger(threadInput);
       this._checkSlashTrigger(threadInput);
     });
