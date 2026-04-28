@@ -620,10 +620,10 @@ module.exports = function register(socket, ctx) {
 
     // For E2E DMs, the message content is encrypted ciphertext, so the
     // upload regex above can't find attachments. The client (which has the
-    // decrypted content) passes the URLs in `data.attachments`. We only
-    // honor this for DM channels and only when the requester is the message
-    // author — i.e. they uploaded the file as part of their own message.
-    if (channel.is_dm && msg.user_id === socket.user.id && Array.isArray(data.attachments)) {
+    // decrypted content) passes the URLs in `data.attachments`. We honor
+    // this for any DM channel — permission gating above already restricts
+    // who can delete the message (author or anyone with delete perm). (#5299)
+    if (channel.is_dm && Array.isArray(data.attachments)) {
       const safeName = /^[\w\-.]+$/;
       for (const url of data.attachments) {
         if (typeof url !== 'string') continue;
