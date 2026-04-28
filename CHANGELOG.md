@@ -11,6 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.10.8] — 2026-04-28
+
+### Fixed
+- **DM unread badge would not clear even after opening the DM repeatedly.** `_markRead` was debounced through a single `setTimeout` whose handle got cleared by the next channel switch — so a quick glance-then-leave dropped the emit on the floor and the server never recorded the read.  `switchChannel` now emits `mark-read` synchronously against the snapshot's `latestMessageId` (the in-channel scroll handler still uses the debounced path on top, and the server already takes `MAX(last_read, incoming)` so the two can't fight).
+- **Win95 theme: dark, doubled-looking horizontal lines between every message group.**  The global `.message-user-sep` border (1 px in `var(--border)`) renders almost-black on Win95's `#bfbfbf` surface and visually pairs with the avatar's 3 px outset highlight to look like a doubled line.  Win95 now overrides the separator colour to `--border-light` (#dfdfdf) and tightens the spacing so it matches the subtler look of every other theme.
+- **Donor list:** added AlexT.
+
 ---
 
 ## [3.10.7] — 2026-04-28

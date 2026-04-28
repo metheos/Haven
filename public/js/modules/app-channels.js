@@ -139,15 +139,26 @@ async switchChannel(code) {
   this.socket.emit('enter-channel', { code });
   // Belt-and-braces mark-read: if the server already told us the latest
   // message id for this channel (channels-list snapshot), fire a
-  // mark-read immediately so opening a DM with an empty render or one
-  // that fails to render before the user navigates away is still
-  // recorded as read.  The render-time _markRead in _renderMessages
-  // still fires for the message-id we actually painted; this just
-  // covers the gap where rendering hasn't happened yet.  (Server uses
-  // MAX(last_read, incoming) so an older id from the snapshot can't
-  // ever clobber a newer real id.)
+  // mark-read IMMEDIATELY (not via the debounced _markRead path) so that
+  // a quick re-open of a different channel within the 500 ms debounce
+  // window can't clear the timer and silently drop the previous channel's
+  // mark-read.  This was the root cause of "I've read this DM 6 times and
+  // it still shows unread" — the user would open the DM, glance at it,
+  // switch away within 500 ms, the next switch's clearTimeout dropped the
+  // first emit, and the server never recorded the read.  Server uses
+  // MAX(last_read, incoming) so an older snapshot id can't clobber a
+  // newer real id from the in-channel scroll handler.  Also mirror the
+  // unread count locally so the badge clears immediately and doesn't
+  // bounce back to "1" on the next channels-list snapshot.
   if (channel && channel.latestMessageId) {
-    this._markRead(channel.latestMessageId);
+    try { this.socket.emit('mark-read', { code, messageId: channel.latestMessageId }); } catch {}
+    if (this.unreadCounts && this.unreadCounts[code]) {
+      this.unreadCounts[code] = 0;
+      try { this._updateBadge?.(code); } catch {}
+      try { this._updateDmSectionBadge?.(); } catch {}
+      try { this._updateTabTitle?.(); } catch {}
+      try { this._updateDesktopBadge?.(); } catch {}
+    }
   }
   // E2E: fetch DM partner's public key BEFORE requesting messages
   if (isDm && channel) await this._fetchDMPartnerKey(channel);
