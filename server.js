@@ -3261,7 +3261,8 @@ function getUpdateInstructions(method) {
   switch (method) {
     case 'docker': return {
       runnable: false,
-      message: 'Update from the host machine: cd into the haven-docker folder and run `docker compose pull && docker compose up -d`.',
+      command: 'docker compose pull && docker compose up -d',
+      message: 'Update from the host machine: cd into the haven-docker folder and run the command below.',
     };
     case 'git': return {
       runnable: true,

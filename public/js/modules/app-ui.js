@@ -3246,16 +3246,36 @@ _setupUI() {
       if (status) {
         const upToDate = !data.updateAvailable;
         const esc = s => String(s || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        const cmdBlock = (!data.runnable && data.command) ? `
+          <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><strong>Run on host:</strong>
+              <button type="button" class="btn-sm" id="update-copy-cmd-btn" title="Copy command">📋 Copy</button>
+            </div>
+            <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:6px 8px;margin:0;white-space:pre-wrap;word-break:break-all"><code>${esc(data.command)}</code></pre>
+          </div>` : '';
         status.innerHTML = `
           <div><strong>Installed:</strong> v${esc(data.currentVersion)}</div>
           <div><strong>Latest:</strong> ${data.latestVersion ? 'v' + esc(data.latestVersion) : 'unknown'}</div>
           <div><strong>Install method:</strong> ${esc(data.method)}</div>
           <div style="margin-top:6px">${upToDate ? '✅ You are up to date.' : '⚠️ Update available.'}</div>
           <div style="margin-top:6px"><small>${esc(data.message || '')}</small></div>
+          ${cmdBlock}
           ${data.releaseUrl ? `<div style="margin-top:6px"><a href="${esc(data.releaseUrl)}" target="_blank" rel="noopener">Release notes →</a></div>` : ''}
         `;
+        const copyBtn = document.getElementById('update-copy-cmd-btn');
+        if (copyBtn) copyBtn.addEventListener('click', () => {
+          try {
+            navigator.clipboard.writeText(data.command).then(() => {
+              copyBtn.textContent = '✅ Copied';
+              setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
+            });
+          } catch {}
+        });
       }
-      if (updRunBtn()) updRunBtn().disabled = !(data.updateAvailable && data.runnable);
+      // Keep the Update Now button enabled even when the install method
+      // isn't auto-runnable (Docker, manual). Click handler will surface
+      // the right manual command instead of failing silently. (#5267)
+      if (updRunBtn()) updRunBtn().disabled = !data.updateAvailable;
     } catch (err) {
       if (status) status.textContent = 'Check failed: ' + err.message;
     }
@@ -3280,13 +3300,10 @@ _setupUI() {
       return;
     }
     if (!lastUpdateCheck.runnable) {
-      // Most common case: Docker install. Surface the reason instead of
-      // silently doing nothing so admins know why the button is inert.
-      if (status) {
-        if (status.style) status.style.display = 'block';
-        const reason = lastUpdateCheck.message || `In-app updates aren't supported for the "${lastUpdateCheck.method}" install method.`;
-        status.textContent = reason;
-      }
+      // Most common case: Docker install. Re-run check to surface the
+      // copyable command block instead of silently doing nothing.
+      try { document.getElementById('update-check-btn')?.click(); } catch {}
+      this._showToast?.(lastUpdateCheck.message || `In-app updates aren't supported for the "${lastUpdateCheck.method}" install method — run the command shown in the panel from your host.`, 'info');
       return;
     }
     if (!confirm(`Apply update to v${lastUpdateCheck.latestVersion}? The server will run an auto-backup, then exit so the supervisor restarts it on the new code. You will be disconnected for ~30 seconds.`)) return;
