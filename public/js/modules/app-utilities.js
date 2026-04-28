@@ -385,22 +385,73 @@ _formatContent(str) {
     return `${pre}\x00TABLE_${idx}\x00`;
   });
 
-  // ── Unordered lists: consecutive lines starting with "- " ──
-  html = html.replace(/((?:(?:^|\n)- .+)+)/g, (match) => {
-    const items = match.trim().split('\n').map(line =>
-      `<li>${line.replace(/^- /, '')}</li>`
-    ).join('');
-    return `\n<ul class="chat-list">${items}</ul>`;
-  });
+  // ── Lists (ordered + unordered) with multi-tier nesting (#5304) ──
+  // A list line starts with optional leading whitespace (spaces or tabs;
+  // tabs count as 2 spaces for indent purposes), then either "- " / "* "
+  // / "+ " (unordered) or "N. " (ordered). Indentation determines depth:
+  // each 2 spaces ⇒ one extra level. Mixed unordered/ordered at the same
+  // depth open separate lists. Adjacent list-blocks are detected by the
+  // outer regex (any consecutive run of qualifying lines).
+  const listLineRe = /^([ \t]*)([-*+]|\d+\.)\s+(.*)$/;
+  const listBlockRe = /((?:(?:^|\n)[ \t]*(?:[-*+]|\d+\.)[ \t]+.+)+)/g;
+  html = html.replace(listBlockRe, (match) => {
+    const lines = match.replace(/^\n/, '').split('\n');
+    // Parse each line into { depth, ordered, num, text }
+    const parsed = lines.map(line => {
+      const m = line.match(listLineRe);
+      if (!m) return null;
+      const indent = m[1].replace(/\t/g, '  ');
+      const depth = Math.floor(indent.length / 2);
+      const marker = m[2];
+      const ordered = /^\d+\.$/.test(marker);
+      const num = ordered ? parseInt(marker, 10) : null;
+      return { depth, ordered, num, text: m[3] };
+    }).filter(Boolean);
+    if (!parsed.length) return match;
 
-  // ── Ordered lists: consecutive lines starting with "N. " ──
-  html = html.replace(/((?:(?:^|\n)\d+\.\s+.+)+)/g, (match) => {
-    const lines = match.trim().split('\n');
-    const startNum = lines[0].match(/^(\d+)/)?.[1] || '1';
-    const items = lines.map(line =>
-      `<li>${line.replace(/^\d+\.\s+/, '')}</li>`
-    ).join('');
-    return `\n<ol class="chat-list" start="${startNum}">${items}</ol>`;
+    // Build nested HTML using a stack of open lists.
+    let out = '';
+    const stack = []; // each entry: { ordered, depth }
+    const closeTo = (targetLen) => {
+      while (stack.length > targetLen) {
+        const top = stack.pop();
+        out += '</li>';
+        out += top.ordered ? '</ol>' : '</ul>';
+      }
+    };
+    parsed.forEach((item, idx) => {
+      // Close lists that are at deeper depth than this item
+      while (stack.length && stack[stack.length - 1].depth > item.depth) {
+        out += '</li>';
+        const top = stack.pop();
+        out += top.ordered ? '</ol>' : '</ul>';
+      }
+      const top = stack[stack.length - 1];
+      if (!top || top.depth < item.depth) {
+        // Open a new nested list. If we're nesting under an open <li>,
+        // don't close it — the new list goes inside.
+        if (top && top.depth < item.depth) {
+          // already inside an open <li> from previous sibling
+        }
+        const startAttr = item.ordered ? ` start="${item.num || 1}"` : '';
+        out += item.ordered ? `<ol class="chat-list"${startAttr}>` : '<ul class="chat-list">';
+        stack.push({ ordered: item.ordered, depth: item.depth });
+      } else if (top.depth === item.depth && top.ordered !== item.ordered) {
+        // Same depth but list type changed — close current, open new.
+        out += '</li>';
+        const popped = stack.pop();
+        out += popped.ordered ? '</ol>' : '</ul>';
+        const startAttr = item.ordered ? ` start="${item.num || 1}"` : '';
+        out += item.ordered ? `<ol class="chat-list"${startAttr}>` : '<ul class="chat-list">';
+        stack.push({ ordered: item.ordered, depth: item.depth });
+      } else {
+        // Same depth, same type — close previous <li> sibling.
+        out += '</li>';
+      }
+      out += `<li>${item.text}`;
+    });
+    closeTo(0);
+    return '\n' + out;
   });
 
   html = html.replace(/\n/g, '<br>');
