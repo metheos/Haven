@@ -3224,6 +3224,26 @@ html.rgb-cycling *::after {
   padding: 0 6px;
 }
 
+/* Nested-unread dot — small marker on category labels and parent
+   channels to hint that one of their (uncollapsed) children has
+   unread messages. Visually distinct from the count bubble so the
+   user can tell it's a "look inside" indicator, not the unread count
+   itself. (#5302-ish parent-notif request) */
+.channel-badge-nested-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent, #5865f2);
+  opacity: 0.85;
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: center;
+}
+.channel-badge-nested-dot.has-mention {
+  background: var(--danger);
+}
+
 /* Header pill: "🔔 N" mentions in threads */
 .thread-mentions-pill {
   background: rgba(245, 166, 35, 0.18);

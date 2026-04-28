@@ -455,12 +455,25 @@ _initDmContextMenu() {
   });
 
   // Delete DM
-  document.querySelector('[data-action="dm-delete"]')?.addEventListener('click', () => {
+  document.querySelector('[data-action="dm-delete"]')?.addEventListener('click', async () => {
     const code = this._dmCtxMenuCode;
     if (!code) return;
     this._closeDmCtxMenu();
-    if (!confirm('⚠️ ' + t('channels.dm_delete_confirm'))) return;
-    this.socket.emit('delete-dm', { code });
+    const ok = await this._showConfirmModal('⚠️ ' + t('channels.dm_delete_confirm'), '', { danger: true, confirmLabel: t('settings.admin.delete') || 'Delete' });
+    if (!ok) return;
+    // Gather all attachment URLs from the (decrypted) cached messages
+    // for this DM so the server can move E2E ciphertext-hidden uploads
+    // to deleted-attachments. (#5299)
+    const attachments = [];
+    if (code === this.currentChannel && Array.isArray(this._lastRenderedMessages)) {
+      const re = /\/uploads\/((?!deleted-attachments)[\w\-.]+)/g;
+      for (const msg of this._lastRenderedMessages) {
+        if (!msg || typeof msg.content !== 'string') continue;
+        let m;
+        while ((m = re.exec(msg.content)) !== null) attachments.push('/uploads/' + m[1]);
+      }
+    }
+    this.socket.emit('delete-dm', { code, attachments });
   });
 
   // Close on outside click
@@ -1535,6 +1548,7 @@ _renderChannels() {
           const bubble = el.querySelector('.channel-badge-bubble');
           if (bubble) bubble.remove();
         }
+        this._updateNestedIndicators();
       });
     }
 
@@ -1702,6 +1716,7 @@ _renderChannels() {
         } else {
           if (badge) badge.style.display = 'none';
         }
+        this._updateNestedIndicators();
       });
     }
 
@@ -2035,6 +2050,7 @@ _renderChannels() {
   // Set up drag-and-drop reordering
   this._setupChannelDragDrop();
   this._setupDmDragDrop();
+  this._updateNestedIndicators();
 },
 
 // ── Drag-and-drop channel reordering ────────────────────
@@ -2333,6 +2349,71 @@ _updateBadge(code) {
   this._updateDmSectionBadge();
   this._updateTabTitle();
   this._updateDesktopBadge();
+  this._updateNestedIndicators();
+},
+
+// Add a small "look inside" dot to expanded category labels and to
+// expanded parent channels when one of their children has unread
+// messages. The dot is visually distinct from the count bubble — the
+// bubble (with a number) only appears when the parent is collapsed
+// and is the actual count; this dot is just a hint that there's
+// something below worth scrolling to. (parent-notif feature request)
+_updateNestedIndicators() {
+  if (!this.channels) return;
+  const subChannelMap = {};
+  for (const c of this.channels) {
+    if (c.parent_channel_id) {
+      (subChannelMap[c.parent_channel_id] ||= []).push(c);
+    }
+  }
+  const setDot = (el, on) => {
+    if (!el) return;
+    let dot = el.querySelector(':scope > .channel-badge-nested-dot');
+    if (on) {
+      if (!dot) {
+        dot = document.createElement('span');
+        dot.className = 'channel-badge-nested-dot';
+        dot.title = t('channels.nested_unread') || 'Unread messages inside';
+        el.appendChild(dot);
+      }
+    } else if (dot) {
+      dot.remove();
+    }
+  };
+
+  // Category labels: dot if expanded AND any contained channel/sub
+  // has unreads. (When collapsed the existing count bubble shows the
+  // total instead, so we suppress the dot to avoid duplication.)
+  document.querySelectorAll('.section-label.category-label[data-category]').forEach(catEl => {
+    const cat = catEl.dataset.category;
+    if (!cat) return;
+    const collapsed = localStorage.getItem(`haven_cat_collapsed_${cat}`) === 'true';
+    if (collapsed) { setDot(catEl, false); return; }
+    let total = 0;
+    for (const c of this.channels) {
+      if (c.is_dm || c.parent_channel_id) continue;
+      if ((c.category || '') !== cat) continue;
+      total += this.unreadCounts[c.code] || 0;
+      for (const s of (subChannelMap[c.id] || [])) {
+        total += this.unreadCounts[s.code] || 0;
+      }
+    }
+    setDot(catEl, total > 0);
+  });
+
+  // Parent channels with sub-channels: dot if subs are expanded AND
+  // any sub has unreads.
+  for (const c of this.channels) {
+    if (c.is_dm || c.parent_channel_id) continue;
+    const subs = subChannelMap[c.id];
+    if (!subs || !subs.length) continue;
+    const parentEl = document.querySelector(`.channel-item[data-code="${c.code}"]`);
+    if (!parentEl) continue;
+    const isCollapsed = localStorage.getItem(`haven_subs_collapsed_${c.code}`) === 'true';
+    if (isCollapsed) { setDot(parentEl, false); continue; }
+    const subTotal = subs.reduce((sum, s) => sum + (this.unreadCounts[s.code] || 0), 0);
+    setDot(parentEl, subTotal > 0);
+  }
 },
 
 _updateTabTitle() {
