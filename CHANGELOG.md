@@ -11,6 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.10.9] — 2026-04-28
+
+### Fixed
+- **DM unread that kept coming back — even an hour after opening the message in PiP.** Opening a DM via the floating PiP panel cleared the badge locally but never told the server, so the very next `channels-list` snapshot (sent for any number of unrelated reasons — a peer joining voice, a role change, etc.) re-seeded the unread count from the stale server-side `read_position` and the dot kept popping back, re-firing OS notifications for messages already read.  PiP open now emits `mark-read` against the channel's known latest message id, and inbound messages into a visible PiP DM also emit synchronously instead of going through the shared 500 ms debounced timer (which was getting `clearTimeout`'d by any other channel switch).
+
+---
+
 ## [3.10.8] — 2026-04-28
 
 ### Fixed

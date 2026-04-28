@@ -1831,9 +1831,25 @@ _openDMPiP(code) {
   if (!ch || !ch.is_dm) return;
   this._activeDMPip = code;
   try { localStorage.setItem('haven_active_dm_pip', code); } catch {}
-  // Keep the DM PiP cleared from the unread badge
+  // Keep the DM PiP cleared from the unread badge AND tell the server
+  // we've read up to its latest message.  Without the server emit the
+  // local mirror gets clobbered the next time `channels-list` snapshots
+  // (which can happen at any moment for unrelated reasons — a peer
+  // joining a voice channel, an admin tweak, a role change, etc.) and
+  // the unread dot keeps coming back forever.  This was the root cause
+  // of "I've sat on this DM for an hour and it still keeps re-notifying".
+  // We use the channel's last-known latestMessageId from the snapshot;
+  // the in-pane render of the message history will fire its own _markRead
+  // for the actual painted message id on top, and the server takes
+  // MAX(last_read, incoming) so the two can't fight.
   this.unreadCounts[code] = 0;
   this._updateBadge?.(code);
+  if (ch.latestMessageId) {
+    try { this.socket.emit('mark-read', { code, messageId: ch.latestMessageId }); } catch {}
+  }
+  try { this._updateDmSectionBadge?.(); } catch {}
+  try { this._updateTabTitle?.(); } catch {}
+  try { this._updateDesktopBadge?.(); } catch {}
 
   const panel = document.getElementById('dm-pip-panel');
   if (!panel) {

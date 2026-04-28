@@ -660,12 +660,21 @@ _setupSocketListeners() {
       if (data.message.user_id !== this.user.id) {
         if (_inActivePiP) {
           // Keep the PiP DM cleared and tell the server we've read it.
+          // Emit synchronously (not via the shared `_markReadTimer` debounce):
+          // the timer is `clearTimeout`'d every time the user switches main
+          // channels, and a debounced PiP mark-read used to get dropped on
+          // the floor whenever the user clicked anything else within 500 ms,
+          // leaving the server's read position stale.  After the next
+          // unrelated `channels-list` snapshot the unread count would pop
+          // back up on the sidebar and the OS would re-notify the same
+          // already-read message.  Server uses MAX so the immediate emit
+          // can't ever clobber a newer real id.
           this.unreadCounts[data.channelCode] = 0;
           this._updateBadge(data.channelCode);
-          clearTimeout(this._markReadTimer);
-          this._markReadTimer = setTimeout(() => {
-            this.socket.emit('mark-read', { code: data.channelCode, messageId: data.message.id });
-          }, 500);
+          try { this.socket.emit('mark-read', { code: data.channelCode, messageId: data.message.id }); } catch {}
+          try { this._updateDmSectionBadge?.(); } catch {}
+          try { this._updateTabTitle?.(); } catch {}
+          try { this._updateDesktopBadge?.(); } catch {}
         } else {
           this.unreadCounts[data.channelCode] = (this.unreadCounts[data.channelCode] || 0) + 1;
           this._updateBadge(data.channelCode);
