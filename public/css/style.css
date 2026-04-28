@@ -11127,6 +11127,14 @@ video:-webkit-full-screen {
   opacity: 0.85;
 }
 
+/* ── Audio-mode variants for the streamer's own tile.
+   Subtle color cue so the streamer can tell at a glance which audio path
+   their share is using. Only visible on their own tile. ── */
+.stream-audio-badge.mode-app          { color: #7cfc7c; }                /* green: clean per-app capture */
+.stream-audio-badge.mode-system-clean { color: #7cb8fc; }                /* blue:  system minus Haven */
+.stream-audio-badge.mode-fallback     { color: #fcc77c; }                /* amber: fell back from per-app */
+.stream-audio-badge.mode-loopback     { color: #fc7c7c; }                /* red:   raw loopback (voice-loop risk) */
+
 /* ── Stream Viewer Badge (eye icon + count on tiles) ── */
 
 .stream-viewer-badge {
