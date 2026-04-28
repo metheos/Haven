@@ -1296,7 +1296,13 @@
 [data-theme="win95"] .msg-toolbar button:hover { background: #dfdfdf; }
 [data-theme="win95"] .modal { background: #bfbfbf; border: 3px outset #fff; border-radius: 0; box-shadow: 2px 2px 0 #000; }
 [data-theme="win95"] .modal h3 { background: linear-gradient(90deg, #000080, #1084d0); color: #fff; margin: -20px -24px 16px -24px; padding: 4px 8px; border-radius: 0; font-weight: 700; font-size: 12px; }
-[data-theme="win95"] .message-row { border-bottom: 1px solid #808080; }
+/* Subtle separator between message *groups* (full messages w/ avatar), not
+   every consecutive line. Reported as too distracting in original form. */
+[data-theme="win95"] .message + .message > .message-row:first-child {
+  border-top: 1px solid #c8c8c8;
+  margin-top: 2px;
+  padding-top: 6px;
+}
 [data-theme="win95"] .message-row:hover { background: #dfdfdf; }
 [data-theme="win95"] .message-author { color: #000080; font-weight: 700; }
 [data-theme="win95"] .message-input-container { background: #fff; border: 3px inset #808080; border-radius: 0; }
@@ -1313,6 +1319,20 @@
 [data-theme="win95"] .input-actions-box .btn-gif { border-color: #808080; }
 [data-theme="win95"] input[type="text"], [data-theme="win95"] textarea { background: #fff; border: 3px inset #808080 !important; border-radius: 0 !important; }
 [data-theme="win95"] .right-sidebar { background: #bfbfbf; border-left: 3px outset #fff; }
+/* Bulletproof win95 backgrounds — explicitly paint every major surface in
+   #bfbfbf so a stale inline custom-theme CSS variable on :root (e.g. left
+   over from a prior 'custom' / 'rgb' theme session that wasn't cleared by
+   the time the user landed on win95) can't leave the main message area or
+   members panel rendering with a dark inherited bg. Prior reports showed
+   the welcome screen & right panel rendering near-black while the explicitly
+   styled sidebar / channel header still looked correct. */
+[data-theme="win95"] body,
+[data-theme="win95"] .message-area,
+[data-theme="win95"] .messages,
+[data-theme="win95"] .welcome-screen,
+[data-theme="win95"] .right-sidebar-users,
+[data-theme="win95"] .channel-list-section,
+[data-theme="win95"] .left-sidebar-section { background: #bfbfbf !important; color: #000; }
 [data-theme="win95"] .user-item-avatar { border-radius: 0; }
 [data-theme="win95"] .message-avatar, [data-theme="win95"] .message-avatar-img { border-radius: 0; border: 3px outset #fff; }
 [data-theme="win95"] ::selection { background: #000080; color: #fff; }

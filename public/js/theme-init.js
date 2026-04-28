@@ -24,6 +24,23 @@
   }
   var t = localStorage.getItem('haven_theme');
   if (t) document.documentElement.setAttribute('data-theme', t);
+  // Defensive: if the saved theme is NOT custom/rgb, strip any inline CSS
+  // custom properties that may have been left on :root during a prior theme
+  // (e.g. switching custom → win95 in a previous session, then a server
+  // preferences event re-applying custom mid-session, then back). Without
+  // this, a leftover --bg-primary on :root would override the win95 theme's
+  // own --bg-primary and leave large surfaces rendering with a dark color
+  // while explicitly-styled chrome (sidebar, channel header) looks correct.
+  if (t && t !== 'custom' && t !== 'rgb') {
+    var leakedKeys = ['--accent','--accent-hover','--accent-dim','--accent-glow',
+      '--bg-primary','--bg-secondary','--bg-tertiary','--bg-hover','--bg-active',
+      '--bg-input','--bg-card','--text-primary','--text-secondary','--text-muted',
+      '--text-link','--border','--border-light','--success','--danger','--warning',
+      '--led-on','--led-off','--led-glow'];
+    for (var i = 0; i < leakedKeys.length; i++) {
+      document.documentElement.style.removeProperty(leakedKeys[i]);
+    }
+  }
   // Apply effect overlay system (stackable) — always strip theme pseudo-element effects
   document.documentElement.setAttribute('data-fx-custom', '');
   var fxRaw = localStorage.getItem('haven_effects') || 'auto';
