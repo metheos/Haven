@@ -1,4 +1,7 @@
 // ── Channel CRUD, sub-channels, settings, reordering, categories, DMs ──
+const fs = require('fs');
+const path = require('path');
+const { UPLOADS_DIR, DELETED_ATTACHMENTS_DIR } = require('../paths');
 const { isString, isInt } = require('./helpers');
 
 module.exports = function register(socket, ctx) {
@@ -1167,6 +1170,32 @@ module.exports = function register(socket, ctx) {
     if (!channel) return socket.emit('error-msg', 'DM not found');
     const isMember = db.prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?').get(channel.id, socket.user.id);
     if (!isMember && !socket.user.isAdmin) return socket.emit('error-msg', 'Not authorized');
+
+    // Collect attachment filenames before we drop the message rows. We
+    // scan plaintext message content server-side, and also accept a
+    // `data.attachments` list from the client for E2E-encrypted DM
+    // messages whose ciphertext we can't read here. (#5299)
+    const safeName = /^[\w\-.]+$/;
+    const filenames = new Set();
+    try {
+      const msgs = db.prepare('SELECT content FROM messages WHERE channel_id = ?').all(channel.id);
+      const uploadRe = /\/uploads\/((?!deleted-attachments)[\w\-.]+)/g;
+      for (const row of msgs) {
+        const text = row.content || '';
+        let m;
+        while ((m = uploadRe.exec(text)) !== null) {
+          if (safeName.test(m[1])) filenames.add(m[1]);
+        }
+      }
+    } catch { /* ignore scan errors — best-effort cleanup */ }
+    if (Array.isArray(data.attachments)) {
+      for (const url of data.attachments) {
+        if (typeof url !== 'string') continue;
+        const match = url.match(/^\/uploads\/((?!deleted-attachments)[\w\-.]+)$/);
+        if (match && safeName.test(match[1])) filenames.add(match[1]);
+      }
+    }
+
     const deleteAll = db.transaction((chId) => {
       db.prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)').run(chId);
       db.prepare('DELETE FROM pinned_messages WHERE channel_id = ?').run(chId);
@@ -1175,6 +1204,15 @@ module.exports = function register(socket, ctx) {
       db.prepare('DELETE FROM channels WHERE id = ?').run(chId);
     });
     deleteAll(channel.id);
+
+    for (const name of filenames) {
+      const src = path.join(UPLOADS_DIR, name);
+      const dst = path.join(DELETED_ATTACHMENTS_DIR, name);
+      if (fs.existsSync(src)) {
+        try { fs.renameSync(src, dst); } catch { /* file locked or already moved */ }
+      }
+    }
+
     io.to(`channel:${code}`).emit('channel-deleted', { code });
   });
 };
