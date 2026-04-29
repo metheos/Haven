@@ -1263,6 +1263,7 @@ _setupSocketListeners() {
         if (pinBtn) { pinBtn.dataset.action = 'unpin'; pinBtn.title = 'Unpin'; }
       }
       this._appendSystemMessage(`📌 ${t('header.messages.pinned_by', { name: data.pinnedBy })}`);
+      this._markPinUnread?.(data.messageId);
       this._bumpPinIndicator?.(1);
     }
   });
@@ -1302,6 +1303,9 @@ _setupSocketListeners() {
         await this._decryptMessages(data.pins, data.channelCode);
       }
       this._renderPinnedPanel(data.pins);
+      // The user just opened the pinned panel and saw everything in it —
+      // mark all current pin ids as seen so the unread dot clears.
+      this._markPinsSeen?.(data.pins || []);
     }
   });
 

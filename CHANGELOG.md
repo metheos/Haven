@@ -11,6 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.10.10] — 2026-04-28
+
+### Changed
+- **📌 pin icon dot is now a read-receipt.** Previously the dot lit up whenever a channel had any pinned message at all, so it was on permanently and gave you no signal. Now it only appears when there are unread pins: dot persists until you open the pinned panel once, and any newly-pinned message after that re-lights it. Per-channel state is persisted to localStorage.
+
+---
+
 ## [3.10.9] — 2026-04-28
 
 ### Fixed

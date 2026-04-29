@@ -14,17 +14,74 @@ _safeColor(c, fallback = '') {
 
 /**
  * Toggle a small dot on the 📌 pinned-toggle button when the active channel
- * has at least one pinned message. Count-aware so we can also bump live on
- * pin/unpin events without re-fetching from the server.
+ * has UNREAD pinned messages. Read-receipt model:
+ *   - localStorage `haven_seen_pin_max_<code>` stores the highest pin id
+ *     the user has acknowledged (i.e. opened the pinned panel and seen).
+ *   - If no record exists yet and the channel has pins, treat them as
+ *     unread (one-time prompt to open the panel after a fresh install).
+ *   - If the record is set, the dot only appears when a newer pin arrives.
+ * Count-aware so we can also bump live on pin/unpin events without
+ * re-fetching from the server.
  */
+_pinSeenKey(code) { return `haven_seen_pin_max_${code}`; },
+_getMaxSeenPinId(code) {
+  try {
+    const raw = localStorage.getItem(this._pinSeenKey(code));
+    if (raw == null) return null;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? n : null;
+  } catch { return null; }
+},
+_setMaxSeenPinId(code, id) {
+  try {
+    const cur = this._getMaxSeenPinId(code) || 0;
+    if ((id | 0) > cur) localStorage.setItem(this._pinSeenKey(code), String(id | 0));
+  } catch {}
+},
+
 _updatePinIndicator(count) {
   const btn = document.getElementById('pinned-toggle-btn');
   if (!btn) return;
   const n = Math.max(0, count | 0);
   this._pinnedCountByChannel = this._pinnedCountByChannel || {};
+  this._unreadPinIdByChannel = this._unreadPinIdByChannel || {};
   if (this.currentChannel) this._pinnedCountByChannel[this.currentChannel] = n;
-  btn.classList.toggle('has-pins', n > 0);
   btn.dataset.pinCount = String(n);
+
+  let unread = false;
+  if (n > 0 && this.currentChannel) {
+    const seen = this._getMaxSeenPinId(this.currentChannel);
+    const liveUnread = this._unreadPinIdByChannel[this.currentChannel] || 0;
+    if (seen == null) {
+      // First encounter — user has never opened the pinned panel for this
+      // channel; surface the dot once so they know there's something there.
+      unread = true;
+    } else if (liveUnread > seen) {
+      unread = true;
+    }
+  }
+  btn.classList.toggle('has-pins', unread);
+},
+
+_markPinUnread(messageId) {
+  if (!this.currentChannel || !messageId) return;
+  this._unreadPinIdByChannel = this._unreadPinIdByChannel || {};
+  const cur = this._unreadPinIdByChannel[this.currentChannel] || 0;
+  if ((messageId | 0) > cur) this._unreadPinIdByChannel[this.currentChannel] = messageId | 0;
+},
+
+_markPinsSeen(pins) {
+  if (!this.currentChannel || !Array.isArray(pins)) return;
+  let max = 0;
+  for (const p of pins) {
+    const id = (p && p.id) | 0;
+    if (id > max) max = id;
+  }
+  if (max > 0) this._setMaxSeenPinId(this.currentChannel, max);
+  // Clear the live-unread tracker for this channel — they've seen everything.
+  this._unreadPinIdByChannel = this._unreadPinIdByChannel || {};
+  this._unreadPinIdByChannel[this.currentChannel] = 0;
+  this._updatePinIndicator(this._pinnedCountByChannel?.[this.currentChannel] || pins.length);
 },
 
 _bumpPinIndicator(delta) {
