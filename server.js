@@ -63,6 +63,7 @@ webpush.setVapidDetails(vapidEmail, process.env.VAPID_PUBLIC_KEY, process.env.VA
 
 const { initDatabase } = require('./src/database');
 const { router: authRoutes, authLimiter, verifyToken } = require('./src/auth');
+const { createLiveKitToken, getLiveKitConfig, getLiveKitRoomName } = require('./src/livekit');
 const { setupSocketHandlers, sanitizeText } = require('./src/socketHandlers');
 const { startTunnel, stopTunnel, getTunnelStatus, registerProcessCleanup } = require('./src/tunnel');
 const { initFcm } = require('./src/fcm');
@@ -349,6 +350,63 @@ app.get('/api/ice-servers', (req, res) => {
   }
 
   res.json({ iceServers });
+});
+
+// ── LiveKit token endpoint ───────────────────────────────
+app.post('/api/livekit/token', express.json({ limit: '16kb' }), async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = token ? verifyToken(token) : null;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const channelCode = typeof req.body?.channelCode === 'string' ? req.body.channelCode.trim() : '';
+  if (!/^[a-f0-9]{8}$/i.test(channelCode)) {
+    return res.status(400).json({ error: 'Invalid channel code' });
+  }
+
+  const config = getLiveKitConfig();
+  if (!config.enabled) {
+    return res.status(503).json({ error: 'LiveKit is not configured' });
+  }
+
+  try {
+    const { getDb } = require('./src/database');
+    const db = getDb();
+
+    const channel = db.prepare('SELECT id, voice_enabled FROM channels WHERE code = ?').get(channelCode);
+    if (!channel) return res.status(404).json({ error: 'Not found' });
+
+    const member = db.prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?').get(channel.id, user.id);
+    if (!member) return res.status(403).json({ error: 'Not a member of this channel' });
+
+    if (channel.voice_enabled === 0) {
+      return res.status(403).json({ error: 'Voice is disabled in this channel' });
+    }
+
+    if (!user.isAdmin && !userHasPermission(user.id, 'use_voice')) {
+      return res.status(403).json({ error: "You don't have permission to use voice chat" });
+    }
+
+    const userRow = db.prepare('SELECT username, display_name FROM users WHERE id = ?').get(user.id) || {};
+    const displayName = userRow.display_name || userRow.username || user.displayName || user.username || `user-${user.id}`;
+    const roomName = getLiveKitRoomName(channelCode);
+
+    const livekitToken = await createLiveKitToken({
+      identity: String(user.id),
+      name: String(displayName),
+      roomName,
+      metadata: {
+        userId: user.id,
+        username: userRow.username || user.username || String(user.id),
+        displayName,
+        channelCode,
+      },
+    });
+
+    res.json({ token: livekitToken, url: config.publicUrl, roomName });
+  } catch (err) {
+    console.error('[livekit/token]', err);
+    res.status(500).json({ error: 'Failed to issue LiveKit token' });
+  }
 });
 
 // ── Avatar upload endpoint (saves to /uploads, updates DB) ──
