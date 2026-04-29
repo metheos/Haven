@@ -11,6 +11,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.10.11] — 2026-04-28
+
+### Fixed
+- **Other people's voice cutting out the moment you start sharing your screen.** The peer's voice track was being misclassified as screen-share audio after a renegotiation handed it a fresh stream id. Voice routing now consults the server-signaled `screenSharers` set (plus the actual presence of video tracks on the same stream) instead of guessing from stream-id changes, and updates the tracked voice stream id on every reneg so it doesn't pin to the very first one forever.
+- **Mobile peers' camera / screen-share indicator only appearing after you yourself shared.** The user list re-render hooks were wired up for webcam start/stop but not for screen-share start/stop or the late-joiner `active-screen-sharers` snapshot, so the icon next to a sharer's name only refreshed when something else (typically you sharing too) forced a re-render. The screen-share events now trigger the same re-render path, and the user list also falls back on the live `screenSharers` signal if the server-side streams payload hasn't refreshed yet.
+
+---
+
 ## [3.10.10] — 2026-04-28
 
 ### Changed

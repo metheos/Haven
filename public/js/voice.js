@@ -297,12 +297,18 @@ class VoiceManager {
       if (!data.hasAudio && this.onScreenNoAudio) {
         this.onScreenNoAudio(data.userId);
       }
+      // Re-render the voice user list so the streaming indicator next to
+      // the sharer's name appears immediately.  Without this the icon was
+      // invisible until the local user happened to do something that
+      // refreshed the list (e.g. start sharing themselves).
+      if (this.onWebcamStatusChange) this.onWebcamStatusChange();
     });
 
     // Someone stopped screen sharing
     this.socket.on('screen-share-stopped', (data) => {
       this.screenSharers.delete(data.userId);
       if (this.onScreenStream) this.onScreenStream(data.userId, null);
+      if (this.onWebcamStatusChange) this.onWebcamStatusChange();
     });
 
     // Someone started their webcam
@@ -322,6 +328,7 @@ class VoiceManager {
     this.socket.on('active-screen-sharers', (data) => {
       if (data && data.sharers) {
         data.sharers.forEach(s => this.screenSharers.add(s.id));
+        if (this.onWebcamStatusChange) this.onWebcamStatusChange();
       }
     });
 
@@ -1135,19 +1142,31 @@ class VoiceManager {
         }
       } else {
         // Is this audio from a screen share stream?
-        const isScreenAudio = sourceStream && (
-          knownScreenStreamIds.has(sourceStream.id) ||
-          sourceStream.getVideoTracks().length > 0 ||
-          (voiceStreamId && sourceStream.id !== voiceStreamId)
-        );
+        //
+        // We previously used a heuristic of "if the audio's stream id is
+        // different from the first voice stream id we saw, treat as screen
+        // audio".  That heuristic broke under renegotiation: when a peer
+        // started screen-sharing, their voice track frequently re-fired
+        // ontrack with a fresh stream id — getting misclassified as screen
+        // audio and routed to a tile (silently) instead of the voice mixer.
+        // The user lost the other person's voice the moment either side
+        // started sharing.  Now we trust the server-signaled state
+        // (screenSharers / webcamUsers) and the presence of video tracks
+        // on the same stream.  Only NEW stream ids that arrive while the
+        // peer is actively sharing are treated as screen audio; all other
+        // audio is voice (and updates voiceStreamId so subsequent renegs
+        // don't get re-misclassified either).
+        const peerIsSharing = this.screenSharers.has(userId);
+        const streamHasVideo = sourceStream && sourceStream.getVideoTracks().length > 0;
+        const knownAsScreen = sourceStream && knownScreenStreamIds.has(sourceStream.id);
+        const isScreenAudio = knownAsScreen || (peerIsSharing && streamHasVideo);
+
         if (isScreenAudio) {
           this._playScreenAudio(userId, sourceStream);
-        } else if (!voiceStreamId && sourceStream) {
-          // First audio — assume voice, but defer re-check in case it's actually screen audio
-          voiceStreamId = sourceStream.id;
-          remoteAudioStream.addTrack(track);
-          this._playAudio(userId, remoteAudioStream);
         } else {
+          // Voice path \u2014 update voiceStreamId so it tracks the latest
+          // negotiation rather than being permanently pinned to the first.
+          if (sourceStream) voiceStreamId = sourceStream.id;
           remoteAudioStream.addTrack(track);
           this._playAudio(userId, remoteAudioStream);
         }
