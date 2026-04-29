@@ -5,7 +5,7 @@ const ALL_PERMS = [
   'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
   'create_channel', 'create_temp_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
   'view_all_members', 'view_channel_members', 'manage_emojis', 'manage_soundboard', 'manage_music_queue', 'promote_user', 'transfer_admin',
-  'manage_roles', 'manage_server', 'delete_channel', 'read_only_override'
+  'manage_roles', 'manage_server', 'delete_channel', 'read_only_override', 'view_audit_log'
 ];
 //Similarly flavored solution to perm labels
 const PERM_LABELS = {
@@ -40,7 +40,8 @@ const PERM_LABELS = {
   get manage_roles() { return t('permissions.manage_roles'); },
   get manage_server() { return t('permissions.manage_server'); },
   get delete_channel() { return t('permissions.delete_channel'); },
-  get read_only_override() { return t('permissions.read_only_override'); }
+  get read_only_override() { return t('permissions.read_only_override'); },
+  get view_audit_log() { return t('permissions.view_audit_log'); }
 };
 
 export default {
@@ -542,10 +543,37 @@ _syncSettingsNav() {
   if (rolesNavItem && !isAdmin && canManageRoles) {
     rolesNavItem.style.display = '';
   }
-  // Show Server settings tab for users with manage_server permission
-  const serverNavItem = document.querySelector('.settings-nav-item[data-target="section-server"]');
-  if (serverNavItem && !isAdmin && canManageServer) {
-    serverNavItem.style.display = '';
+  // Show Server settings tab for users with manage_server permission.
+  // manage_server gates many categories on the server-side, so unhide the
+  // full set of server-management nav items (categories with their own
+  // dedicated perm — emojis/sounds/roles/audit log — are handled separately).
+  if (!isAdmin && canManageServer) {
+    const serverManagedTargets = [
+      'section-branding',
+      'section-members',
+      'section-whitelist',
+      'section-invite',
+      'section-cleanup',
+      'section-backup',
+      'section-uploads',
+      'section-tunnel',
+      'section-bots',
+      'section-import',
+      'section-modmode'
+    ];
+    serverManagedTargets.forEach(target => {
+      const navItem = document.querySelector(`.settings-nav-item[data-target="${target}"]`);
+      if (navItem) navItem.style.display = '';
+    });
+  }
+  // Show Audit Log nav item for users with view_audit_log permission
+  const canViewAuditLog = isAdmin || this._hasPerm('view_audit_log');
+  const auditNavItem = document.querySelector('.settings-nav-item[data-target="section-audit-log"]');
+  if (auditNavItem) auditNavItem.style.display = canViewAuditLog ? '' : 'none';
+  // Make sure the admin tab/group/body are visible if the user only has audit-log access
+  if (canViewAuditLog && !hasAnyAdminAccess) {
+    if (adminTab) adminTab.style.display = '';
+    if (adminNavGroup) adminNavGroup.style.display = '';
   }
   // Also show save bar for users with manage_server perm (when admin tab active)
   if (saveBar && !isAdmin && this._hasPerm('manage_server')) {
@@ -1426,29 +1454,53 @@ _checkMentionTrigger(inputEl) {
 
 _showMentionDropdown() {
   const dropdown = document.getElementById('mention-dropdown');
+  // Re-parent so the absolute-positioned dropdown anchors above the active
+  // input (works for thread input + DM PiP input + main input). (#5296)
+  const host = (this._mentionInput && this._mentionInput.parentElement) || null;
+  if (host && dropdown.parentElement !== host) host.appendChild(dropdown);
   const query = this.mentionQuery;
   const filtered = this.channelMembers.filter(m => {
     const dn = (m.username || '').toLowerCase();
     const ln = (m.loginName || '').toLowerCase();
-    return dn.startsWith(query) || ln.startsWith(query);
+    const nk = (m.id && this._nicknames && this._nicknames[m.id] || '').toLowerCase();
+    return dn.startsWith(query) || ln.startsWith(query) || (nk && nk.startsWith(query));
   }).slice(0, 8);
 
-  if (filtered.length === 0) {
+  // Offer @everyone / @here as mention options when the query matches and
+  // the user has the mention_everyone permission (admins implicitly have it).
+  const canMentionEveryone = this.user && (this.user.isAdmin || this._hasPerm?.('mention_everyone'));
+  const everyoneOptions = [];
+  if (canMentionEveryone) {
+    if ('everyone'.startsWith(query)) everyoneOptions.push({ name: 'everyone', label: '@everyone', desc: 'Notify everyone in the channel' });
+    if ('here'.startsWith(query)) everyoneOptions.push({ name: 'here', label: '@here', desc: 'Notify online members' });
+  }
+
+  if (filtered.length === 0 && everyoneOptions.length === 0) {
     dropdown.style.display = 'none';
     return;
   }
 
   // Insert by loginName (stable, immune to display-name renames). Show the
-  // display name in the dropdown for recognizability, with the @loginName
-  // suffix when it differs so people know what'll actually be inserted.
-  dropdown.innerHTML = filtered.map((m, i) => {
-    const display = m.username || m.loginName || '';
+  // viewer's personal nickname (if set) or the display name in the dropdown
+  // for recognizability, with the @loginName suffix when it differs so
+  // people know what'll actually be inserted. (#5290)
+  const everyoneItems = everyoneOptions.map((opt, i) => {
+    const active = (i === 0 && filtered.length === 0) ? ' active' : '';
+    return `<div class="mention-item${active}" data-username="${opt.name}" data-everyone="1"><strong>${opt.label}</strong> <span class="mention-item-handle">${this._escapeHtml(opt.desc)}</span></div>`;
+  }).join('');
+
+  const memberItems = filtered.map((m, i) => {
+    const isFirstMember = (i === 0 && everyoneOptions.length === 0);
+    const nick = m.id && this._nicknames ? this._nicknames[m.id] : '';
+    const display = nick || m.username || m.loginName || '';
     const login = m.loginName || m.username || '';
     const suffix = (login && display.toLowerCase() !== login.toLowerCase())
       ? ` <span class="mention-item-handle">@${this._escapeHtml(login)}</span>`
       : '';
-    return `<div class="mention-item${i === 0 ? ' active' : ''}" data-username="${this._escapeHtml(login)}">${this._escapeHtml(display)}${suffix}</div>`;
+    return `<div class="mention-item${isFirstMember ? ' active' : ''}" data-username="${this._escapeHtml(login)}">${this._escapeHtml(display)}${suffix}</div>`;
   }).join('');
+
+  dropdown.innerHTML = everyoneItems + memberItems;
 
   dropdown.style.display = 'block';
 
@@ -1492,6 +1544,106 @@ _insertMention(username) {
 },
 
 // ═══════════════════════════════════════════════════════
+// #CHANNEL AUTOCOMPLETE
+// ═══════════════════════════════════════════════════════
+
+_checkChannelTrigger(inputEl) {
+  const input = inputEl || document.getElementById('message-input');
+  this._channelAcInput = input;
+  const cursor = input.selectionStart;
+  const text = input.value.substring(0, cursor);
+  // Match a # that follows a non-word, non-# boundary, plus up to 50 trailing
+  // chars allowed in channel-link names (letters, numbers, emoji, _ and -).
+  // Spaces aren't allowed in the trigger query — channels with spaces are
+  // resolved with underscores at insert time so the autolink regex picks
+  // them up.
+  const match = text.match(/(?:^|[^\w#&])#([\p{L}\p{N}\p{Emoji_Presentation}_-]{0,50})$/u);
+  if (match && Array.isArray(this.channels) && this.channels.length) {
+    // Anchor start at the '#' itself
+    this.channelAcStart = cursor - match[1].length - 1;
+    this.channelAcQuery = match[1].toLowerCase();
+    this._showChannelDropdown();
+  } else {
+    this._hideChannelDropdown();
+  }
+},
+
+_showChannelDropdown() {
+  const dropdown = document.getElementById('channel-dropdown');
+  if (!dropdown) return;
+  const host = (this._channelAcInput && this._channelAcInput.parentElement) || null;
+  if (host && dropdown.parentElement !== host) host.appendChild(dropdown);
+
+  const query = this.channelAcQuery || '';
+  const queryNormalized = query.replace(/_/g, ' ');
+
+  // Filter to non-DM channels the user can see, matching by name (case
+  // insensitive, accepting either spaces or underscores in the query).
+  const filtered = (this.channels || [])
+    .filter(c => c && c.name && c.code && !c.is_dm)
+    .filter(c => {
+      const n = String(c.name).toLowerCase();
+      if (!query) return true;
+      return n.includes(query) || n.includes(queryNormalized);
+    })
+    // Prefer prefix matches first
+    .sort((a, b) => {
+      const an = a.name.toLowerCase(), bn = b.name.toLowerCase();
+      const aStarts = an.startsWith(query) || an.startsWith(queryNormalized) ? 0 : 1;
+      const bStarts = bn.startsWith(query) || bn.startsWith(queryNormalized) ? 0 : 1;
+      if (aStarts !== bStarts) return aStarts - bStarts;
+      return an.localeCompare(bn);
+    })
+    .slice(0, 8);
+
+  if (filtered.length === 0) {
+    dropdown.style.display = 'none';
+    return;
+  }
+
+  dropdown.innerHTML = filtered.map((c, i) => {
+    const insertName = String(c.name).replace(/\s+/g, '_');
+    return `<div class="mention-item${i === 0 ? ' active' : ''}" data-channel-insert="${this._escapeHtml(insertName)}"><strong>#${this._escapeHtml(c.name)}</strong></div>`;
+  }).join('');
+  dropdown.style.display = 'block';
+  dropdown.querySelectorAll('.mention-item').forEach(item => {
+    item.addEventListener('click', () => this._insertChannelMention(item.dataset.channelInsert));
+  });
+},
+
+_hideChannelDropdown() {
+  const dropdown = document.getElementById('channel-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+  this.channelAcStart = -1;
+  this.channelAcQuery = '';
+},
+
+_navigateChannelDropdown(direction) {
+  const dropdown = document.getElementById('channel-dropdown');
+  if (!dropdown) return;
+  const items = dropdown.querySelectorAll('.mention-item');
+  if (items.length === 0) return;
+  let activeIdx = -1;
+  items.forEach((item, i) => { if (item.classList.contains('active')) activeIdx = i; });
+  items.forEach(item => item.classList.remove('active'));
+  let next = activeIdx + direction;
+  if (next < 0) next = items.length - 1;
+  if (next >= items.length) next = 0;
+  items[next].classList.add('active');
+},
+
+_insertChannelMention(insertName) {
+  const input = this._channelAcInput || document.getElementById('message-input');
+  if (!input || this.channelAcStart < 0) return;
+  const before = input.value.substring(0, this.channelAcStart);
+  const after = input.value.substring(input.selectionStart);
+  input.value = before + '#' + insertName + ' ' + after;
+  input.selectionStart = input.selectionEnd = this.channelAcStart + insertName.length + 2;
+  input.focus();
+  this._hideChannelDropdown();
+},
+
+// ═══════════════════════════════════════════════════════
 // EMOJI AUTOCOMPLETE  (:name)
 // ═══════════════════════════════════════════════════════
 
@@ -1520,6 +1672,10 @@ _checkEmojiTrigger(inputEl) {
 
 _showEmojiDropdown(query) {
   const dd = document.getElementById('emoji-dropdown');
+  // Re-parent so the absolute-positioned dropdown anchors above the active
+  // input (works for thread input + DM PiP input + main input). (#5296)
+  const host = (this._emojiAcInput && this._emojiAcInput.parentElement) || null;
+  if (host && dd.parentElement !== host) host.appendChild(dd);
   dd.innerHTML = '';
 
   let results = [];
@@ -1612,8 +1768,9 @@ _insertEmojiAc(insert) {
 // SLASH COMMAND AUTOCOMPLETE
 // ═══════════════════════════════════════════════════════
 
-_checkSlashTrigger() {
-  const input = document.getElementById('message-input');
+_checkSlashTrigger(inputEl) {
+  const input = inputEl || document.getElementById('message-input');
+  this._slashInput = input;
   const text = input.value;
 
   // Only activate if text starts with / and cursor is in the first word
@@ -1627,6 +1784,10 @@ _checkSlashTrigger() {
 
 _showSlashDropdown(query) {
   const dropdown = document.getElementById('slash-dropdown');
+  // Re-parent so the absolute-positioned dropdown anchors above the active
+  // input (works for thread input + DM PiP input + main input). (#5296)
+  const host = (this._slashInput && this._slashInput.parentElement) || null;
+  if (host && dropdown.parentElement !== host) host.appendChild(dropdown);
   const filtered = this.slashCommands.filter(c =>
     c.cmd.startsWith(query)
   ).slice(0, 10);
@@ -1682,7 +1843,7 @@ _navigateSlashDropdown(direction) {
 },
 
 _insertSlashCommand(cmd) {
-  const input = document.getElementById('message-input');
+  const input = this._slashInput || document.getElementById('message-input');
   const cmdDef = this.slashCommands.find(c => c.cmd === cmd);
   const needsArg = cmdDef && cmdDef.args && cmdDef.args.startsWith('<');
   input.value = '/' + cmd + (needsArg ? ' ' : '');
@@ -1895,10 +2056,11 @@ _handleFileUpload(input) {
 },
 
 /** Upload any file via /api/upload-file — used by drag & drop, paste, and 📎 button */
-_uploadGeneralFile(file) {
-  if (!this.currentChannel) return this._showToast(t('media.select_channel_first'), 'error');
+_uploadGeneralFile(file, targetCode) {
+  const code = targetCode || this.currentChannel;
+  if (!code) return this._showToast(t('media.select_channel_first'), 'error');
   // Block media uploads if disabled in this channel
-  const _ugCh = this.channels.find(c => c.code === this.currentChannel);
+  const _ugCh = this.channels.find(c => c.code === code);
   if (_ugCh && _ugCh.media_enabled === 0) {
     return this._showToast(t('media.uploads_disabled'), 'error');
   }
@@ -1927,12 +2089,12 @@ _uploadGeneralFile(file) {
       content = `[file:${data.originalName}](${data.url}|${sizeStr})`;
     }
     this.socket.emit('send-message', {
-      code: this.currentChannel,
+      code,
       content,
-      replyTo: this.replyingTo ? this.replyingTo.id : null
+      replyTo: (code === this.currentChannel && this.replyingTo) ? this.replyingTo.id : null
     });
     this.notifications.play('sent');
-    this._clearReply();
+    if (code === this.currentChannel) this._clearReply();
   })
   .catch(err => this._showToast(err.message || t('settings.admin.upload_failed'), 'error'));
 },
@@ -2814,6 +2976,7 @@ _renderRoleDetail() {
         </label>
       `).join('')}
       <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn-sm" id="duplicate-role-btn">📋 Duplicate</button>
         <button class="btn-sm danger" id="delete-role-btn">${t('settings.admin.role_form.delete')}</button>
       </div>
     </div>
@@ -2959,6 +3122,30 @@ _renderRoleDetail() {
       this._selectedRoleId = null;
       this._loadRoles();
       this._renderRoleDetail();
+    });
+  });
+
+  // Duplicate: prompt for new name (default = "<original> (copy)") then
+  // create a fresh role with the same level, color, icon, and permissions.
+  // Channel-access linkage and auto-assign are intentionally NOT copied —
+  // both are rarely what an admin wants on a freshly cloned role.
+  document.getElementById('duplicate-role-btn')?.addEventListener('click', () => {
+    const defaultName = `${role.name} (copy)`.slice(0, 30);
+    const newName = prompt('Name for the duplicated role:', defaultName);
+    if (!newName || !newName.trim()) return;
+    const trimmed = newName.trim().slice(0, 30);
+    this.socket.emit('create-role', {
+      name: trimmed,
+      level: role.level,
+      color: role.color || '#aaaaaa',
+      icon: role.icon || null,
+      autoAssign: false,
+      permissions: role.permissions || []
+    }, (res) => {
+      if (res && res.error) { this._showToast(res.error, 'error'); return; }
+      this._showToast(`Duplicated as "${trimmed}"`, 'success');
+      if (res && res.roleId) this._selectedRoleId = res.roleId;
+      this._loadRoles?.();
     });
   });
 },
@@ -3975,6 +4162,165 @@ _initDonorsModal() {
   // Close on overlay click
   modal.addEventListener('click', (e) => {
     if (e.target === modal) modal.style.display = 'none';
+  });
+},
+
+// ═══════════════════════════════════════════════════════
+// ── Audit Log ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+
+_setupAuditLog() {
+  if (this._auditLogSetup) return;
+  this._auditLogSetup = true;
+
+  const modal = document.getElementById('audit-log-modal');
+  const listEl = document.getElementById('audit-log-list');
+  const loadMoreBtn = document.getElementById('audit-log-load-more');
+  const filterAction = document.getElementById('audit-log-filter-action');
+  const filterActor = document.getElementById('audit-log-filter-actor');
+  const refreshBtn = document.getElementById('audit-log-refresh-btn');
+  const exportBtn = document.getElementById('audit-log-export-btn');
+  const closeBtn = document.getElementById('close-audit-log-btn');
+  const openBtn = document.getElementById('open-audit-log-btn');
+  if (!modal || !listEl) return;
+
+  this._auditRows = [];
+  this._auditOldestId = 0;
+  this._auditHasMore = false;
+
+  const ACTION_META = {
+    server_setting_update: { icon: '⚙️', label: 'updated server setting' },
+    channel_create:        { icon: '➕', label: 'created channel' },
+    channel_delete:        { icon: '🗑️', label: 'deleted channel' },
+    channel_rename:        { icon: '✏️', label: 'renamed channel' },
+    role_create:           { icon: '🎭', label: 'created role' },
+    role_update:           { icon: '🎭', label: 'updated role' },
+    role_delete:           { icon: '🎭', label: 'deleted role' },
+    role_assign:           { icon: '👤', label: 'assigned role to' },
+    role_revoke:           { icon: '👤', label: 'revoked role from' },
+    user_kick:             { icon: '👢', label: 'kicked' },
+    user_ban:              { icon: '🚫', label: 'banned' },
+    user_unban:            { icon: '✅', label: 'unbanned' },
+    user_mute:             { icon: '🔇', label: 'muted' },
+    user_unmute:           { icon: '🔊', label: 'unmuted' },
+    user_rename:           { icon: '✏️', label: 'renamed' },
+  };
+
+  const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const _formatTime = (iso) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+      return d.toLocaleString();
+    } catch { return iso; }
+  };
+
+  const renderRows = (append = false) => {
+    if (!append) listEl.innerHTML = '';
+    if (!this._auditRows.length) {
+      listEl.innerHTML = '<div class="audit-log-empty">No audit log entries match the current filters.</div>';
+      loadMoreBtn.style.display = 'none';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    const start = append ? listEl.querySelectorAll('.audit-log-row').length : 0;
+    for (let i = start; i < this._auditRows.length; i++) {
+      const r = this._auditRows[i];
+      const meta = ACTION_META[r.action] || { icon: '•', label: r.action };
+      const row = document.createElement('div');
+      row.className = 'audit-log-row';
+      let detailsHtml = '';
+      if (r.details) {
+        try {
+          const obj = JSON.parse(r.details);
+          const parts = [];
+          for (const [k, v] of Object.entries(obj)) {
+            if (v === null || v === undefined || v === false || v === '') continue;
+            const vs = typeof v === 'object' ? JSON.stringify(v) : String(v);
+            parts.push(`<span class="audit-detail-pair"><b>${_esc(k)}:</b> ${_esc(vs.slice(0, 120))}</span>`);
+          }
+          if (parts.length) detailsHtml = `<div class="audit-details">${parts.join('')}</div>`;
+        } catch {
+          detailsHtml = `<div class="audit-details">${_esc(String(r.details).slice(0, 240))}</div>`;
+        }
+      }
+      row.innerHTML = `
+        <span class="audit-icon">${meta.icon}</span>
+        <div class="audit-body">
+          <div class="audit-line">
+            <span class="audit-actor">${_esc(r.actor_username || 'system')}</span>
+            <span class="audit-action">${_esc(meta.label)}</span>
+            ${r.target_name ? `<span class="audit-target">${_esc(r.target_name)}</span>` : ''}
+          </div>
+          ${detailsHtml}
+          <div class="audit-meta">${_formatTime(r.created_at)} · #${r.id}</div>
+        </div>`;
+      frag.appendChild(row);
+    }
+    listEl.appendChild(frag);
+    loadMoreBtn.style.display = this._auditHasMore ? '' : 'none';
+  };
+
+  const load = (append = false) => {
+    const opts = {
+      limit: 50,
+      action: filterAction.value || null,
+      actorUsername: filterActor.value.trim() || null,
+      beforeId: append ? this._auditOldestId : 0
+    };
+    if (!append) {
+      this._auditRows = [];
+      this._auditOldestId = 0;
+      listEl.innerHTML = '<div class="audit-log-empty">Loading...</div>';
+    }
+    this.socket.emit('get-audit-log', opts, (resp) => {
+      if (!resp || resp.error) {
+        listEl.innerHTML = `<div class="audit-log-empty">${_esc(resp && resp.error ? resp.error : 'Failed to load audit log')}</div>`;
+        loadMoreBtn.style.display = 'none';
+        return;
+      }
+      // Populate filter dropdown once
+      if (resp.actions && filterAction.options.length <= 1) {
+        for (const a of resp.actions) {
+          const opt = document.createElement('option');
+          opt.value = a;
+          opt.textContent = (ACTION_META[a] && ACTION_META[a].label) || a;
+          filterAction.appendChild(opt);
+        }
+      }
+      const rows = resp.rows || [];
+      this._auditRows = append ? this._auditRows.concat(rows) : rows;
+      if (rows.length) this._auditOldestId = rows[rows.length - 1].id;
+      this._auditHasMore = !!resp.hasMore;
+      renderRows(append);
+    });
+  };
+
+  openBtn?.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    load(false);
+  });
+  closeBtn?.addEventListener('click', () => { modal.style.display = 'none'; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+  refreshBtn?.addEventListener('click', () => load(false));
+  filterAction?.addEventListener('change', () => load(false));
+  filterActor?.addEventListener('input', (() => {
+    let timer = null;
+    return () => { clearTimeout(timer); timer = setTimeout(() => load(false), 300); };
+  })());
+  loadMoreBtn?.addEventListener('click', () => load(true));
+  exportBtn?.addEventListener('click', () => {
+    try {
+      const blob = new Blob([JSON.stringify(this._auditRows, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `haven-audit-log-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('Audit log export failed:', err);
+    }
   });
 },
 

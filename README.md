@@ -289,6 +289,16 @@ Haven creates a `.env` config file automatically on first launch — you don't n
 | Windows | `%APPDATA%\Haven\` |
 | Linux / macOS | `~/.haven/` |
 
+> **Running Haven as a systemd service?** systemd runs the unit as the user
+> you set in `User=` (often `root`), so `~/.haven/` resolves to that user's
+> home (e.g. `/root/.haven/`) — *not* the directory you ran Haven from
+> manually during testing. Set `HAVEN_DATA_DIR` to an absolute path in your
+> `.env` *or* the unit's `Environment=` line so manual and service runs share
+> the same data, certs, and `.env`. Example:
+> ```
+> Environment=HAVEN_DATA_DIR=/opt/haven-data
+> ```
+
 | Setting | Default | What It Does |
 |---------|---------|-------------|
 | `PORT` | `3000` | Server port |

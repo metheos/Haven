@@ -54,7 +54,7 @@ _setupSocketListeners() {
     if (this.user.isAdmin) {
       document.getElementById('admin-mod-panel').style.display = 'block';
     } else {
-      document.getElementById('admin-mod-panel').style.display = (canModerate || this._hasPerm('manage_emojis') || this._hasPerm('manage_soundboard')) ? 'block' : 'none';
+      document.getElementById('admin-mod-panel').style.display = (canModerate || this._hasPerm('manage_emojis') || this._hasPerm('manage_soundboard') || this._hasPerm('view_audit_log')) ? 'block' : 'none';
     }
     document.getElementById('sidebar-members-btn').style.display = (this.user.isAdmin || canModerate || this._hasPerm('view_all_members') || this._hasPerm('view_channel_members')) ? '' : 'none';
   });
@@ -69,7 +69,7 @@ _setupSocketListeners() {
     const canModerate = this.user.isAdmin || this.user.effectiveLevel >= 25;
     const canCreateChannel = this.user.isAdmin || this._hasPerm('create_channel');
     document.getElementById('admin-controls').style.display = canCreateChannel ? 'block' : 'none';
-    document.getElementById('admin-mod-panel').style.display = (canModerate || this._hasPerm('manage_emojis') || this._hasPerm('manage_soundboard')) ? 'block' : 'none';
+    document.getElementById('admin-mod-panel').style.display = (canModerate || this._hasPerm('manage_emojis') || this._hasPerm('manage_soundboard') || this._hasPerm('view_audit_log')) ? 'block' : 'none';
     document.getElementById('sidebar-members-btn').style.display = (this.user.isAdmin || canModerate || this._hasPerm('view_all_members') || this._hasPerm('view_channel_members')) ? '' : 'none';
     this._showToast(t('toasts.roles_updated'), 'info');
   });
@@ -411,10 +411,12 @@ _setupSocketListeners() {
   });
 
   this.socket.on('message-history', async (data) => {
-    // DM PiP: if this history is for the active PiP DM, render it there
-    // (and ignore the non-current-channel guard).
-    if (this._activeDMPip && data.channelCode === this._activeDMPip
-        && data.channelCode !== this.currentChannel) {
+    // DM PiP: if this history is for the active PiP DM, render it there.
+    // We render the PiP regardless of currentChannel so the loading
+    // placeholder always clears even when the same DM is also the active
+    // main channel (e.g. user opened the DM in fullscreen previously,
+    // then opened the PiP — issue: SerChiz v3.10.3).
+    if (this._activeDMPip && data.channelCode === this._activeDMPip) {
       // E2E: ensure partner key is fetched before decrypting (self-DMs included)
       const pipCh = this.channels.find(c => c.code === data.channelCode);
       if (pipCh && pipCh.is_dm && pipCh.dm_target && !this._dmPublicKeys[pipCh.dm_target.id]) {
@@ -422,7 +424,9 @@ _setupSocketListeners() {
       }
       await this._decryptMessages(data.messages, data.channelCode);
       this._renderDMPiPHistory?.(data.messages);
-      return;
+      // If the PiP DM isn't ALSO the current channel, we're done.
+      if (data.channelCode !== this.currentChannel) return;
+      // Otherwise fall through so the main pane renders too.
     }
     if (data.channelCode !== this.currentChannel) return;
     // E2E: decrypt DM messages before rendering
@@ -485,6 +489,11 @@ _setupSocketListeners() {
     if (this._pendingE2ENotice) {
       this._appendE2ENotice(this._pendingE2ENotice);
       this._pendingE2ENotice = null;
+    }
+
+    // Update pin indicator dot for the active channel
+    if (typeof data.pinnedCount === 'number' && data.channelCode === this.currentChannel) {
+      this._updatePinIndicator?.(data.pinnedCount);
     }
   });
 
@@ -626,11 +635,12 @@ _setupSocketListeners() {
           // containing spaces or symbols still match. (#5273)
           const _meEsc = (this.user.username || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const mentionRegex = new RegExp(`@${_meEsc}(?!\\w)`, 'i');
+          const everyoneRegex = /(?<![\w@])@(everyone|here)\b/i;
           const _notifCh = this.channels.find(c => c.code === data.channelCode);
           const _isAnnouncement = _notifCh && _notifCh.notification_type === 'announcement';
           const _isReplyToMe = data.message.replyContext && data.message.replyContext.user_id === this.user.id;
           const _isDm = _notifCh && _notifCh.is_dm;
-          const _isMention = mentionRegex.test(data.message.content);
+          const _isMention = mentionRegex.test(data.message.content) || everyoneRegex.test(data.message.content);
           const _notifOpts = _isMention ? { isMention: true } : _isReplyToMe ? { isReply: true } : _isDm ? { isDm: true } : null;
           if (_isMention) {
             this.notifications.play('mention', { isMention: true });
@@ -654,22 +664,46 @@ _setupSocketListeners() {
     } else {
       const _mutedChs2 = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
       const _isMuted2 = _mutedChs2.includes(data.channelCode);
+      // If this message is for the active DM PiP and the user is actively
+      // viewing the app, treat it as read instead of bumping the unread
+      // badge — the message is already visible in the floating PiP panel.
+      const _inActivePiP = this._activeDMPip && data.channelCode === this._activeDMPip && !document.hidden;
       // Only count unread for messages from other users — own message echoes arriving after a
       // channel switch (race condition) would otherwise trigger a ghost badge.
       if (data.message.user_id !== this.user.id) {
-        this.unreadCounts[data.channelCode] = (this.unreadCounts[data.channelCode] || 0) + 1;
-        this._updateBadge(data.channelCode);
+        if (_inActivePiP) {
+          // Keep the PiP DM cleared and tell the server we've read it.
+          // Emit synchronously (not via the shared `_markReadTimer` debounce):
+          // the timer is `clearTimeout`'d every time the user switches main
+          // channels, and a debounced PiP mark-read used to get dropped on
+          // the floor whenever the user clicked anything else within 500 ms,
+          // leaving the server's read position stale.  After the next
+          // unrelated `channels-list` snapshot the unread count would pop
+          // back up on the sidebar and the OS would re-notify the same
+          // already-read message.  Server uses MAX so the immediate emit
+          // can't ever clobber a newer real id.
+          this.unreadCounts[data.channelCode] = 0;
+          this._updateBadge(data.channelCode);
+          try { this.socket.emit('mark-read', { code: data.channelCode, messageId: data.message.id }); } catch {}
+          try { this._updateDmSectionBadge?.(); } catch {}
+          try { this._updateTabTitle?.(); } catch {}
+          try { this._updateDesktopBadge?.(); } catch {}
+        } else {
+          this.unreadCounts[data.channelCode] = (this.unreadCounts[data.channelCode] || 0) + 1;
+          this._updateBadge(data.channelCode);
+        }
       }
       // Don't play notification sounds for your own messages in other channels
       if (data.message.user_id !== this.user.id && !_isMuted2) {
         // Check @mention even in other channels (escape username, no \b so spaces work). (#5273)
         const _meEsc2 = (this.user.username || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const mentionRegex = new RegExp(`@${_meEsc2}(?!\\w)`, 'i');
+        const everyoneRegex2 = /(?<![\w@])@(everyone|here)\b/i;
         const _notifCh2 = this.channels.find(c => c.code === data.channelCode);
         const _isAnnouncement2 = _notifCh2 && _notifCh2.notification_type === 'announcement';
         const _isReplyToMe2 = data.message.replyContext && data.message.replyContext.user_id === this.user.id;
         const _isDm2 = _notifCh2 && _notifCh2.is_dm;
-        const _isMention2 = mentionRegex.test(data.message.content);
+        const _isMention2 = mentionRegex.test(data.message.content) || everyoneRegex2.test(data.message.content);
         const _notifOpts2 = _isMention2 ? { isMention: true } : _isReplyToMe2 ? { isReply: true } : _isDm2 ? { isDm: true } : null;
         if (_isMention2) {
           this.notifications.play('mention', { isMention: true });
@@ -816,6 +850,7 @@ _setupSocketListeners() {
   this.socket.on('thread-messages', async (data) => {
     if (data.parentUsername) {
       this._setThreadParentHeader({
+        userId: data.parentUserId || null,
         username: data.parentUsername,
         avatar: data.parentAvatar || null,
         avatarShape: data.parentAvatarShape || 'circle'
@@ -860,7 +895,8 @@ _setupSocketListeners() {
       const _isMuted = _mutedChs.includes(data.channelCode);
       const _meEsc = (this.user.username || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const mentionRegex = _meEsc ? new RegExp(`@${_meEsc}(?!\\w)`, 'i') : null;
-      const _isMention = mentionRegex && mentionRegex.test(msg.content || '');
+      const everyoneRegex = /(?<![\w@])@(everyone|here)\b/i;
+      const _isMention = (mentionRegex && mentionRegex.test(msg.content || '')) || everyoneRegex.test(msg.content || '');
       const _isReplyToMe = msg.replyContext && msg.replyContext.user_id === this.user.id;
       if ((_isMention || _isReplyToMe) && !_isMuted) {
         this._recordThreadMention(data.channelCode, data.parentId, msg);
@@ -1149,7 +1185,7 @@ _setupSocketListeners() {
         const contentEl = msgEl.querySelector('.message-content, .thread-msg-content');
         if (!contentEl) return;
         contentEl.innerHTML = this._formatContent(displayContent);
-        msgEl.dataset.rawContent = data.content;
+        msgEl.dataset.rawContent = displayContent;
         let editedTag = msgEl.querySelector('.edited-tag');
         if (!editedTag) {
           editedTag = document.createElement('span');
@@ -1240,6 +1276,8 @@ _setupSocketListeners() {
         if (pinBtn) { pinBtn.dataset.action = 'unpin'; pinBtn.title = 'Unpin'; }
       }
       this._appendSystemMessage(`📌 ${t('header.messages.pinned_by', { name: data.pinnedBy })}`);
+      this._markPinUnread?.(data.messageId);
+      this._bumpPinIndicator?.(1);
     }
   });
 
@@ -1267,6 +1305,7 @@ _setupSocketListeners() {
         }
       }
       this._appendSystemMessage(`📌 ${t('header.messages.message_unpinned')}`);
+      this._bumpPinIndicator?.(-1);
     }
   });
 
@@ -1277,6 +1316,9 @@ _setupSocketListeners() {
         await this._decryptMessages(data.pins, data.channelCode);
       }
       this._renderPinnedPanel(data.pins);
+      // The user just opened the pinned panel and saw everything in it —
+      // mark all current pin ids as seen so the unread dot clears.
+      this._markPinsSeen?.(data.pins || []);
     }
   });
 
@@ -1392,12 +1434,20 @@ _setupSocketListeners() {
 
   // ── User preferences (persistent theme etc.) ───────
   this.socket.on('preferences', (prefs) => {
+    this._userPrefs = prefs || {};
     if (prefs.theme) {
       // User has a saved personal theme preference — apply it
       applyThemeFromServer(prefs.theme);
     } else if (this.serverSettings.default_theme) {
       // No personal preference — apply the server's default theme
       applyThemeFromServer(this.serverSettings.default_theme);
+    }
+    // Sync hide-own-score toggle to the server's stored value so reopening
+    // settings on a fresh device shows the correct state.
+    if (prefs.hide_score_badge != null) {
+      try { localStorage.setItem('haven_hide_own_score', prefs.hide_score_badge); } catch {}
+      const ownToggle = document.getElementById('hide-own-score');
+      if (ownToggle) ownToggle.checked = prefs.hide_score_badge === 'true';
     }
   });
 

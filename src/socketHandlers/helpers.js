@@ -53,7 +53,8 @@ const VALID_ROLE_PERMS = [
   'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
   'create_channel', 'create_temp_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
   'view_all_members', 'view_channel_members', 'manage_emojis', 'manage_soundboard', 'manage_music_queue',
-  'promote_user', 'transfer_admin', 'manage_roles', 'manage_server', 'delete_channel', 'read_only_override'
+  'promote_user', 'transfer_admin', 'manage_roles', 'manage_server', 'delete_channel', 'read_only_override',
+  'view_audit_log'
 ];
 
 module.exports = { utcStamp, isString, isInt, sanitizeText, isValidUploadPath, VALID_ROLE_PERMS };

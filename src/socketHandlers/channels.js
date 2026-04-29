@@ -1,4 +1,7 @@
 // ── Channel CRUD, sub-channels, settings, reordering, categories, DMs ──
+const fs = require('fs');
+const path = require('path');
+const { UPLOADS_DIR, DELETED_ATTACHMENTS_DIR } = require('../paths');
 const { isString, isInt } = require('./helpers');
 
 module.exports = function register(socket, ctx) {
@@ -6,9 +9,10 @@ module.exports = function register(socket, ctx) {
     io, db, state, userHasPermission, getUserEffectiveLevel,
     broadcastChannelLists, getEnrichedChannels, emitOnlineUsers,
     handleVoiceLeave, broadcastVoiceUsers, generateChannelCode,
-    applyRoleChannelAccess
+    applyRoleChannelAccess, logAudit
   } = ctx;
   const { channelUsers, voiceUsers, activeMusic, musicQueues } = state;
+  const _audit = (typeof logAudit === 'function') ? logAudit : () => {};
 
   // ── Get user's channels ─────────────────────────────────
   socket.on('get-channels', () => {
@@ -101,6 +105,10 @@ module.exports = function register(socket, ctx) {
 
       socket.join(`channel:${code}`);
       socket.emit('channel-created', channel);
+
+      _audit({ actor: socket.user, action: 'channel_create',
+        target_type: 'channel', target_id: result.lastInsertRowid, target_name: name.trim(),
+        details: { code, isPrivate: !!isPrivate, expiresAt } });
 
       // If we mass-added every user, push the new channel to all currently
       // connected sockets so it appears for them without a refresh. (#5271)
@@ -437,6 +445,10 @@ module.exports = function register(socket, ctx) {
     voiceUsers.delete(code);
     activeMusic.delete(code);
     musicQueues.delete(code);
+
+    _audit({ actor: socket.user, action: 'channel_delete',
+      target_type: 'channel', target_id: channel.id, target_name: channel.name,
+      details: { code, parent_channel_id: channel.parent_channel_id || null } });
   });
 
   // ── Rename channel ──────────────────────────────────────
@@ -466,6 +478,9 @@ module.exports = function register(socket, ctx) {
       db.prepare('UPDATE channels SET name = ? WHERE id = ?').run(name, channel.id);
       broadcastChannelLists();
       io.to(code).emit('channel-renamed', { code, name });
+      _audit({ actor: socket.user, action: 'channel_rename',
+        target_type: 'channel', target_id: channel.id, target_name: name,
+        details: { code, oldName: channel.name, newName: name } });
     } catch (err) {
       console.error('Rename channel error:', err);
       socket.emit('error-msg', 'Failed to rename channel');
@@ -1050,7 +1065,7 @@ module.exports = function register(socket, ctx) {
       ts.emit('channels-list', getEnrichedChannels(targetUserId, ts.user.isAdmin, (room) => ts.join(room)));
       ts.emit('toast', { message: `${socket.user.username} invited you to #${channel.name}`, type: 'info' });
     }
-    socket.emit('error-msg', `Invited ${targetUser.username} to #${channel.name}`);
+    socket.emit('toast', { message: `Invited ${targetUser.username} to #${channel.name}`, type: 'success' });
   });
 
   // ── Remove from channel ─────────────────────────────────
@@ -1117,7 +1132,8 @@ module.exports = function register(socket, ctx) {
     if (existingDm) {
       socket.emit('dm-opened', {
         id: existingDm.id, code: existingDm.code, name: existingDm.name,
-        is_dm: 1, dm_target: { id: target.id, username: target.username }
+        is_dm: 1, is_self_dm: isSelfDm ? 1 : 0,
+        dm_target: { id: target.id, username: target.username }
       });
       return;
     }
@@ -1131,7 +1147,7 @@ module.exports = function register(socket, ctx) {
         db.prepare('INSERT INTO channel_members (channel_id, user_id) VALUES (?, ?)').run(channelId, targetId);
       }
       socket.join(`channel:${code}`);
-      socket.emit('dm-opened', { id: channelId, code, name: 'DM', is_dm: 1, dm_target: { id: target.id, username: target.username } });
+      socket.emit('dm-opened', { id: channelId, code, name: 'DM', is_dm: 1, is_self_dm: isSelfDm ? 1 : 0, dm_target: { id: target.id, username: target.username } });
       if (!isSelfDm) {
         for (const [, s] of io.of('/').sockets) {
           if (s.user && s.user.id === targetId) {
@@ -1154,6 +1170,32 @@ module.exports = function register(socket, ctx) {
     if (!channel) return socket.emit('error-msg', 'DM not found');
     const isMember = db.prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?').get(channel.id, socket.user.id);
     if (!isMember && !socket.user.isAdmin) return socket.emit('error-msg', 'Not authorized');
+
+    // Collect attachment filenames before we drop the message rows. We
+    // scan plaintext message content server-side, and also accept a
+    // `data.attachments` list from the client for E2E-encrypted DM
+    // messages whose ciphertext we can't read here. (#5299)
+    const safeName = /^[\w\-.]+$/;
+    const filenames = new Set();
+    try {
+      const msgs = db.prepare('SELECT content FROM messages WHERE channel_id = ?').all(channel.id);
+      const uploadRe = /\/uploads\/((?!deleted-attachments)[\w\-.]+)/g;
+      for (const row of msgs) {
+        const text = row.content || '';
+        let m;
+        while ((m = uploadRe.exec(text)) !== null) {
+          if (safeName.test(m[1])) filenames.add(m[1]);
+        }
+      }
+    } catch { /* ignore scan errors — best-effort cleanup */ }
+    if (Array.isArray(data.attachments)) {
+      for (const url of data.attachments) {
+        if (typeof url !== 'string') continue;
+        const match = url.match(/^\/uploads\/((?!deleted-attachments)[\w\-.]+)$/);
+        if (match && safeName.test(match[1])) filenames.add(match[1]);
+      }
+    }
+
     const deleteAll = db.transaction((chId) => {
       db.prepare('DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)').run(chId);
       db.prepare('DELETE FROM pinned_messages WHERE channel_id = ?').run(chId);
@@ -1162,6 +1204,15 @@ module.exports = function register(socket, ctx) {
       db.prepare('DELETE FROM channels WHERE id = ?').run(chId);
     });
     deleteAll(channel.id);
+
+    for (const name of filenames) {
+      const src = path.join(UPLOADS_DIR, name);
+      const dst = path.join(DELETED_ATTACHMENTS_DIR, name);
+      if (fs.existsSync(src)) {
+        try { fs.renameSync(src, dst); } catch { /* file locked or already moved */ }
+      }
+    }
+
     io.to(`channel:${code}`).emit('channel-deleted', { code });
   });
 };

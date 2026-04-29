@@ -5,8 +5,9 @@ const { utcStamp, isInt } = require('./helpers');
 
 module.exports = function register(socket, ctx) {
   const { io, db, state, userHasPermission, getUserEffectiveLevel,
-          emitOnlineUsers, broadcastVoiceUsers, getEnrichedChannels } = ctx;
+          emitOnlineUsers, broadcastVoiceUsers, getEnrichedChannels, logAudit } = ctx;
   const { channelUsers, voiceUsers } = state;
+  const _audit = (typeof logAudit === 'function') ? logAudit : () => {};
 
   // Helper: run an UPDATE only if the target table exists (avoids crash on
   // tables that haven't been created yet, e.g. uploads, channel_emojis).
@@ -100,6 +101,10 @@ module.exports = function register(socket, ctx) {
     }
 
     socket.emit('error-msg', `Kicked ${targetInfo.username}`);
+    _audit({ actor: socket.user, action: 'user_kick',
+      target_type: 'user', target_id: data.userId, target_name: targetInfo.username,
+      details: { channelCode: code, reason: data.reason || null,
+        scrubMessages: !!data.scrubMessages, scrubScope: data.scrubScope || null } });
   });
 
   // ── Ban user ────────────────────────────────────────────
@@ -189,6 +194,9 @@ module.exports = function register(socket, ctx) {
     }
 
     socket.emit('error-msg', `Banned ${targetUser.username}`);
+    _audit({ actor: socket.user, action: 'user_ban',
+      target_type: 'user', target_id: data.userId, target_name: targetUser.username,
+      details: { reason, scrubMessages: !!data.scrubMessages, purgeMessages: !!data.purgeMessages } });
   });
 
   // ── Unban user ──────────────────────────────────────────
@@ -202,6 +210,9 @@ module.exports = function register(socket, ctx) {
     db.prepare('DELETE FROM bans WHERE user_id = ?').run(data.userId);
     const targetUser = db.prepare('SELECT COALESCE(display_name, username) as username FROM users WHERE id = ?').get(data.userId);
     socket.emit('error-msg', `Unbanned ${targetUser ? targetUser.username : 'user'}`);
+    _audit({ actor: socket.user, action: 'user_unban',
+      target_type: 'user', target_id: data.userId,
+      target_name: targetUser ? targetUser.username : null });
 
     const bans = db.prepare(`
       SELECT b.id, b.user_id, b.reason, b.created_at, COALESCE(u.display_name, u.username) as username
@@ -451,6 +462,9 @@ module.exports = function register(socket, ctx) {
     }
 
     socket.emit('error-msg', `Muted ${targetUser.username} for ${durationMinutes} min`);
+    _audit({ actor: socket.user, action: 'user_mute',
+      target_type: 'user', target_id: data.userId, target_name: targetUser.username,
+      details: { durationMinutes, reason, channelCode: muteCode || null } });
   });
 
   socket.on('unmute-user', (data) => {
@@ -463,14 +477,22 @@ module.exports = function register(socket, ctx) {
     db.prepare('DELETE FROM mutes WHERE user_id = ?').run(data.userId);
     const targetUser = db.prepare('SELECT COALESCE(display_name, username) as username FROM users WHERE id = ?').get(data.userId);
     socket.emit('error-msg', `Unmuted ${targetUser ? targetUser.username : 'user'}`);
+    _audit({ actor: socket.user, action: 'user_unmute',
+      target_type: 'user', target_id: data.userId,
+      target_name: targetUser ? targetUser.username : null });
   });
 
   // ── Ban / deleted-user lists ────────────────────────────
   socket.on('get-bans', () => {
-    if (!socket.user.isAdmin) return;
+    // Anyone with ban permission can view the ban list (mirrors ban-user perm check)
+    if (!socket.user.isAdmin && !userHasPermission(socket.user.id, 'ban_user')) {
+      return socket.emit('ban-list', []);
+    }
+    // LEFT JOIN so bans referencing a since-deleted user still appear
     const bans = db.prepare(`
-      SELECT b.id, b.user_id, b.reason, b.created_at, COALESCE(u.display_name, u.username) as username
-      FROM bans b JOIN users u ON b.user_id = u.id ORDER BY b.created_at DESC
+      SELECT b.id, b.user_id, b.reason, b.created_at,
+             COALESCE(u.display_name, u.username, '[deleted user]') as username
+      FROM bans b LEFT JOIN users u ON b.user_id = u.id ORDER BY b.created_at DESC
     `).all();
     bans.forEach(b => { b.created_at = utcStamp(b.created_at); });
     socket.emit('ban-list', bans);

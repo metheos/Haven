@@ -285,6 +285,15 @@ async _toggleScreenShare() {
       document.getElementById('screen-share-btn').textContent = '🛑';
       document.getElementById('screen-share-btn').title = t('voice.stop_share');
       document.getElementById('screen-share-btn').classList.add('sharing');
+      // Register a one-time listener for desktop-app share-mode updates so
+      // the audio badge reflects the actual capture path (per-app /
+      // system-clean / fallback / loopback). Browser users won't fire this.
+      if (!this._shareModeListenerInstalled) {
+        this._shareModeListenerInstalled = true;
+        window.addEventListener('haven:share-audio-mode', (ev) => {
+          try { this._applyShareAudioModeBadge(ev.detail); } catch (e) { console.warn('share mode badge update failed:', e); }
+        });
+      }
       // Show our own screen in the viewer
       this._handleScreenStream(this.user.id, this.voice.screenStream);
       // Show audio/no-audio badge
@@ -1027,6 +1036,25 @@ async _populateAudioDevices() {
     outputSelect.appendChild(opt);
   }
 
+  // Browsers that don't implement HTMLMediaElement.setSinkId (notably
+  // Firefox) can't switch audio output devices in JS. Disable the picker
+  // and surface a hint so users aren't left confused. (#5295)
+  const _supportsSinkId = typeof HTMLAudioElement !== 'undefined'
+    && typeof HTMLAudioElement.prototype.setSinkId === 'function';
+  if (!_supportsSinkId) {
+    outputSelect.disabled = true;
+    outputSelect.title = 'Your browser does not support switching audio output devices. Pick the output in your OS sound settings.';
+    const _hintId = 'voice-output-unsupported-hint';
+    if (!document.getElementById(_hintId) && outputSelect.parentElement) {
+      const hint = document.createElement('small');
+      hint.id = _hintId;
+      hint.className = 'settings-hint';
+      hint.style.cssText = 'display:block;margin-top:4px;opacity:0.85';
+      hint.textContent = 'Your browser can\u2019t switch audio output devices. Use your OS sound settings instead.';
+      outputSelect.parentElement.appendChild(hint);
+    }
+  }
+
   // Populate camera
   if (camSelect) {
     camSelect.innerHTML = `<option value="">${t('voice_settings.default_camera')}</option>`;
@@ -1335,6 +1363,9 @@ _handleScreenAudio(userId) {
       badge.innerHTML = '🔊 Audio';
       tile.appendChild(badge);
     }
+    // If the desktop app already reported a specific audio mode for this
+    // share (per-app, system-clean, fallback, loopback), reflect it now.
+    this._applyShareAudioModeBadge(window.__havenShareAudioMode);
     // Restore audio controls visibility since audio is available
     const controls = document.getElementById(`stream-controls-${userId || 'self'}`);
     if (controls) controls.style.display = '';
@@ -1345,6 +1376,50 @@ _handleScreenAudio(userId) {
     controls.style.opacity = '1';
     setTimeout(() => { controls.style.opacity = ''; }, 3000);
   }
+},
+
+// Update the streamer's own audio badge to reflect the actual capture mode
+// reported by the desktop app. Browser users won't have this info — they'll
+// just see the generic "🔊 Audio" badge.
+_applyShareAudioModeBadge(modeInfo) {
+  if (!modeInfo) return;
+  const tile = document.getElementById(`screen-tile-${this.user?.id || 'self'}`);
+  const badge = tile?.querySelector('.stream-audio-badge');
+  if (!badge) return;
+
+  // Strip prior mode classes
+  badge.classList.remove('mode-app', 'mode-system-clean', 'mode-fallback', 'mode-loopback');
+
+  let label, cls, tip;
+  switch (modeInfo.applied) {
+    case 'app':
+      label = `🔊 App Audio${modeInfo.detail ? ` (${modeInfo.detail})` : ''}`;
+      cls   = 'mode-app';
+      tip   = `Capturing audio only from "${modeInfo.detail || 'selected app'}". No system or voice audio is included.`;
+      break;
+    case 'system-clean':
+      label = '🔊 System Audio';
+      cls   = 'mode-system-clean';
+      tip   = 'Capturing all system audio except Haven. Your voice is not looped back.';
+      break;
+    case 'fallback-system-clean':
+      label = '🔊 System Audio (fallback)';
+      cls   = 'mode-fallback';
+      tip   = `Per-app capture failed, so the share is using system audio minus Haven.${modeInfo.detail ? ` Reason: ${modeInfo.detail}.` : ''}`;
+      break;
+    case 'system-loopback':
+      label = '🔊 All Audio ⚠';
+      cls   = 'mode-loopback';
+      tip   = `Using raw system loopback. This may include Haven\u2019s own voice output (voice loop possible).${modeInfo.detail ? ` Reason: ${modeInfo.detail}.` : ''}`;
+      break;
+    default:
+      return;
+  }
+  badge.innerHTML = label;
+  badge.classList.add(cls);
+  badge.title = tip;
+  // Also expose on the badge for tooltip-aware UIs
+  badge.setAttribute('data-mode', modeInfo.applied);
 },
 
 _handleScreenNoAudio(userId) {

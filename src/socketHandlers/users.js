@@ -7,8 +7,9 @@ const { utcStamp, isString, isInt, sanitizeText, isValidUploadPath } = require('
 module.exports = function register(socket, ctx) {
   const { io, db, state, getChannelRoleChain, userHasPermission,
           emitOnlineUsers, broadcastVoiceUsers, generateToken,
-          touchVoiceActivity, DATA_DIR } = ctx;
+          touchVoiceActivity, DATA_DIR, logAudit } = ctx;
   const { channelUsers, voiceUsers } = state;
+  const _audit = (typeof logAudit === 'function') ? logAudit : () => {};
 
   // ── Rename (display name) ───────────────────────────────
   socket.on('rename-user', (data) => {
@@ -107,6 +108,11 @@ module.exports = function register(socket, ctx) {
     }
 
     console.log(`✏️  ${oldName} renamed to ${newName}`);
+    if (oldName !== newName) {
+      _audit({ actor: socket.user, action: 'user_rename',
+        target_type: 'user', target_id: socket.user.id, target_name: newName,
+        details: { oldName, newName } });
+    }
   });
 
   // ── Avatar ──────────────────────────────────────────────
@@ -450,7 +456,7 @@ module.exports = function register(socket, ctx) {
     const key = typeof data.key === 'string' ? data.key.trim() : '';
     const value = typeof data.value === 'string' ? data.value.trim() : '';
 
-    const allowedKeys = ['theme'];
+    const allowedKeys = ['theme', 'hide_score_badge'];
     if (!allowedKeys.includes(key) || !value || value.length > 50) return;
 
     db.prepare(
@@ -490,6 +496,10 @@ module.exports = function register(socket, ctx) {
       SELECT hs.user_id, COALESCE(u.display_name, u.username) as username, hs.score
       FROM high_scores hs JOIN users u ON hs.user_id = u.id
       WHERE hs.game = ? AND hs.score > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM user_preferences up
+          WHERE up.user_id = u.id AND up.key = 'hide_score_badge' AND up.value = 'true'
+        )
       ORDER BY hs.score DESC LIMIT 50
     `).all(game);
     io.emit('high-scores', { game, leaderboard });
@@ -502,6 +512,10 @@ module.exports = function register(socket, ctx) {
       SELECT hs.user_id, COALESCE(u.display_name, u.username) as username, hs.score
       FROM high_scores hs JOIN users u ON hs.user_id = u.id
       WHERE hs.game = ? AND hs.score > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM user_preferences up
+          WHERE up.user_id = u.id AND up.key = 'hide_score_badge' AND up.value = 'true'
+        )
       ORDER BY hs.score DESC LIMIT 50
     `).all(game);
     socket.emit('high-scores', { game, leaderboard });

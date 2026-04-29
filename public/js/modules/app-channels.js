@@ -11,6 +11,8 @@ async switchChannel(code) {
   // Voice persists across channel switches — no auto-disconnect
 
   this.currentChannel = code;
+  // Reset pin indicator until message-history reports the count for this channel
+  this._updatePinIndicator?.(this._pinnedCountByChannel?.[code] || 0);
   this._coupledToBottom = true;
   const jumpBtn = document.getElementById('jump-to-bottom');
   if (jumpBtn) jumpBtn.classList.remove('visible');
@@ -135,6 +137,29 @@ async switchChannel(code) {
   this._historyAfter = null;
 
   this.socket.emit('enter-channel', { code });
+  // Belt-and-braces mark-read: if the server already told us the latest
+  // message id for this channel (channels-list snapshot), fire a
+  // mark-read IMMEDIATELY (not via the debounced _markRead path) so that
+  // a quick re-open of a different channel within the 500 ms debounce
+  // window can't clear the timer and silently drop the previous channel's
+  // mark-read.  This was the root cause of "I've read this DM 6 times and
+  // it still shows unread" — the user would open the DM, glance at it,
+  // switch away within 500 ms, the next switch's clearTimeout dropped the
+  // first emit, and the server never recorded the read.  Server uses
+  // MAX(last_read, incoming) so an older snapshot id can't clobber a
+  // newer real id from the in-channel scroll handler.  Also mirror the
+  // unread count locally so the badge clears immediately and doesn't
+  // bounce back to "1" on the next channels-list snapshot.
+  if (channel && channel.latestMessageId) {
+    try { this.socket.emit('mark-read', { code, messageId: channel.latestMessageId }); } catch {}
+    if (this.unreadCounts && this.unreadCounts[code]) {
+      this.unreadCounts[code] = 0;
+      try { this._updateBadge?.(code); } catch {}
+      try { this._updateDmSectionBadge?.(); } catch {}
+      try { this._updateTabTitle?.(); } catch {}
+      try { this._updateDesktopBadge?.(); } catch {}
+    }
+  }
   // E2E: fetch DM partner's public key BEFORE requesting messages
   if (isDm && channel) await this._fetchDMPartnerKey(channel);
   this.socket.emit('get-messages', { code });
@@ -453,12 +478,25 @@ _initDmContextMenu() {
   });
 
   // Delete DM
-  document.querySelector('[data-action="dm-delete"]')?.addEventListener('click', () => {
+  document.querySelector('[data-action="dm-delete"]')?.addEventListener('click', async () => {
     const code = this._dmCtxMenuCode;
     if (!code) return;
     this._closeDmCtxMenu();
-    if (!confirm('⚠️ ' + t('channels.dm_delete_confirm'))) return;
-    this.socket.emit('delete-dm', { code });
+    const ok = await this._showConfirmModal('⚠️ ' + t('channels.dm_delete_confirm'), '', { danger: true, confirmLabel: t('settings.admin.delete') || 'Delete' });
+    if (!ok) return;
+    // Gather all attachment URLs from the (decrypted) cached messages
+    // for this DM so the server can move E2E ciphertext-hidden uploads
+    // to deleted-attachments. (#5299)
+    const attachments = [];
+    if (code === this.currentChannel && Array.isArray(this._lastRenderedMessages)) {
+      const re = /\/uploads\/((?!deleted-attachments)[\w\-.]+)/g;
+      for (const msg of this._lastRenderedMessages) {
+        if (!msg || typeof msg.content !== 'string') continue;
+        let m;
+        while ((m = re.exec(msg.content)) !== null) attachments.push('/uploads/' + m[1]);
+      }
+    }
+    this.socket.emit('delete-dm', { code, attachments });
   });
 
   // Close on outside click
@@ -681,12 +719,12 @@ _openReparentModal(code) {
     </div>`;
   }
 
-  for (const t of targets) {
-    const subCount = this.channels.filter(c => c.parent_channel_id === t.id).length;
+  for (const tgt of targets) {
+    const subCount = this.channels.filter(c => c.parent_channel_id === tgt.id).length;
     const badge = subCount > 0 ? ` <span style="opacity:0.4;font-size:0.8em">${t('channels.sub_ch_count', { count: subCount })}</span>` : '';
-    html += `<div class="organize-item reparent-option" data-target="${t.code}">
+    html += `<div class="organize-item reparent-option" data-target="${tgt.code}">
       <span style="opacity:0.5">#</span>
-      <span style="flex:1">${this._escapeHtml(t.name)}${badge}</span>
+      <span style="flex:1">${this._escapeHtml(tgt.name)}${badge}</span>
     </div>`;
   }
 
@@ -883,9 +921,10 @@ _renderOrganizeList() {
       const tagKey = group.tag || '__untagged__';
       const label = group.tag ? this._escapeHtml(group.tag) : t('channels.untagged');
       const isTagSelected = this._organizeSelectedTag === tagKey;
-      html += `<div class="organize-tag-header${isTagSelected ? ' selected' : ''}" data-tag-key="${this._escapeHtml(tagKey)}">
+      html += `<div class="organize-tag-header${isTagSelected ? ' selected' : ''}" data-tag-key="${this._escapeHtml(tagKey)}" draggable="true">
+        <span class="organize-tag-drag" title="${t('channels.drag_to_reorder') || 'Drag to reorder'}">⋮⋮</span>
         <span>${label}</span>
-        <select class="tag-sort-select" data-tag="${this._escapeHtml(tagKey)}" title="Sort this group">
+        <select class="tag-sort-select" data-tag="${this._escapeHtml(tagKey)}" title="Sort this group" draggable="false">
           <option value="manual"${group.sort === 'manual' ? ' selected' : ''}>${t('channels.sort.manual')}</option>
           <option value="alpha"${group.sort === 'alpha' ? ' selected' : ''}>${t('channels.sort.alpha')}</option>
           <option value="created"${group.sort === 'created' ? ' selected' : ''}>${t('channels.sort.newest')}</option>
@@ -962,6 +1001,78 @@ _renderOrganizeList() {
       this._renderOrganizeList();
     });
   });
+
+  // ── Drag-and-drop reordering of category headers ──────
+  // Uses event delegation on listEl so drag events still fire when the
+  // cursor is over a child element (e.g. the per-tag <select>) inside the
+  // header, which can otherwise swallow dragover/drop in some browsers.
+  // Re-attach is idempotent because handlers live on listEl, not children.
+  if (!listEl._catDragSetup) {
+    listEl._catDragSetup = true;
+    listEl.addEventListener('dragstart', (e) => {
+      const header = e.target.closest('.organize-tag-header[draggable="true"]');
+      if (!header || !listEl.contains(header)) return;
+      listEl._catDragKey = header.dataset.tagKey;
+      header.classList.add('org-dragging');
+      try { e.dataTransfer.setData('text/plain', listEl._catDragKey || ''); } catch {}
+      try { e.dataTransfer.effectAllowed = 'move'; } catch {}
+    });
+    listEl.addEventListener('dragend', () => {
+      listEl.querySelectorAll('.organize-tag-header').forEach(h => h.classList.remove('org-dragging', 'org-drop-above', 'org-drop-below'));
+      listEl._catDragKey = null;
+    });
+    listEl.addEventListener('dragover', (e) => {
+      if (!listEl._catDragKey) return;
+      const header = e.target.closest('.organize-tag-header');
+      if (!header || header.dataset.tagKey === listEl._catDragKey) return;
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = 'move'; } catch {}
+      const rect = header.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      // Clear other indicators
+      listEl.querySelectorAll('.organize-tag-header').forEach(h => {
+        if (h !== header) h.classList.remove('org-drop-above', 'org-drop-below');
+      });
+      header.classList.toggle('org-drop-above', before);
+      header.classList.toggle('org-drop-below', !before);
+    });
+    listEl.addEventListener('dragleave', (e) => {
+      // Only clear when leaving the list entirely
+      if (!listEl.contains(e.relatedTarget)) {
+        listEl.querySelectorAll('.organize-tag-header').forEach(h => h.classList.remove('org-drop-above', 'org-drop-below'));
+      }
+    });
+    listEl.addEventListener('drop', (e) => {
+      const header = e.target.closest('.organize-tag-header');
+      const dragKey = listEl._catDragKey;
+      listEl._catDragKey = null;
+      listEl.querySelectorAll('.organize-tag-header').forEach(h => h.classList.remove('org-drop-above', 'org-drop-below', 'org-dragging'));
+      if (!header || !dragKey || header.dataset.tagKey === dragKey) return;
+      e.preventDefault();
+      const rect = header.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      const currentOrder = Array.from(listEl.querySelectorAll('.organize-tag-header'))
+        .map(h => h.dataset.tagKey);
+      const fromIdx = currentOrder.indexOf(dragKey);
+      if (fromIdx === -1) return;
+      currentOrder.splice(fromIdx, 1);
+      const insertAt = currentOrder.indexOf(header.dataset.tagKey) + (before ? 0 : 1);
+      currentOrder.splice(insertAt, 0, dragKey);
+
+      this._organizeCatSort = 'manual';
+      this._organizeCatOrder = currentOrder;
+      const sortSel = document.getElementById('organize-cat-sort');
+      if (sortSel) sortSel.value = 'manual';
+      localStorage.setItem(`haven_cat_order_${this._organizeParentCode}`, JSON.stringify(currentOrder));
+      localStorage.setItem(`haven_cat_sort_${this._organizeParentCode}`, 'manual');
+      if (this._organizeServerLevel && (this.user?.isAdmin || this._hasPerm('manage_server'))) {
+        this.socket.emit('update-server-setting', { key: 'channel_cat_order', value: JSON.stringify(currentOrder) });
+        this.socket.emit('update-server-setting', { key: 'channel_cat_sort', value: 'manual' });
+      }
+      this._renderOrganizeList();
+      this._renderChannels();
+    });
+  }
 
   // Disable up/down based on selection type
   let canMoveUp = false, canMoveDown = false;
@@ -1084,7 +1195,10 @@ _moveCategoryInOrder(direction) {
   }
 
   this._renderOrganizeList();
-  if (this._organizeServerLevel) this._renderChannels();
+  // Always re-render the sidebar so sub-channel category moves take effect
+  // immediately (previously this was server-level-only and the sidebar lagged
+  // behind the modal for sub-channel reordering). #4 in the bug list.
+  this._renderChannels();
 },
 
 /* ── DM Organize (client-side, localStorage) ─────────── */
@@ -1457,6 +1571,7 @@ _renderChannels() {
           const bubble = el.querySelector('.channel-badge-bubble');
           if (bubble) bubble.remove();
         }
+        this._updateNestedIndicators();
       });
     }
 
@@ -1624,6 +1739,7 @@ _renderChannels() {
         } else {
           if (badge) badge.style.display = 'none';
         }
+        this._updateNestedIndicators();
       });
     }
 
@@ -1860,12 +1976,28 @@ _renderChannels() {
       el.addEventListener('click', () => {
         // Single-click on a DM opens it in a floating PiP panel overlaid
         // on the user's current channel. Does NOT switch channels.
-        this._openDMPiP?.(ch.code);
+        // Users can flip this in Settings → Chat: when "Open DMs in
+        // fullscreen on single click" is on, single-click switches to the
+        // full DM and double-click opens the PiP. (#5295)
+        if (localStorage.getItem('haven_dm_fullscreen_default') === 'true') {
+          this._closeDMPiP?.();
+          this.switchChannel(ch.code);
+        } else {
+          this._openDMPiP?.(ch.code);
+        }
+        // On mobile, the sidebar covers the chat — close it so the user
+        // can actually see the DM they just picked.
+        this._closeMobilePanels?.();
       });
       el.addEventListener('dblclick', () => {
-        // Double-click switches to the full DM pane (legacy behavior).
-        this._closeDMPiP?.();
-        this.switchChannel(ch.code);
+        if (localStorage.getItem('haven_dm_fullscreen_default') === 'true') {
+          this._openDMPiP?.(ch.code);
+        } else {
+          // Double-click switches to the full DM pane (legacy behavior).
+          this._closeDMPiP?.();
+          this.switchChannel(ch.code);
+        }
+        this._closeMobilePanels?.();
       });
       return el;
     };
@@ -1937,6 +2069,251 @@ _renderChannels() {
   this._voiceCountRefreshTimer = setTimeout(() => {
     if (this.socket?.connected) this.socket.emit('get-voice-counts');
   }, 600);
+
+  // Set up drag-and-drop reordering
+  this._setupChannelDragDrop();
+  this._setupDmDragDrop();
+  this._updateNestedIndicators();
+},
+
+// ── Drag-and-drop channel reordering ────────────────────
+
+_setupChannelDragDrop() {
+  const canManage = this.user?.isAdmin || this._hasPerm('manage_server') || this._hasPerm('create_channel');
+  const list = document.getElementById('channel-list');
+  if (!list || !canManage) return;
+
+  // Make eligible items draggable (idempotent — safe to re-run each render)
+  list.querySelectorAll(
+    '.channel-item:not(.sub-channel-item):not(.dm-item):not(.temp-channel-create-btn), .category-label, .sub-channel-item'
+  ).forEach(el => el.setAttribute('draggable', 'true'));
+
+  // Listeners must only be attached ONCE per container — re-renders would
+  // otherwise stack duplicate handlers and cause channels to spasm/jump.
+  if (list._dragSetupDone) return;
+  list._dragSetupDone = true;
+
+  let dragSrc = null;
+  const indicator = document.createElement('div');
+  indicator.className = 'ch-drag-indicator';
+
+  const cleanUp = () => {
+    if (dragSrc) { dragSrc.classList.remove('ch-dragging'); dragSrc = null; }
+    indicator.remove();
+  };
+
+  // Check whether drag source and potential target are compatible
+  const isCompatible = (src, tgt) => {
+    if (!src || !tgt || src === tgt) return false;
+    if (src.classList.contains('category-label'))
+      return tgt.classList.contains('category-label');
+    if (src.classList.contains('sub-tag-label'))
+      return tgt.classList.contains('sub-tag-label') && tgt.dataset.parentCode === src.dataset.parentCode;
+    if (src.classList.contains('sub-channel-item'))
+      return tgt.classList.contains('sub-channel-item') && !tgt.classList.contains('sub-tag-label') && tgt.dataset.parentId === src.dataset.parentId;
+    // Parent channel: compatible with other parent channel-items or category labels
+    return (tgt.classList.contains('channel-item') && !tgt.classList.contains('sub-channel-item') && !tgt.classList.contains('dm-item') && !tgt.classList.contains('temp-channel-create-btn')) ||
+      tgt.classList.contains('category-label');
+  };
+
+  list.addEventListener('dragstart', (e) => {
+    const el = e.target.closest('[draggable="true"]');
+    if (!el || el.classList.contains('temp-channel-create-btn')) { e.preventDefault(); return; }
+    dragSrc = el;
+    dragSrc.classList.add('ch-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', el.dataset.code || el.dataset.category || el.dataset.tagName || '');
+  });
+
+  list.addEventListener('dragover', (e) => {
+    if (!dragSrc) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const tgt = e.target.closest('.channel-item:not(.temp-channel-create-btn), .category-label');
+    if (!tgt || !isCompatible(dragSrc, tgt)) { indicator.remove(); return; }
+    const rect = tgt.getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) {
+      list.insertBefore(indicator, tgt);
+    } else {
+      list.insertBefore(indicator, tgt.nextSibling);
+    }
+  });
+
+  list.addEventListener('dragleave', (e) => {
+    if (!list.contains(e.relatedTarget)) indicator.remove();
+  });
+
+  list.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!dragSrc || !indicator.parentNode) { cleanUp(); return; }
+    indicator.parentNode.insertBefore(dragSrc, indicator);
+    indicator.remove();
+    this._saveDragDropOrder(dragSrc);
+    dragSrc.classList.remove('ch-dragging');
+    dragSrc = null;
+  });
+
+  list.addEventListener('dragend', cleanUp);
+},
+
+_saveDragDropOrder(el) {
+  const list = document.getElementById('channel-list');
+  if (!list) return;
+
+  // Category label was dragged — reorder categories
+  if (el.classList.contains('category-label')) {
+    const newOrder = [...list.querySelectorAll('.category-label')].map(e => e.dataset.category || '__untagged__');
+    localStorage.setItem('haven_cat_order___server__', JSON.stringify(newOrder));
+    localStorage.setItem('haven_cat_sort___server__', 'manual');
+    if (this.serverSettings) {
+      this.serverSettings.channel_cat_order = JSON.stringify(newOrder);
+      this.serverSettings.channel_cat_sort = 'manual';
+    }
+    if (this.user?.isAdmin || this._hasPerm('manage_server')) {
+      this.socket.emit('update-server-setting', { key: 'channel_cat_order', value: JSON.stringify(newOrder) });
+      this.socket.emit('update-server-setting', { key: 'channel_cat_sort', value: 'manual' });
+    }
+    return;
+  }
+
+  // Sub-tag label was dragged — reorder sub-tags within parent
+  if (el.classList.contains('sub-tag-label')) {
+    const parentCode = el.dataset.parentCode;
+    if (!parentCode) return;
+    // Map the literal "Untagged" tag name back to the __untagged__ placeholder
+    // that the organize modal uses, so the saved order matches what the modal
+    // reads on next open.
+    const newOrder = [...list.querySelectorAll(`.sub-tag-label[data-parent-code="${CSS.escape(parentCode)}"]`)]
+      .map(e => {
+        const t = e.dataset.tagName;
+        if (!t || t === 'Untagged') return '__untagged__';
+        return t;
+      });
+    localStorage.setItem(`haven_cat_order_${parentCode}`, JSON.stringify(newOrder));
+    localStorage.setItem(`haven_cat_sort_${parentCode}`, 'manual');
+    return;
+  }
+
+  // Sub-channel was dragged — reorder subs within parent
+  if (el.classList.contains('sub-channel-item')) {
+    const parentId = parseInt(el.dataset.parentId);
+    const parentCh = this.channels.find(c => c.id === parentId);
+    if (!parentCh) return;
+    const subs = [...list.querySelectorAll(`.sub-channel-item:not(.sub-tag-label)[data-parent-id="${parentId}"]`)];
+    const order = subs.map((e, i) => ({ code: e.dataset.code, position: i }));
+    this.socket.emit('reorder-channels', { order });
+    // Switch parent to manual sort
+    if (parentCh.sort_alphabetical !== 0) {
+      parentCh.sort_alphabetical = 0;
+      this.socket.emit('set-sort-alphabetical', { code: parentCh.code });
+    }
+    // Switch per-sub-tag sort override to manual if the sub-channel had a tag
+    const subTag = el.dataset.subTag;
+    if (subTag) {
+      const tagSorts = JSON.parse(localStorage.getItem(`haven_tag_sorts_${parentCh.code}`) || '{}');
+      tagSorts[subTag] = 'manual';
+      localStorage.setItem(`haven_tag_sorts_${parentCh.code}`, JSON.stringify(tagSorts));
+    }
+    return;
+  }
+
+  // Parent channel was dragged — determine its new category from preceding category label
+  let newCategory = '';
+  let prev = el.previousElementSibling;
+  while (prev) {
+    if (prev.classList.contains('category-label')) { newCategory = prev.dataset.category || ''; break; }
+    prev = prev.previousElementSibling;
+  }
+
+  // If category changed, tell the server
+  const ch = this.channels.find(c => c.code === el.dataset.code);
+  if (ch && (ch.category || '') !== newCategory) {
+    this.socket.emit('set-channel-category', { code: el.dataset.code, category: newCategory });
+    ch.category = newCategory || null;
+  }
+
+  // Reorder all parent channels by new DOM positions
+  const parentItems = [...list.querySelectorAll('.channel-item:not(.sub-channel-item):not(.dm-item):not(.temp-channel-create-btn)')];
+  const order = parentItems.map((e, i) => ({ code: e.dataset.code, position: i }));
+  this.socket.emit('reorder-channels', { order });
+
+  // Switch server to manual sort mode
+  localStorage.setItem('haven_server_sort_mode', 'manual');
+  if (this.serverSettings) this.serverSettings.channel_sort_mode = 'manual';
+  if (this.user?.isAdmin || this._hasPerm('manage_server')) {
+    this.socket.emit('update-server-setting', { key: 'channel_sort_mode', value: 'manual' });
+  }
+
+  // Switch the dropped channel's category tag sort to manual
+  const tagSorts = JSON.parse(localStorage.getItem('haven_tag_sorts___server__') || '{}');
+  const catKey = newCategory || '__untagged__';
+  if (tagSorts[catKey] !== 'manual') {
+    tagSorts[catKey] = 'manual';
+    localStorage.setItem('haven_tag_sorts___server__', JSON.stringify(tagSorts));
+    if (this.user?.isAdmin || this._hasPerm('manage_server')) {
+      this.socket.emit('update-server-setting', { key: 'channel_tag_sorts', value: JSON.stringify(tagSorts) });
+    }
+  }
+},
+
+_setupDmDragDrop() {
+  const dmList = document.getElementById('dm-list');
+  if (!dmList) return;
+
+  dmList.querySelectorAll('.dm-item').forEach(el => el.setAttribute('draggable', 'true'));
+
+  if (dmList._dragSetupDone) return;
+  dmList._dragSetupDone = true;
+
+  let dragSrc = null;
+  const indicator = document.createElement('div');
+  indicator.className = 'ch-drag-indicator';
+
+  const cleanUp = () => {
+    if (dragSrc) { dragSrc.classList.remove('ch-dragging'); dragSrc = null; }
+    indicator.remove();
+  };
+
+  dmList.addEventListener('dragstart', (e) => {
+    const el = e.target.closest('.dm-item[draggable="true"]');
+    if (!el) return;
+    dragSrc = el;
+    dragSrc.classList.add('ch-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', el.dataset.code || '');
+  });
+
+  dmList.addEventListener('dragover', (e) => {
+    if (!dragSrc) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const tgt = e.target.closest('.dm-item');
+    if (!tgt || tgt === dragSrc) { indicator.remove(); return; }
+    const rect = tgt.getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) {
+      dmList.insertBefore(indicator, tgt);
+    } else {
+      dmList.insertBefore(indicator, tgt.nextSibling);
+    }
+  });
+
+  dmList.addEventListener('dragleave', (e) => {
+    if (!dmList.contains(e.relatedTarget)) indicator.remove();
+  });
+
+  dmList.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!dragSrc || !indicator.parentNode) { cleanUp(); return; }
+    indicator.parentNode.insertBefore(dragSrc, indicator);
+    indicator.remove();
+    const newOrder = [...dmList.querySelectorAll('.dm-item')].map(el => el.dataset.code);
+    localStorage.setItem('haven_dm_order', JSON.stringify(newOrder));
+    localStorage.setItem('haven_dm_sort_mode', 'manual');
+    dragSrc.classList.remove('ch-dragging');
+    dragSrc = null;
+  });
+
+  dmList.addEventListener('dragend', cleanUp);
 },
 
 _updateBadge(code) {
@@ -1995,6 +2372,71 @@ _updateBadge(code) {
   this._updateDmSectionBadge();
   this._updateTabTitle();
   this._updateDesktopBadge();
+  this._updateNestedIndicators();
+},
+
+// Add a small "look inside" dot to expanded category labels and to
+// expanded parent channels when one of their children has unread
+// messages. The dot is visually distinct from the count bubble — the
+// bubble (with a number) only appears when the parent is collapsed
+// and is the actual count; this dot is just a hint that there's
+// something below worth scrolling to. (parent-notif feature request)
+_updateNestedIndicators() {
+  if (!this.channels) return;
+  const subChannelMap = {};
+  for (const c of this.channels) {
+    if (c.parent_channel_id) {
+      (subChannelMap[c.parent_channel_id] ||= []).push(c);
+    }
+  }
+  const setDot = (el, on) => {
+    if (!el) return;
+    let dot = el.querySelector(':scope > .channel-badge-nested-dot');
+    if (on) {
+      if (!dot) {
+        dot = document.createElement('span');
+        dot.className = 'channel-badge-nested-dot';
+        dot.title = t('channels.nested_unread') || 'Unread messages inside';
+        el.appendChild(dot);
+      }
+    } else if (dot) {
+      dot.remove();
+    }
+  };
+
+  // Category labels: dot if expanded AND any contained channel/sub
+  // has unreads. (When collapsed the existing count bubble shows the
+  // total instead, so we suppress the dot to avoid duplication.)
+  document.querySelectorAll('.section-label.category-label[data-category]').forEach(catEl => {
+    const cat = catEl.dataset.category;
+    if (!cat) return;
+    const collapsed = localStorage.getItem(`haven_cat_collapsed_${cat}`) === 'true';
+    if (collapsed) { setDot(catEl, false); return; }
+    let total = 0;
+    for (const c of this.channels) {
+      if (c.is_dm || c.parent_channel_id) continue;
+      if ((c.category || '') !== cat) continue;
+      total += this.unreadCounts[c.code] || 0;
+      for (const s of (subChannelMap[c.id] || [])) {
+        total += this.unreadCounts[s.code] || 0;
+      }
+    }
+    setDot(catEl, total > 0);
+  });
+
+  // Parent channels with sub-channels: dot if subs are expanded AND
+  // any sub has unreads.
+  for (const c of this.channels) {
+    if (c.is_dm || c.parent_channel_id) continue;
+    const subs = subChannelMap[c.id];
+    if (!subs || !subs.length) continue;
+    const parentEl = document.querySelector(`.channel-item[data-code="${c.code}"]`);
+    if (!parentEl) continue;
+    const isCollapsed = localStorage.getItem(`haven_subs_collapsed_${c.code}`) === 'true';
+    if (isCollapsed) { setDot(parentEl, false); continue; }
+    const subTotal = subs.reduce((sum, s) => sum + (this.unreadCounts[s.code] || 0), 0);
+    setDot(parentEl, subTotal > 0);
+  }
 },
 
 _updateTabTitle() {
@@ -2012,7 +2454,28 @@ _updateTabTitle() {
 _updateDesktopBadge() {
   const validCodes = new Set((this.channels || []).map(c => c.code));
   const total = Object.entries(this.unreadCounts).reduce((s, [k, v]) => validCodes.has(k) ? s + v : s, 0);
+  // Track last-pushed value so visibility-driven re-syncs (below) can detect
+  // when the desktop main process has fallen out of step with the renderer
+  // and quietly reassert the correct state without spamming IPC.
+  this._lastDesktopBadge = total > 0;
   window.havenDesktop?.setUnreadBadge?.(total > 0);
+},
+
+// Re-assert the desktop badge state when the window/tab regains focus.
+// Catches the case where a stale "true" badge in the main process never
+// got cleared because the renderer that originally raised it was destroyed
+// or hot-reloaded without the corresponding clear IPC.  Also covers
+// renderers that started before the main process finished wiring badge
+// IPC handlers.  Idempotent — sends the current truth, no diff needed.
+_resyncDesktopBadgeOnFocus() {
+  if (this._desktopBadgeFocusBound) return;
+  this._desktopBadgeFocusBound = true;
+  const resync = () => {
+    if (document.hidden) return;
+    try { this._updateDesktopBadge(); } catch {}
+  };
+  window.addEventListener('focus', resync);
+  document.addEventListener('visibilitychange', resync);
 },
 
 /**
@@ -2111,9 +2574,14 @@ _updateChannelVoiceIndicators() {
         userList.className = 'channel-voice-users';
         el.after(userList);
       }
-      userList.innerHTML = users.map(u =>
-        `<div class="channel-voice-user" data-user-id="${u.id}" data-username="${this._escapeHtml(u.username)}"><span class="cvu-mic${u.isMuted ? ' is-muted' : ''}" title="${u.isMuted ? 'Muted' : ''}">🎙️</span><span class="cvu-deafen${u.isDeafened ? ' is-deafened' : ''}" title="${u.isDeafened ? 'Deafened' : ''}">🔊</span>${this._escapeHtml(u.username)}</div>`
-      ).join('');
+      userList.innerHTML = users.map(u => {
+        const isSelf = u.id === this.user.id;
+        // Self-talking is gated behind the debug toggle: when off, the
+        // highlight comes from the server echoing voice-speaking back, so
+        // there's no 'self' entry in talkingState.
+        const isTalking = this.voice && ((isSelf && this.voice.talkingState.get('self')) || this.voice.talkingState.get(u.id));
+        return `<div class="channel-voice-user${isTalking ? ' talking' : ''}" data-user-id="${u.id}" data-username="${this._escapeHtml(u.username)}"><span class="cvu-mic${u.isMuted ? ' is-muted' : ''}" title="${u.isMuted ? 'Muted' : ''}">🎙️</span><span class="cvu-deafen${u.isDeafened ? ' is-deafened' : ''}" title="${u.isDeafened ? 'Deafened' : ''}">🔊</span>${this._escapeHtml(u.username)}</div>`;
+      }).join('');
       // Right-click on a left-sidebar voice user → same voice options menu
       userList.querySelectorAll('.channel-voice-user').forEach(item => {
         item.addEventListener('contextmenu', (e) => {

@@ -11,6 +11,159 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [3.10.11] — 2026-04-28
+
+### Fixed
+- **Other people's voice cutting out the moment you start sharing your screen.** The peer's voice track was being misclassified as screen-share audio after a renegotiation handed it a fresh stream id. Voice routing now consults the server-signaled `screenSharers` set (plus the actual presence of video tracks on the same stream) instead of guessing from stream-id changes, and updates the tracked voice stream id on every reneg so it doesn't pin to the very first one forever.
+- **Mobile peers' camera / screen-share indicator only appearing after you yourself shared.** The user list re-render hooks were wired up for webcam start/stop but not for screen-share start/stop or the late-joiner `active-screen-sharers` snapshot, so the icon next to a sharer's name only refreshed when something else (typically you sharing too) forced a re-render. The screen-share events now trigger the same re-render path, and the user list also falls back on the live `screenSharers` signal if the server-side streams payload hasn't refreshed yet.
+
+---
+
+## [3.10.10] — 2026-04-28
+
+### Changed
+- **📌 pin icon dot is now a read-receipt.** Previously the dot lit up whenever a channel had any pinned message at all, so it was on permanently and gave you no signal. Now it only appears when there are unread pins: dot persists until you open the pinned panel once, and any newly-pinned message after that re-lights it. Per-channel state is persisted to localStorage.
+
+---
+
+## [3.10.9] — 2026-04-28
+
+### Fixed
+- **DM unread that kept coming back — even an hour after opening the message in PiP.** Opening a DM via the floating PiP panel cleared the badge locally but never told the server, so the very next `channels-list` snapshot (sent for any number of unrelated reasons — a peer joining voice, a role change, etc.) re-seeded the unread count from the stale server-side `read_position` and the dot kept popping back, re-firing OS notifications for messages already read.  PiP open now emits `mark-read` against the channel's known latest message id, and inbound messages into a visible PiP DM also emit synchronously instead of going through the shared 500 ms debounced timer (which was getting `clearTimeout`'d by any other channel switch).
+
+---
+
+## [3.10.8] — 2026-04-28
+
+### Fixed
+- **DM unread badge would not clear even after opening the DM repeatedly.** `_markRead` was debounced through a single `setTimeout` whose handle got cleared by the next channel switch — so a quick glance-then-leave dropped the emit on the floor and the server never recorded the read.  `switchChannel` now emits `mark-read` synchronously against the snapshot's `latestMessageId` (the in-channel scroll handler still uses the debounced path on top, and the server already takes `MAX(last_read, incoming)` so the two can't fight).
+- **Win95 theme: dark, doubled-looking horizontal lines between every message group.**  The global `.message-user-sep` border (1 px in `var(--border)`) renders almost-black on Win95's `#bfbfbf` surface and visually pairs with the avatar's 3 px outset highlight to look like a doubled line.  Win95 now overrides the separator colour to `--border-light` (#dfdfdf) and tightens the spacing so it matches the subtler look of every other theme.
+- **Donor list:** added AlexT.
+
+---
+
+## [3.10.7] — 2026-04-28
+
+### Fixed
+- **DMs (and any channel) staying unread after they were clearly viewed** — `_markRead` captured `this.currentChannel` lazily *inside* its 500 ms debounce timer. If the user clicked a DM and then switched to another channel within the debounce window (extremely common with quick "did anything new come in?" sweeps), the timer fired with the *new* current channel, so the DM the user actually opened was never marked read on the server. The debounce now snapshots the channel code at call time, mirrors the read state into local `unreadCounts` immediately so badges don't bounce back on the next `channels-list` snapshot, and `switchChannel` also fires an immediate mark-read against the server-supplied `latestMessageId` for the channel being entered — so even an empty render or one that happens after the user has navigated away no longer leaves the DM stuck with a phantom "1".
+- **Win95 message group dividers looked buggy and inconsistent** — the previous attempt put a 1px `#c8c8c8` top-border on `.message + .message > .message-row:first-child`, but the selector only matched two adjacent group-leaders (it never matched `.message-compact → .message`), so the line appeared in some places and not others depending on whether the previous author's burst ended with a single message or a follow-up.  The Win95 theme already separates groups with the avatar bevel and author colour change; the extra divider is removed entirely.
+
+### Desktop
+- **Server-icon unread dots not lighting up for messages from a different/background server** — `notification-badge` used strict `webContents` identity to figure out which server the signal came from.  After a renderer reload (transient navigation, crash recovery), that identity changes and the lookup silently fails — the per-server map never gets updated, so no dot appears on any other view's sidebar.  Sender lookup now falls back to URL-match via `e.sender.getURL()`, and the badge map is broadcast to **every** open BrowserView (not just the currently-active one), so every sidebar updates its dots in real time.  Same fallback applies to the `report-known-server-urls` listener so background views' filter sets don't get lost on reload either.
+
+---
+
+---
+
+## [3.10.6] — 2026-04-28
+
+### Fixed
+- **Win95 theme "dark sections" bug** — the welcome screen and right members panel could render near-black under the win95 theme while the explicitly-styled left sidebar and channel header still looked correct. Root cause was a stale inline CSS custom property (e.g. `--bg-primary`) left on `:root` from a prior `custom`/`rgb` theme session that wasn't cleared before the user landed on win95, so any surface relying on `var(--bg-primary)` inherited the dark colour. `theme-init.js` now strips known custom-theme inline vars from `:root` on load whenever the saved theme is not `custom` or `rgb`, and the win95 stylesheet now explicitly paints body, message area, messages, welcome screen, members panel and sidebar sections with `#bfbfbf !important` so even an exotic var leak can't paint them dark.
+- **Win95 message dividers were too distracting** (Amnibro feedback) — the per-row `#808080` border between every consecutive line in a message group was removed; dividers now appear only between message *groups* (the boundary between one author's burst and the next) as a subtle 1px `#c8c8c8` top-border with a small spacer.
+- **#5304: Multi-tier nested markdown lists** — the message renderer's old flat regex coalesced any indented `- ` or `1.` line into a single top-level list. The renderer is now a small stack-based parser that tracks `{ ordered, depth }` and produces correctly nested `<ul>`/`<ol>` trees. 2 spaces (or 1 tab) per level; mixed `-`, `*`, `+` and `N.` markers at different depths are supported.
+- **#5267: "Update Now" button in admin Update panel was silently inert under Docker** — it now stays enabled regardless of install method. Click re-runs the update check, and for non-runnable methods (Docker, manual) the result modal renders the upgrade command in a code block with a Copy button (and a toast confirms when there's nothing to do).
+- **YouTube embeds now recognise live, `/v/` and `gaming.youtube.com` URLs** — previously only the canonical `watch?v=` and `youtu.be/` forms produced a player; livestream links pasted from a phone share sheet now embed correctly.
+
+### Docs
+- **#5230: README now calls out the `HAVEN_DATA_DIR` pitfall when running under systemd** — services launched under systemd typically don't inherit the user's interactive `HAVEN_DATA_DIR`, so Haven defaults to `/root/.haven` and silently "loses" your existing data. The Data Directory table now points at the unit-file `Environment=` line as the supported way to make the variable visible to the service.
+- **Donor list refreshed** — added ColKlink and Brian "TGS" Gilliford. Thank you both!
+
+---
+
+## [3.10.5] — 2026-04-28
+
+### Fixed
+- **#5301: Quick reaction picker and customize-quick-reactions panel were missing emoji name tooltips** — the full emoji picker already showed a name on hover, but the small quick-react row above it (and the slot buttons in the customize panel) didn't, so users had to guess what an unfamiliar emoji was called. Both surfaces now show the emoji name on hover, with custom emojis showing their `:name:` form.
+- **#5297: Several slash commands still didn't work in DMs** after the recent const→let fix. The end-to-end DM path only re-implemented six commands client-side (spoiler, shrug, tableflip, unflip, lenny, me); commands like `/disapprove`, `/brb`, `/afk`, `/flip`, `/roll`, `/hug`, `/wave`, `/bbs`, `/boobs`, `/butt` would either show as a literal slash command or get rejected. The client now mirrors the full server-side command map for DMs so they all behave the same as in normal channels.
+- **#5299: DM attachment cleanup didn't fire when the *other* member of the DM deleted the message, or when the entire DM was deleted.** Server-side `delete-message` now accepts the client-supplied attachment list for any DM (not just for the original author), so a recipient with delete permission cleans up the file properly. Server-side `delete-dm` now scans every plaintext message in the DM for `/uploads/...` URLs, accepts a list of decrypted URLs from the client for E2E messages, and moves all of them to `deleted-attachments/` before dropping the DM rows.
+
+### Added
+- **Themed confirm modal helper** so message-action confirms (delete message, pin message, delete DM) no longer show a Windows-styled native popup in Haven Desktop. They now use the same in-app `.modal-overlay` styling as the rest of Haven so they pick up your theme. Other admin/settings confirms still use the native dialog for now and will migrate over time.
+- **Nested-unread "look inside" indicator** on category labels and on parent channels with sub-channels. When a section is expanded but contains an unread channel below the fold, a small accent-colored dot appears on the parent header so it's easier to spot in long sidebars without collapsing everything. The dot is intentionally distinct from the regular count bubble (which still appears when the section is collapsed).
+
+---
+
+## [3.10.4] — 2026-04-27
+
+### Fixed
+- **Self-DM ("Notes to self") sometimes wouldn't open the picture-in-picture panel** — reported by SerChiz. The PiP would show a loading state forever (or appear not to open at all) in specific edge cases: when the same DM was already the user's active main channel, when the local end-to-end key cache was missing the user's own key for self-DMs, or when the partner key fetch silently stalled. The PiP now (a) renders message history regardless of which channel is currently focused, (b) seeds the partner key for self-DMs from the local E2E key directly without a server round-trip, and (c) replaces the "Loading…" placeholder with a friendly fallback after 6 seconds so the panel never appears stuck.
+- **DM picture-in-picture didn't actively clear unread for the DM open in the panel** — new messages arriving for the active PiP DM now mark the DM as read (and clear its unread badge) instead of bumping the unread count, so the badge no longer sticks while you're already reading the conversation.
+
+---
+
+## [3.10.3] — 2026-04-27
+
+### Added
+- **`#channel` autocomplete in the message composer** — typing `#` while composing now opens a live channel picker, matching the existing `@` and `:emoji:` autocompletes. Underscores in channel names are handled correctly so the inserted link works as soon as it lands in the input.
+
+### Fixed
+- **DM picture-in-picture panel hidden behind the input action bar** — the PiP panel's z-index was lower than the chat input's action buttons, so on some layouts the bottom of the panel was clipped. Bumped the PiP z-index above the input row.
+- **Inviting a user to a channel showed a red error toast even on success** — the invite handler reused the error-toast style for its confirmation. Successful invites now produce a normal green success toast.
+- **DM attachments orphaned on disk after delete** — deleting an end-to-end-encrypted DM message now also removes its uploaded attachment files instead of leaving them sitting in the uploads folder.
+- **Server admins couldn't toggle the auto-backup settings from the UI** — the `update-server-setting` handler's allow-list was missing the `auto_backup_*` keys, so toggling them silently no-op'd. Whitelisted them.
+- **Mobile: sidebar stayed open after tapping a DM** — opening a DM from the sidebar list now collapses the sidebar automatically, matching channel-tap behavior.
+- **Mobile: modal expand and close buttons drifted out of alignment** — the two corner buttons in list-heavy modals are now aligned on small screens.
+- **Voice: self-talking highlight didn't survive a left-sidebar re-render** — your own avatar's "talking" outline now persists locally and is reapplied whenever the sidebar redraws, instead of dropping for a frame.
+- **Voice: regression where the local talk highlight was always on for everyone** — the always-on local highlight added in 3.10.2 was reverted; it is now gated behind a Debug-section toggle and defaults off, so the server echo continues to drive the indicator for almost everyone.
+- **Settings: Force SDR toggle showed up in the web client** — the Force SDR (sRGB) preference is desktop-only and is now hidden when running outside Haven Desktop. It also moved to the Debug section, where the rest of the related toggles live.
+
+---
+
+## [3.10.2] — 2026-04-26
+
+### Added
+- **Pinned-message indicator** — the 📌 button in the channel header now shows a small accent-colored dot when the active channel has at least one pinned message, so you can tell at a glance without opening the panel. Updates live as messages get pinned and unpinned.
+
+### Fixed
+- **Server settings categories missing for non-admin server managers** — users with the `manage_server` permission (but not full admin) were missing every category they used to see in Settings → Admin. The category nav was looking for a `section-server` element that doesn't exist anymore, so nothing got unhidden. `manage_server` now reveals the full set of server-management categories (branding, members, whitelist, invite, cleanup, backup, limits, tunnel, bots, import, mod mode).
+- **Inconsistent ordering between a message and its attachment** — when a message and its attachment share the same `created_at` timestamp (within the same second), the order they rendered in flipped depending on which scroll direction loaded them. Message queries now use `m.id` as a stable secondary sort key, so the attachment always stays on the same side of its caption.
+- **Desktop crash on launch when a saved server's hostname stops resolving** — the new transient-error retry loop dereferenced `view.webContents` after the background pre-load view had already been destroyed, throwing `TypeError: Cannot read properties of undefined (reading 'isDestroyed')`. The retry now bails out cleanly if the view is gone, and background pre-load views never retry (those are best-effort and were already cleaned up silently).
+
+---
+
+## [3.10.1] — 2026-04-26
+
+### Added
+- **`@everyone` and `@here` mentions** — typing `@everyone` or `@here` now produces a real highlighted mention that pings every member of the channel (subject to the existing `mention_everyone` permission). Both options also appear in the `@`-autocomplete dropdown when you have permission. Senders without the permission have the trigger silently neutralized server-side, so they can't bypass it.
+- **`#channel-name` autolinks** — typing `#general` (or any channel name) inside a message now turns into a clickable channel link that switches to that channel. Names are matched case-insensitively against the channels you can see.
+- **Duplicate Role button** — the role editor now has a "📋 Duplicate" button next to "Delete". Prompts for a new name, then clones the source role's level, color, icon, and permissions. Auto-assign and channel-access linkage are intentionally not copied (they're rarely correct on a fresh clone).
+
+### Fixed
+- **Voice chat: occasional one-way audio when joining an existing call** — ICE candidates that arrived before the remote SDP description was set were being silently dropped, causing the connection to never finish negotiating media in one direction. Candidates are now buffered per-peer and flushed after `setRemoteDescription`, so cold-joining a call no longer ends in "I can see his mic light up but can't hear him".
+- **DM picture-in-picture: first-message vs reply indentation mismatch** — the first message in a group still had its avatar gutter inherited from the main chat layout, so it sat 8 px to the right of compact follow-ups. PiP message rows now zero out their horizontal padding and the message body's left padding, so every line in the PiP aligns identically.
+- **DM picture-in-picture: clicking an emoji in the reaction picker did nothing** — the `add-reaction` / `remove-reaction` server handlers looked up the channel from `socket.currentChannel` (the channel showing in the *main* pane), but the PiP can be opened over an unrelated channel. The lookup now uses the message's actual channel, and reactions inside the PiP are saved correctly.
+- **Threads: web users seeing "X replies" but no messages, and reply box discarding sends** — same root cause. `get-thread-messages` and `send-thread-message` were also keying off `socket.currentChannel`, which gets stale if the user navigates away while a thread panel is still open. Both now resolve the channel from the parent message itself.
+- **Desktop: server restart kicked users back to "Host or Join"** — a single transient `did-fail-load` (e.g. CONNECTION_REFUSED during the brief restart window) was enough to dump users back to the welcome screen. The desktop now retries up to 6 times with exponential back-off on transient errors before giving up.
+
+---
+
+## [3.10.0] — 2026-04-25
+
+### Added
+- **Drag-and-drop server reordering in the sidebar** — remote Haven servers in the left rail can now be reordered by dragging, just like channels. The new order persists locally and syncs across your devices via the same encrypted bundle the sidebar already uses.
+- **`View Audit Log` permission** — the audit log is no longer admin-only. Any role with the new `View Audit Log` permission can open Settings → Admin → Audit Log and read the record (no other admin powers required).
+
+### Fixed
+- **Tag category headers in the Organize modal didn't actually reorder when dropped** — the per-tag sort dropdown inside each header was swallowing drag events on some browsers, so dragging looked like it worked but nothing moved. Switched to event delegation on the list container so dragover/drop fire reliably.
+
+---
+
+## [3.9.0] — 2026-04-25
+
+### Added
+- **Drag-and-drop tag categories in the Organize modal** — category headers in the Organize Sub-channels / Channels modal can now be reordered by dragging, mirroring how channels and sub-channels are already reordered. The new order persists to localStorage and (for server-level reorders by admins) syncs to all members through server settings.
+- **Audit Log** — a new admin/moderator-visible record of significant server actions: server settings changes, channel create/delete/rename, role create/update/delete, role assign/revoke, member kicks, bans, unbans, mutes, unmutes, and display-name renames. Open it from Settings → Admin → Audit Log. Includes filtering by action type and actor, paginated loading, and a JSON export button.
+- **Modal expand and close controls** — list-heavy modals now show top-right expand and close buttons even when the modal heading is wrapped in a flex container (previously the auto-injected controls were misplaced or hidden on those modals).
+
+### Changed
+- **Resizable list modals fill their available space** — the Organize, Banned Users, and Deleted Users modals no longer waste vertical space when resized; the inner list grows to fill the modal height. Other list-style modals can opt in by wrapping their body in a `modal-flex-body` container.
+
+### Fixed
+- **Sidebar lagging behind the Organize modal for sub-channel category moves** — moving a category up or down inside a sub-channel Organize modal now refreshes the sidebar immediately. Previously the sidebar only re-rendered for server-level category moves, leaving sub-channel order out of sync until the next render.
+- **Sub-channel "Untagged" group order not persisting** — the saved category order now uses the same `__untagged__` placeholder that the Organize modal reads on next open, so dragging the Untagged group around no longer silently resets on reload.
+
+---
+
 ## [3.8.0] — 2026-04-23
 
 ### Added

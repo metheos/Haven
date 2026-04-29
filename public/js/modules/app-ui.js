@@ -2,6 +2,64 @@ export default {
 
 // ── UI Event Bindings ─────────────────────────────────
 
+// Shared keydown handler for any input that supports @mention / :emoji /
+// /slash autocomplete. Returns true if the event was consumed. (#5296)
+_handleAutocompleteKeydown(e) {
+  const emojiDd = document.getElementById('emoji-dropdown');
+  if (emojiDd && emojiDd.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateEmojiDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const active = emojiDd.querySelector('.emoji-ac-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideEmojiDropdown(); return true; }
+  }
+  const slashDd = document.getElementById('slash-dropdown');
+  if (slashDd && slashDd.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateSlashDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Tab') {
+      const active = slashDd.querySelector('.slash-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideSlashDropdown(); return true; }
+  }
+  const dropdown = document.getElementById('mention-dropdown');
+  if (dropdown && dropdown.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateMentionDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const active = dropdown.querySelector('.mention-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideMentionDropdown(); return true; }
+  }
+  const channelDd = document.getElementById('channel-dropdown');
+  if (channelDd && channelDd.style.display !== 'none') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._navigateChannelDropdown(e.key === 'ArrowDown' ? 1 : -1);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const active = channelDd.querySelector('.mention-item.active');
+      if (active) { e.preventDefault(); active.click(); return true; }
+    }
+    if (e.key === 'Escape') { this._hideChannelDropdown(); return true; }
+  }
+  return false;
+},
+
 _setupUI() {
   const msgInput = document.getElementById('message-input');
 
@@ -63,6 +121,21 @@ _setupUI() {
       }
     }
 
+    // If channel dropdown is visible, hijack arrow keys and enter
+    const channelDd = document.getElementById('channel-dropdown');
+    if (channelDd && channelDd.style.display !== 'none') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        this._navigateChannelDropdown(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        const active = channelDd.querySelector('.mention-item.active');
+        if (active) { e.preventDefault(); active.click(); return; }
+      }
+      if (e.key === 'Escape') { this._hideChannelDropdown(); return; }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this._sendMessage();
@@ -96,6 +169,8 @@ _setupUI() {
 
     // Check for @mention trigger
     this._checkMentionTrigger();
+    // Check for #channel trigger
+    this._checkChannelTrigger();
     // Check for :emoji autocomplete trigger
     this._checkEmojiTrigger();
     // Check for /command trigger
@@ -1485,6 +1560,24 @@ _setupUI() {
     this._jumpToMessage(parseInt(replyMsgId, 10));
   });
 
+  // #channel-name link click — switch to the referenced channel.
+  // Delegated globally so it works inside the main pane, thread panel, and
+  // DM PiP without per-container wiring.
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('.channel-link[data-channel-code]');
+    if (!link) return;
+    const code = link.dataset.channelCode;
+    if (!code) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const ch = (this.channels || []).find(c => c.code === code);
+    if (ch && ch.is_dm) {
+      this._openDMPiP?.(code);
+    } else {
+      this.switchChannel?.(code);
+    }
+  });
+
   // Thread preview click — open thread panel
   document.getElementById('messages').addEventListener('click', (e) => {
     const preview = e.target.closest('.thread-preview');
@@ -1518,9 +1611,35 @@ _setupUI() {
   if (dmPipSend) dmPipSend.addEventListener('click', () => this._sendDMPiPMessage?.());
   const dmPipInput = document.getElementById('dm-pip-input');
   if (dmPipInput) dmPipInput.addEventListener('keydown', (e) => {
+    // Autocomplete navigation/insert hijacks first. (#5296)
+    if (this._handleAutocompleteKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this._sendDMPiPMessage?.();
+    }
+  });
+  if (dmPipInput) dmPipInput.addEventListener('input', () => {
+    this._checkMentionTrigger(dmPipInput);
+    this._checkChannelTrigger(dmPipInput);
+    this._checkEmojiTrigger(dmPipInput);
+    this._checkSlashTrigger(dmPipInput);
+  });
+
+  // Paste images / files into the DM PiP input — uploads to the active PiP DM
+  // (not the channel currently in the main pane). (#5295)
+  if (dmPipInput) dmPipInput.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const targetCode = this._activeDMPip;
+    if (!targetCode) return;
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (!file) continue;
+        e.preventDefault();
+        this._uploadGeneralFile(file, targetCode);
+        return;
+      }
     }
   });
 
@@ -1541,7 +1660,7 @@ _setupUI() {
   // #messages handler so reactions/reply/edit/etc. work inside the PiP.
   const dmPipMessages = document.getElementById('dm-pip-messages');
   if (dmPipMessages) {
-    dmPipMessages.addEventListener('click', (e) => {
+    dmPipMessages.addEventListener('click', async (e) => {
       // Toolbar action buttons
       // Inline ⋯ dots button — reveals the full toolbar (touch/mobile)
       const dotsBtn = e.target.closest('.msg-dots-btn');
@@ -1579,11 +1698,13 @@ _setupUI() {
         } else if (action === 'edit') {
           this._startEditMessage?.(msgEl, msgId);
         } else if (action === 'delete') {
-          if (confirm(t('confirm.delete_message'))) {
-            this.socket.emit('delete-message', { messageId: msgId });
+          if (await this._showConfirmModal(t('confirm.delete_message'), '', { danger: true, confirmLabel: t('messages.delete') })) {
+            this.socket.emit('delete-message', { messageId: msgId, attachments: this._getMessageAttachments?.(msgId) });
           }
         } else if (action === 'pin') {
-          this.socket.emit('pin-message', { messageId: msgId });
+          if (await this._showConfirmModal(t('confirm.pin_message'), '')) {
+            this.socket.emit('pin-message', { messageId: msgId });
+          }
         } else if (action === 'unpin') {
           this.socket.emit('unpin-message', { messageId: msgId });
         } else if (action === 'archive') {
@@ -1648,10 +1769,18 @@ _setupUI() {
   const threadInput = document.getElementById('thread-input');
   if (threadInput) {
     threadInput.addEventListener('keydown', (e) => {
+      // Autocomplete navigation/insert hijacks first. (#5296)
+      if (this._handleAutocompleteKeydown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this._sendThreadMessage();
       }
+    });
+    threadInput.addEventListener('input', () => {
+      this._checkMentionTrigger(threadInput);
+      this._checkChannelTrigger(threadInput);
+      this._checkEmojiTrigger(threadInput);
+      this._checkSlashTrigger(threadInput);
     });
   }
 
@@ -1859,7 +1988,7 @@ _setupUI() {
   }, true); // capture phase so it fires before the toolbar action handler
 
   // Messages container — delegate reaction and reply button clicks
-  document.getElementById('messages').addEventListener('click', (e) => {
+  document.getElementById('messages').addEventListener('click', async (e) => {
     const target = e.target.closest('[data-action]');
     if (!target) return;
 
@@ -1881,11 +2010,13 @@ _setupUI() {
     } else if (action === 'edit') {
       this._startEditMessage(msgEl, msgId);
     } else if (action === 'delete') {
-      if (confirm(t('confirm.delete_message'))) {
-        this.socket.emit('delete-message', { messageId: msgId });
+      if (await this._showConfirmModal(t('confirm.delete_message'), '', { danger: true, confirmLabel: t('messages.delete') })) {
+        this.socket.emit('delete-message', { messageId: msgId, attachments: this._getMessageAttachments?.(msgId) });
       }
     } else if (action === 'pin') {
-      this.socket.emit('pin-message', { messageId: msgId });
+      if (await this._showConfirmModal(t('confirm.pin_message'), '')) {
+        this.socket.emit('pin-message', { messageId: msgId });
+      }
     } else if (action === 'unpin') {
       this.socket.emit('unpin-message', { messageId: msgId });
     } else if (action === 'archive') {
@@ -1917,7 +2048,7 @@ _setupUI() {
   // Thread panel reactions: open picker + toggle reaction on badges
   const threadMessages = document.getElementById('thread-messages');
   if (threadMessages) {
-    threadMessages.addEventListener('click', (e) => {
+    threadMessages.addEventListener('click', async (e) => {
       const threadActionBtn = e.target.closest('[data-thread-action]');
       if (threadActionBtn) {
         const msgEl = threadActionBtn.closest('.thread-message');
@@ -1936,8 +2067,8 @@ _setupUI() {
         } else if (action === 'edit') {
           this._startEditMessage(msgEl, msgId);
         } else if (action === 'delete') {
-          if (confirm(t('confirm.delete_message'))) {
-            this.socket.emit('delete-message', { messageId: msgId });
+          if (await this._showConfirmModal(t('confirm.delete_message'), '', { danger: true, confirmLabel: t('messages.delete') })) {
+            this.socket.emit('delete-message', { messageId: msgId, attachments: this._getMessageAttachments?.(msgId) });
           }
         }
         return;
@@ -2334,6 +2465,7 @@ _setupUI() {
       document.getElementById('desktop-app-nav')?.style.removeProperty('display');
       document.getElementById('section-desktop-shortcuts')?.style.removeProperty('display');
       document.getElementById('section-desktop-app')?.style.removeProperty('display');
+      document.getElementById('pref-force-sdr-row')?.style.removeProperty('display');
     }
     // Eagerly fetch data that requires async calls so sections don't
     // sit on "Loading..." indefinitely if the user never clicks the nav item.
@@ -2381,7 +2513,8 @@ _setupUI() {
         || this._hasPerm?.('manage_emojis')
         || this._hasPerm?.('manage_soundboard')
         || this._hasPerm?.('manage_roles')
-        || this._hasPerm?.('manage_server');
+        || this._hasPerm?.('manage_server')
+        || this._hasPerm?.('view_audit_log');
       if (!hasAdminAccess) return this._switchSettingsTab('user');
       if (userBody) userBody.style.display = 'none';
       if (adminBody) adminBody.style.display = '';
@@ -3113,26 +3246,76 @@ _setupUI() {
       if (status) {
         const upToDate = !data.updateAvailable;
         const esc = s => String(s || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+        const cmdBlock = (!data.runnable && data.command) ? `
+          <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><strong>Run on host:</strong>
+              <button type="button" class="btn-sm" id="update-copy-cmd-btn" title="Copy command">📋 Copy</button>
+            </div>
+            <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:6px 8px;margin:0;white-space:pre-wrap;word-break:break-all"><code>${esc(data.command)}</code></pre>
+          </div>` : '';
         status.innerHTML = `
           <div><strong>Installed:</strong> v${esc(data.currentVersion)}</div>
           <div><strong>Latest:</strong> ${data.latestVersion ? 'v' + esc(data.latestVersion) : 'unknown'}</div>
           <div><strong>Install method:</strong> ${esc(data.method)}</div>
           <div style="margin-top:6px">${upToDate ? '✅ You are up to date.' : '⚠️ Update available.'}</div>
           <div style="margin-top:6px"><small>${esc(data.message || '')}</small></div>
+          ${cmdBlock}
           ${data.releaseUrl ? `<div style="margin-top:6px"><a href="${esc(data.releaseUrl)}" target="_blank" rel="noopener">Release notes →</a></div>` : ''}
         `;
+        const copyBtn = document.getElementById('update-copy-cmd-btn');
+        if (copyBtn) copyBtn.addEventListener('click', () => {
+          try {
+            navigator.clipboard.writeText(data.command).then(() => {
+              copyBtn.textContent = '✅ Copied';
+              setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
+            });
+          } catch {}
+        });
       }
-      if (updRunBtn()) updRunBtn().disabled = !(data.updateAvailable && data.runnable);
+      // Keep the Update Now button enabled even when the install method
+      // isn't auto-runnable (Docker, manual). Click handler will surface
+      // the right manual command instead of failing silently. (#5267)
+      if (updRunBtn()) updRunBtn().disabled = !data.updateAvailable;
     } catch (err) {
       if (status) status.textContent = 'Check failed: ' + err.message;
     }
   });
   document.getElementById('update-run-btn')?.addEventListener('click', async () => {
-    if (!lastUpdateCheck || !lastUpdateCheck.runnable) return;
+    const status = updStatusEl();
+    // If the user clicks Run before clicking Check, do the check first so
+    // we always have a fresh `lastUpdateCheck` to act on. (#5267)
+    if (!lastUpdateCheck) {
+      try { document.getElementById('update-check-btn')?.click(); } catch {}
+      if (status) {
+        if (status.style) status.style.display = 'block';
+        status.textContent = 'Checking for updates first… click Update Now again once the check finishes.';
+      }
+      return;
+    }
+    if (!lastUpdateCheck.updateAvailable) {
+      if (status) {
+        if (status.style) status.style.display = 'block';
+        status.textContent = 'Already up to date — nothing to install.';
+      }
+      return;
+    }
+    if (!lastUpdateCheck.runnable) {
+      // Most common case: Docker install. Re-run check to surface the
+      // copyable command block instead of silently doing nothing.
+      try { document.getElementById('update-check-btn')?.click(); } catch {}
+      this._showToast?.(lastUpdateCheck.message || `In-app updates aren't supported for the "${lastUpdateCheck.method}" install method — run the command shown in the panel from your host.`, 'info');
+      return;
+    }
     if (!confirm(`Apply update to v${lastUpdateCheck.latestVersion}? The server will run an auto-backup, then exit so the supervisor restarts it on the new code. You will be disconnected for ~30 seconds.`)) return;
     const token = localStorage.getItem('haven_token');
     if (!token) return;
-    const status = updStatusEl();
+    // Visible status before the fetch so admins always see *something*
+    // happen on click — helps diagnose cases where the request fails
+    // silently or the host blocks the request. (#5267)
+    if (status) {
+      if (status.style) status.style.display = 'block';
+      status.textContent = 'Sending update request…';
+    }
     try {
       const r = await fetch('/api/admin/update/run', {
         method: 'POST',
@@ -3769,6 +3952,67 @@ _updateServerBadgeDots(badges) {
   this._reportKnownServerUrls();
 },
 
+// Drag-and-drop reordering of remote server icons in the sidebar.
+// Mirrors the channel sidebar drag pattern: event delegation on the list
+// container, drop reorders the underlying ServerManager list, then
+// re-renders. Idempotent — only attaches handlers once per list element.
+_setupServerBarDrag(list) {
+  if (!list || list._serverDragSetup) return;
+  list._serverDragSetup = true;
+
+  const indicator = document.createElement('div');
+  indicator.className = 'server-drop-indicator';
+
+  const cleanup = () => {
+    if (list._serverDragSrc) list._serverDragSrc.classList.remove('server-dragging');
+    list._serverDragSrc = null;
+    indicator.remove();
+  };
+
+  list.addEventListener('dragstart', (e) => {
+    const el = e.target.closest('.server-icon.remote[draggable="true"]');
+    if (!el) return;
+    list._serverDragSrc = el;
+    el.classList.add('server-dragging');
+    try { e.dataTransfer.effectAllowed = 'move'; } catch {}
+    try { e.dataTransfer.setData('text/plain', el.dataset.url || ''); } catch {}
+  });
+
+  list.addEventListener('dragover', (e) => {
+    if (!list._serverDragSrc) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'move'; } catch {}
+    const tgt = e.target.closest('.server-icon.remote');
+    if (!tgt || tgt === list._serverDragSrc) { indicator.remove(); return; }
+    const rect = tgt.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    if (before) list.insertBefore(indicator, tgt);
+    else list.insertBefore(indicator, tgt.nextSibling);
+  });
+
+  list.addEventListener('dragleave', (e) => {
+    if (!list.contains(e.relatedTarget)) indicator.remove();
+  });
+
+  list.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const src = list._serverDragSrc;
+    if (!src || !indicator.parentNode) { cleanup(); return; }
+    indicator.parentNode.insertBefore(src, indicator);
+    indicator.remove();
+    src.classList.remove('server-dragging');
+    list._serverDragSrc = null;
+    const orderedUrls = Array.from(list.querySelectorAll('.server-icon.remote')).map(el => el.dataset.url);
+    if (this.serverManager?.reorder) {
+      this.serverManager.reorder(orderedUrls);
+      this._pushServerListToServer?.();
+      this._renderServerBar();
+    }
+  });
+
+  list.addEventListener('dragend', cleanup);
+},
+
 // Tell the desktop main process which server URLs this view recognises
 // (its own origin + every remote icon currently in its sidebar). Main
 // uses this to filter the taskbar overlay so it never shows a badge for
@@ -3835,7 +4079,7 @@ _renderServerBar() {
         ? `<img src="${this._escapeHtml(s.iconData)}" class="server-icon-img" alt=""><span class="server-icon-text" style="display:none">${this._escapeHtml(initial)}</span>`
         : `<span class="server-icon-text">${this._escapeHtml(initial)}</span>`);
     return `
-      <div class="server-icon remote" data-url="${this._escapeHtml(s.url)}"
+      <div class="server-icon remote" data-url="${this._escapeHtml(s.url)}" draggable="true"
            title="${this._escapeHtml(s.name)} — ${statusText}">
         ${iconContent}
         <span class="server-status-dot ${statusClass}"></span>
@@ -3888,6 +4132,10 @@ _renderServerBar() {
       this._editServer(el.dataset.url);
     });
   });
+
+  // Drag-and-drop reordering of remote server icons. Idempotent: handlers
+  // live on the list container so re-rendering doesn't double-bind.
+  this._setupServerBarDrag(list);
 
   // Also update mobile sidebar server bubbles
   this._renderMobileSidebarServers();

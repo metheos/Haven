@@ -1543,6 +1543,20 @@ _setupEmojiSizePicker() {
   });
 },
 
+// ── Debug Section ──
+
+_setupDebugSection() {
+  const cb = document.getElementById('pref-debug-local-talk-indicator');
+  if (!cb) return;
+  try { cb.checked = localStorage.getItem('debug_local_talk_indicator') === '1'; } catch {}
+  cb.addEventListener('change', () => {
+    try {
+      if (cb.checked) localStorage.setItem('debug_local_talk_indicator', '1');
+      else localStorage.removeItem('debug_local_talk_indicator');
+    } catch {}
+  });
+},
+
 // ── Image Display Mode Picker ──
 
 _setupImageModePicker() {
@@ -1828,69 +1842,71 @@ _setupModalExpand() {
     }
   }, true); // capturing phase — fires before individual handlers
 
-  // Auto-inject an expand/maximize toggle button into every modal's header
-  document.querySelectorAll('.modal').forEach(modal => {
-    // Skip promo/centered popups — they're not regular modals
-    if (modal.classList.contains('android-beta-promo') ||
-        modal.classList.contains('desktop-promo') ||
-        modal.classList.contains('donors-modal-box')) return;
+  // Auto-inject expand/maximize + close buttons into every modal.
+  // Buttons live in an absolutely positioned .modal-controls group at the
+  // top-right so they work for ALL modal layouts (back buttons, wrapper
+  // divs, settings headers, etc) without depending on h3 internal flex.
+  const _injectModalControls = () => {
+    document.querySelectorAll('.modal').forEach(modal => {
+      // Skip promo/centered popups — they're not regular modals
+      if (modal.classList.contains('android-beta-promo') ||
+          modal.classList.contains('desktop-promo') ||
+          modal.classList.contains('donors-modal-box')) return;
+      // Idempotent — skip already-injected
+      if (modal.dataset.modalControlsInjected === '1') return;
+      modal.dataset.modalControlsInjected = '1';
 
-    // Find the header container — either .settings-header / .activities-header or the first h3
-    let headerContainer = modal.querySelector('.settings-header, .activities-header');
-    let header = modal.querySelector('h3');
-    if (!header) return;
+      // Settings/activities headers have their own close button — keep it
+      // but inject the expand toggle next to it.
+      const settingsClose = modal.querySelector('.settings-close-btn');
 
-    const btn = document.createElement('button');
-    btn.className = 'modal-expand-btn';
-    btn.title = 'Expand / Restore';
-    btn.textContent = '⛶';
+      const expandBtn = document.createElement('button');
+      expandBtn.type = 'button';
+      expandBtn.className = 'modal-expand-btn';
+      expandBtn.title = 'Expand / Restore';
+      expandBtn.textContent = '⛶';
+      expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isMax = modal.classList.toggle('modal-maximized');
+        expandBtn.textContent = isMax ? '⊖' : '⛶';
+        expandBtn.title = isMax ? 'Restore size' : 'Expand';
+      });
 
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isMax = modal.classList.toggle('modal-maximized');
-      btn.textContent = isMax ? '⊖' : '⛶';
-      btn.title = isMax ? 'Restore size' : 'Expand';
-    });
+      // When a settings-style header is present, slot the expand button
+      // directly next to its close button so the two stay aligned on
+      // every viewport size. Otherwise drop both controls into a floating
+      // group at the top-right of the modal.
+      if (settingsClose) {
+        expandBtn.classList.add('modal-expand-btn-inline');
+        settingsClose.parentElement.insertBefore(expandBtn, settingsClose);
+      } else {
+        const group = document.createElement('div');
+        group.className = 'modal-controls';
+        group.appendChild(expandBtn);
 
-    // Create X close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'modal-expand-btn';
-    closeBtn.title = 'Close';
-    closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const overlay = modal.closest('.modal-overlay');
-      if (overlay) overlay.style.display = 'none';
-      if (modal.classList.contains('modal-maximized')) {
-        modal.classList.remove('modal-maximized');
-        btn.textContent = '⛶';
-        btn.title = 'Expand / Restore';
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'modal-expand-btn';
+        closeBtn.title = 'Close';
+        closeBtn.textContent = '✕';
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const overlay = modal.closest('.modal-overlay');
+          if (overlay) overlay.style.display = 'none';
+          if (modal.classList.contains('modal-maximized')) {
+            modal.classList.remove('modal-maximized');
+            expandBtn.textContent = '⛶';
+            expandBtn.title = 'Expand / Restore';
+          }
+        });
+        group.appendChild(closeBtn);
+        modal.appendChild(group);
       }
     });
-
-    if (headerContainer) {
-      // Settings/activities modal: wrap buttons in a group to avoid space-between spreading
-      const existingClose = headerContainer.querySelector('.settings-close-btn');
-      const btnGroup = document.createElement('div');
-      btnGroup.style.cssText = 'display:flex;align-items:center;gap:4px;margin-left:auto;';
-      btnGroup.appendChild(btn);
-      if (existingClose) {
-        // Replace the existing close button with our grouped version
-        existingClose.remove();
-        btnGroup.appendChild(closeBtn);
-      }
-      headerContainer.appendChild(btnGroup);
-    } else {
-      // Standard modal: make h3 flex and append buttons
-      header.style.display = 'flex';
-      header.style.alignItems = 'center';
-      const btnGroup = document.createElement('div');
-      btnGroup.style.cssText = 'display:flex;align-items:center;gap:4px;margin-left:auto;';
-      btnGroup.appendChild(btn);
-      btnGroup.appendChild(closeBtn);
-      header.appendChild(btnGroup);
-    }
-  });
+  };
+  _injectModalControls();
+  // Re-run if new modals get inserted later (some plugins/lazy templates)
+  this._injectModalControls = _injectModalControls;
 },
 
 /** Show a custom image context menu (Save / Copy / Open in tab) */

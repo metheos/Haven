@@ -1529,6 +1529,7 @@
     "leave_channel": "Quitter le salon \"{{name}}\" ?\nVous aurez besoin du code pour le rejoindre à nouveau.",
     "promote_channel": "Promouvoir \"{{name}}\" en salon de premier niveau ?",
     "delete_message": "Supprimer ce message ?",
+    "pin_message": "Épingler ce message ?",
     "delete_user": "Êtes-vous SÛR de vouloir supprimer {{username}} ? Cette action est irréversible.",
     "delete_account": "Êtes-vous ABSOLUMENT sûr ? Votre compte sera définitivement supprimé.",
     "clear_invite_code": "Effacer le code d'invitation du serveur ? Les personnes avec l'ancien code ne pourront plus l'utiliser.",

@@ -7,7 +7,8 @@ module.exports = function register(socket, ctx) {
   const {
     io, db, state, userHasPermission, getUserEffectiveLevel,
     getUserPermissions, getUserRoles, getUserHighestRole,
-    emitOnlineUsers, broadcastChannelLists, generateChannelCode
+    emitOnlineUsers, broadcastChannelLists, generateChannelCode,
+    logAudit
   } = ctx;
   const { channelUsers } = state;
 
@@ -39,7 +40,8 @@ module.exports = function register(socket, ctx) {
       'max_sound_kb', 'max_emoji_kb', 'setup_wizard_complete', 'update_banner_admin_only',
       'default_theme', 'channel_sort_mode', 'channel_cat_order', 'channel_cat_sort',
       'channel_tag_sorts', 'custom_tos', 'welcome_message', 'vanity_code',
-      'role_icon_sidebar', 'role_icon_chat', 'role_icon_after_name'
+      'role_icon_sidebar', 'role_icon_chat', 'role_icon_after_name',
+      'auto_backup_enabled', 'auto_backup_interval_hours', 'auto_backup_retention', 'auto_backup_sections'
     ];
     if (!allowedKeys.includes(key)) return;
 
@@ -51,6 +53,14 @@ module.exports = function register(socket, ctx) {
     if (key === 'max_poll_options') { const n = parseInt(value); if (isNaN(n) || n < 2 || n > 25) return; }
     if (key === 'max_sound_kb') { const n = parseInt(value); if (isNaN(n) || n < 256 || n > 10240) return; }
     if (key === 'max_emoji_kb') { const n = parseInt(value); if (isNaN(n) || n < 64 || n > 1024) return; }
+    if (key === 'auto_backup_enabled' && !['true', 'false'].includes(value)) return;
+    if (key === 'auto_backup_interval_hours') { const n = parseInt(value); if (isNaN(n) || ![6, 12, 24, 168, 720].includes(n)) return; }
+    if (key === 'auto_backup_retention') { const n = parseInt(value); if (isNaN(n) || n < 1 || n > 50) return; }
+    if (key === 'auto_backup_sections') {
+      const valid = new Set(['channels', 'users', 'settings', 'messages', 'dms', 'files']);
+      const parts = value.split(',').map(s => s.trim()).filter(Boolean);
+      if (!parts.every(p => valid.has(p))) return;
+    }
     if (key === 'giphy_api_key') { if (value && (value.length < 10 || value.length > 100)) return; }
     if (key === 'server_name') { if (value.length > 32) return; }
     if (key === 'server_title') { if (value.length > 40) return; }
@@ -105,6 +115,18 @@ module.exports = function register(socket, ctx) {
     }
 
     io.emit('server-setting-changed', { key, value });
+
+    // Audit: log the setting change. Skip per-user UI prefs that the
+    // organize modal syncs constantly to avoid log spam.
+    const _quietKeys = new Set(['channel_cat_order', 'channel_cat_sort', 'channel_tag_sorts', 'channel_sort_mode']);
+    if (!_quietKeys.has(key) && typeof logAudit === 'function') {
+      const _short = (v) => typeof v === 'string' && v.length > 120 ? v.slice(0, 117) + '...' : v;
+      logAudit({
+        actor: socket.user, action: 'server_setting_update',
+        target_type: 'setting', target_name: key,
+        details: { key, value: _short(value) }
+      });
+    }
 
     if (key === 'member_visibility') {
       for (const [code] of channelUsers) { emitOnlineUsers(code); }
@@ -499,6 +521,40 @@ module.exports = function register(socket, ctx) {
     } catch (err) {
       console.error('get-all-members error:', err);
       cb({ error: 'Failed to load members' });
+    }
+  });
+
+  // ── Audit log: paginated read for admins/mods ───────────
+  socket.on('get-audit-log', (opts, cb) => {
+    if (typeof cb !== 'function') return;
+    if (!socket.user) return cb({ error: 'Not authenticated' });
+    const isAdmin = socket.user.isAdmin;
+    const canView = isAdmin || userHasPermission(socket.user.id, 'view_audit_log');
+    if (!canView) return cb({ error: 'Permission denied' });
+    try {
+      const limit = Math.max(1, Math.min(200, parseInt(opts && opts.limit, 10) || 50));
+      const beforeId = parseInt(opts && opts.beforeId, 10) || 0;
+      const action = opts && typeof opts.action === 'string' && opts.action ? opts.action : null;
+      const actorUsername = opts && typeof opts.actorUsername === 'string' && opts.actorUsername
+        ? opts.actorUsername.trim().toLowerCase().slice(0, 40) : null;
+
+      const where = [];
+      const params = [];
+      if (beforeId > 0) { where.push('id < ?'); params.push(beforeId); }
+      if (action) { where.push('action = ?'); params.push(action); }
+      if (actorUsername) { where.push('LOWER(actor_username) LIKE ?'); params.push('%' + actorUsername + '%'); }
+      const whereSql = where.length ? ('WHERE ' + where.join(' AND ')) : '';
+      params.push(limit);
+
+      const rows = db.prepare(
+        'SELECT id, created_at, actor_id, actor_username, action, target_type, target_id, target_name, details ' +
+        'FROM audit_log ' + whereSql + ' ORDER BY id DESC LIMIT ?'
+      ).all(...params);
+      const actions = db.prepare('SELECT DISTINCT action FROM audit_log ORDER BY action ASC').all().map(r => r.action);
+      cb({ rows, actions, hasMore: rows.length === limit });
+    } catch (err) {
+      console.error('get-audit-log error:', err);
+      cb({ error: 'Failed to load audit log' });
     }
   });
 };

@@ -12,6 +12,85 @@ _safeColor(c, fallback = '') {
   return fallback;
 },
 
+/**
+ * Toggle a small dot on the 📌 pinned-toggle button when the active channel
+ * has UNREAD pinned messages. Read-receipt model:
+ *   - localStorage `haven_seen_pin_max_<code>` stores the highest pin id
+ *     the user has acknowledged (i.e. opened the pinned panel and seen).
+ *   - If no record exists yet and the channel has pins, treat them as
+ *     unread (one-time prompt to open the panel after a fresh install).
+ *   - If the record is set, the dot only appears when a newer pin arrives.
+ * Count-aware so we can also bump live on pin/unpin events without
+ * re-fetching from the server.
+ */
+_pinSeenKey(code) { return `haven_seen_pin_max_${code}`; },
+_getMaxSeenPinId(code) {
+  try {
+    const raw = localStorage.getItem(this._pinSeenKey(code));
+    if (raw == null) return null;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? n : null;
+  } catch { return null; }
+},
+_setMaxSeenPinId(code, id) {
+  try {
+    const cur = this._getMaxSeenPinId(code) || 0;
+    if ((id | 0) > cur) localStorage.setItem(this._pinSeenKey(code), String(id | 0));
+  } catch {}
+},
+
+_updatePinIndicator(count) {
+  const btn = document.getElementById('pinned-toggle-btn');
+  if (!btn) return;
+  const n = Math.max(0, count | 0);
+  this._pinnedCountByChannel = this._pinnedCountByChannel || {};
+  this._unreadPinIdByChannel = this._unreadPinIdByChannel || {};
+  if (this.currentChannel) this._pinnedCountByChannel[this.currentChannel] = n;
+  btn.dataset.pinCount = String(n);
+
+  let unread = false;
+  if (n > 0 && this.currentChannel) {
+    const seen = this._getMaxSeenPinId(this.currentChannel);
+    const liveUnread = this._unreadPinIdByChannel[this.currentChannel] || 0;
+    if (seen == null) {
+      // First encounter — user has never opened the pinned panel for this
+      // channel; surface the dot once so they know there's something there.
+      unread = true;
+    } else if (liveUnread > seen) {
+      unread = true;
+    }
+  }
+  btn.classList.toggle('has-pins', unread);
+},
+
+_markPinUnread(messageId) {
+  if (!this.currentChannel || !messageId) return;
+  this._unreadPinIdByChannel = this._unreadPinIdByChannel || {};
+  const cur = this._unreadPinIdByChannel[this.currentChannel] || 0;
+  if ((messageId | 0) > cur) this._unreadPinIdByChannel[this.currentChannel] = messageId | 0;
+},
+
+_markPinsSeen(pins) {
+  if (!this.currentChannel || !Array.isArray(pins)) return;
+  let max = 0;
+  for (const p of pins) {
+    const id = (p && p.id) | 0;
+    if (id > max) max = id;
+  }
+  if (max > 0) this._setMaxSeenPinId(this.currentChannel, max);
+  // Clear the live-unread tracker for this channel — they've seen everything.
+  this._unreadPinIdByChannel = this._unreadPinIdByChannel || {};
+  this._unreadPinIdByChannel[this.currentChannel] = 0;
+  this._updatePinIndicator(this._pinnedCountByChannel?.[this.currentChannel] || pins.length);
+},
+
+_bumpPinIndicator(delta) {
+  if (!this.currentChannel) return;
+  this._pinnedCountByChannel = this._pinnedCountByChannel || {};
+  const cur = this._pinnedCountByChannel[this.currentChannel] || 0;
+  this._updatePinIndicator(Math.max(0, cur + (delta | 0)));
+},
+
 _isImageUrl(str) {
   if (!str) return false;
   const trimmed = str.trim();
@@ -21,6 +100,21 @@ _isImageUrl(str) {
   // GIPHY GIF URLs (may not have file extensions)
   if (/^https:\/\/media\d*\.giphy\.com\/.+/i.test(trimmed)) return true;
   return false;
+},
+
+// Extract /uploads/<file> attachment paths from a (decrypted) message's
+// content. Used when emitting delete-message so the server can clean up
+// E2E DM attachments whose URL is hidden inside the ciphertext.
+_getMessageAttachments(messageId) {
+  if (!messageId) return [];
+  const msgs = this._lastRenderedMessages || [];
+  const msg = msgs.find(m => m && m.id === messageId);
+  if (!msg || typeof msg.content !== 'string') return [];
+  const out = [];
+  const re = /\/uploads\/((?!deleted-attachments)[\w\-.]+)/g;
+  let m;
+  while ((m = re.exec(msg.content)) !== null) out.push('/uploads/' + m[1]);
+  return out;
 },
 
 _highlightSearch(escapedHtml, query) {
@@ -181,16 +275,27 @@ _formatContent(str) {
   const validNames = new Set();
   const loginToDisplay = new Map();
   const displayToLogin = new Map();
+  // Map matched names back to user id so we can prefer the viewer's personal
+  // nickname for the display text. (#5290)
+  const nameToUserId = new Map();
   if (Array.isArray(this.channelMembers)) {
     for (const m of this.channelMembers) {
       if (!m) continue;
       if (m.loginName) {
         validNames.add(m.loginName.toLowerCase());
         loginToDisplay.set(m.loginName.toLowerCase(), m.username || m.loginName);
+        if (m.id) nameToUserId.set(m.loginName.toLowerCase(), m.id);
       }
       if (m.username) {
         validNames.add(m.username.toLowerCase());
         displayToLogin.set(m.username.toLowerCase(), m.loginName || m.username);
+        if (m.id) nameToUserId.set(m.username.toLowerCase(), m.id);
+      }
+      // Also let users autocomplete/style mentions by their assigned nickname.
+      const nick = m.id && this._nicknames ? this._nicknames[m.id] : null;
+      if (nick) {
+        validNames.add(nick.toLowerCase());
+        if (m.id) nameToUserId.set(nick.toLowerCase(), m.id);
       }
     }
   }
@@ -209,9 +314,46 @@ _formatContent(str) {
     const isKnown = validNames.has(lower);
     const isSelf  = lower === selfLogin;
     if (!isKnown && !isSelf) return match;
-    const display = loginToDisplay.get(lower) || name;
+    // Prefer the viewer's personal nickname for that user, then the
+    // server-side display name, then the raw token. (#5290)
+    const uid = nameToUserId.get(lower);
+    const nick = uid && this._nicknames ? this._nicknames[uid] : null;
+    const display = nick || loginToDisplay.get(lower) || name;
     return `<span class="mention${isSelf ? ' mention-self' : ''}">@${this._escapeHtml(display)}</span>`;
   });
+
+  // ── @everyone / @here mentions ──
+  // Render as a styled mention badge. Notification + audio cue is handled
+  // separately in app-socket.js when a new message arrives.
+  html = html.replace(/(?<![\w@])@(everyone|here)\b/gi, (_m, name) => {
+    return `<span class="mention mention-everyone" data-everyone="${name.toLowerCase()}">@${this._escapeHtml(name.toLowerCase())}</span>`;
+  });
+
+  // ── #channel-name links ──
+  // Recognize #foo / #foo-bar / #🎮general references and turn them into
+  // clickable spans that switch the active channel on click. We resolve
+  // against the user's currently-loaded channel list (case-insensitive).
+  // Matched names must follow a non-word/non-hash boundary so things like
+  // ## headings or message IDs (#1234) don't get linkified spuriously.
+  if (Array.isArray(this.channels) && this.channels.length) {
+    const chanByName = new Map();
+    for (const c of this.channels) {
+      if (c && c.name && c.code && !c.is_dm) {
+        chanByName.set(String(c.name).toLowerCase(), c.code);
+      }
+    }
+    if (chanByName.size > 0) {
+      html = html.replace(/(?<![\w#&])#([\p{L}\p{N}\p{Emoji_Presentation}_-][\p{L}\p{N}\p{Emoji_Presentation}_-]{0,49})/gu, (match, name) => {
+        const lower = name.toLowerCase();
+        // Names with spaces are typed as #foo_bar — try the literal form
+        // first, then fall back to a space-substituted lookup so spaced
+        // channel names resolve too.
+        let code = chanByName.get(lower) || chanByName.get(lower.replace(/_/g, ' '));
+        if (!code) return match;
+        return `<span class="channel-link" data-channel-code="${this._escapeHtml(code)}">#${this._escapeHtml(name)}</span>`;
+      });
+    }
+  }
 
   // Render spoilers (||text||) — CSP-safe, uses delegated click handler
   html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler">$1</span>');
@@ -300,22 +442,73 @@ _formatContent(str) {
     return `${pre}\x00TABLE_${idx}\x00`;
   });
 
-  // ── Unordered lists: consecutive lines starting with "- " ──
-  html = html.replace(/((?:(?:^|\n)- .+)+)/g, (match) => {
-    const items = match.trim().split('\n').map(line =>
-      `<li>${line.replace(/^- /, '')}</li>`
-    ).join('');
-    return `\n<ul class="chat-list">${items}</ul>`;
-  });
+  // ── Lists (ordered + unordered) with multi-tier nesting (#5304) ──
+  // A list line starts with optional leading whitespace (spaces or tabs;
+  // tabs count as 2 spaces for indent purposes), then either "- " / "* "
+  // / "+ " (unordered) or "N. " (ordered). Indentation determines depth:
+  // each 2 spaces ⇒ one extra level. Mixed unordered/ordered at the same
+  // depth open separate lists. Adjacent list-blocks are detected by the
+  // outer regex (any consecutive run of qualifying lines).
+  const listLineRe = /^([ \t]*)([-*+]|\d+\.)\s+(.*)$/;
+  const listBlockRe = /((?:(?:^|\n)[ \t]*(?:[-*+]|\d+\.)[ \t]+.+)+)/g;
+  html = html.replace(listBlockRe, (match) => {
+    const lines = match.replace(/^\n/, '').split('\n');
+    // Parse each line into { depth, ordered, num, text }
+    const parsed = lines.map(line => {
+      const m = line.match(listLineRe);
+      if (!m) return null;
+      const indent = m[1].replace(/\t/g, '  ');
+      const depth = Math.floor(indent.length / 2);
+      const marker = m[2];
+      const ordered = /^\d+\.$/.test(marker);
+      const num = ordered ? parseInt(marker, 10) : null;
+      return { depth, ordered, num, text: m[3] };
+    }).filter(Boolean);
+    if (!parsed.length) return match;
 
-  // ── Ordered lists: consecutive lines starting with "N. " ──
-  html = html.replace(/((?:(?:^|\n)\d+\.\s+.+)+)/g, (match) => {
-    const lines = match.trim().split('\n');
-    const startNum = lines[0].match(/^(\d+)/)?.[1] || '1';
-    const items = lines.map(line =>
-      `<li>${line.replace(/^\d+\.\s+/, '')}</li>`
-    ).join('');
-    return `\n<ol class="chat-list" start="${startNum}">${items}</ol>`;
+    // Build nested HTML using a stack of open lists.
+    let out = '';
+    const stack = []; // each entry: { ordered, depth }
+    const closeTo = (targetLen) => {
+      while (stack.length > targetLen) {
+        const top = stack.pop();
+        out += '</li>';
+        out += top.ordered ? '</ol>' : '</ul>';
+      }
+    };
+    parsed.forEach((item, idx) => {
+      // Close lists that are at deeper depth than this item
+      while (stack.length && stack[stack.length - 1].depth > item.depth) {
+        out += '</li>';
+        const top = stack.pop();
+        out += top.ordered ? '</ol>' : '</ul>';
+      }
+      const top = stack[stack.length - 1];
+      if (!top || top.depth < item.depth) {
+        // Open a new nested list. If we're nesting under an open <li>,
+        // don't close it — the new list goes inside.
+        if (top && top.depth < item.depth) {
+          // already inside an open <li> from previous sibling
+        }
+        const startAttr = item.ordered ? ` start="${item.num || 1}"` : '';
+        out += item.ordered ? `<ol class="chat-list"${startAttr}>` : '<ul class="chat-list">';
+        stack.push({ ordered: item.ordered, depth: item.depth });
+      } else if (top.depth === item.depth && top.ordered !== item.ordered) {
+        // Same depth but list type changed — close current, open new.
+        out += '</li>';
+        const popped = stack.pop();
+        out += popped.ordered ? '</ol>' : '</ul>';
+        const startAttr = item.ordered ? ` start="${item.num || 1}"` : '';
+        out += item.ordered ? `<ol class="chat-list"${startAttr}>` : '<ul class="chat-list">';
+        stack.push({ ordered: item.ordered, depth: item.depth });
+      } else {
+        // Same depth, same type — close previous <li> sibling.
+        out += '</li>';
+      }
+      out += `<li>${item.text}`;
+    });
+    closeTo(0);
+    return '\n' + out;
   });
 
   html = html.replace(/\n/g, '<br>');
@@ -642,12 +835,18 @@ _toggleEmojiPicker(anchorEl) {
       if (customMatch) {
         const ce = self.customEmojis.find(e => e.name === customMatch[1]);
         if (ce) {
-          btn.innerHTML = `<img src="${self._escapeHtml(ce.url)}" alt=":${self._escapeHtml(ce.name)}:" title=":${self._escapeHtml(ce.name)}:" class="custom-emoji">`;
+          btn.innerHTML = `<img src="${self._escapeHtml(ce.url)}" alt=":${self._escapeHtml(ce.name)}:" class="custom-emoji">`;
+          btn.title = `:${ce.name}:`;
         } else {
           btn.textContent = emoji;
+          btn.title = emoji;
         }
       } else {
         btn.textContent = emoji;
+        // Use the first keyword (canonical name) as the tooltip,
+        // matching the reaction picker behavior.
+        const names = self.emojiNames && self.emojiNames[emoji];
+        btn.title = names ? names.split(/\s+/)[0] : emoji;
       }
       btn.addEventListener('click', () => {
         // Insert into the active edit textarea if editing, otherwise the main input
@@ -1149,10 +1348,16 @@ _showQuickEmojiEditor(picker, msgEl, msgId) {
       const customMatch = emoji.match(/^:([a-zA-Z0-9_-]+):$/);
       if (customMatch && this.customEmojis) {
         const ce = this.customEmojis.find(e => e.name === customMatch[1]);
-        if (ce) slot.innerHTML = `<img src="${this._escapeHtml(ce.url)}" alt="${this._escapeHtml(emoji)}" class="custom-emoji" style="width:20px;height:20px">`;
-        else slot.textContent = emoji;
+        if (ce) {
+          slot.innerHTML = `<img src="${this._escapeHtml(ce.url)}" alt="${this._escapeHtml(emoji)}" class="custom-emoji" style="width:20px;height:20px">`;
+          slot.title = `:${ce.name}:`;
+        } else {
+          slot.textContent = emoji;
+          slot.title = emoji;
+        }
       } else {
         slot.textContent = emoji;
+        slot.title = (this.emojiNames && this.emojiNames[emoji]) ? this.emojiNames[emoji] : emoji;
       }
       slot.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1279,10 +1484,16 @@ _showReactionPicker(msgEl, msgId) {
     const customMatch = emoji.match(/^:([a-zA-Z0-9_-]+):$/);
     if (customMatch && this.customEmojis) {
       const ce = this.customEmojis.find(e => e.name === customMatch[1]);
-      if (ce) btn.innerHTML = `<img src="${this._escapeHtml(ce.url)}" alt="${this._escapeHtml(emoji)}" class="custom-emoji" style="width:20px;height:20px">`;
-      else btn.textContent = emoji;
+      if (ce) {
+        btn.innerHTML = `<img src="${this._escapeHtml(ce.url)}" alt="${this._escapeHtml(emoji)}" class="custom-emoji" style="width:20px;height:20px">`;
+        btn.title = `:${ce.name}:`;
+      } else {
+        btn.textContent = emoji;
+        btn.title = emoji;
+      }
     } else {
       btn.textContent = emoji;
+      btn.title = (this.emojiNames && this.emojiNames[emoji]) ? this.emojiNames[emoji] : emoji;
     }
     btn.addEventListener('click', () => {
       this.socket.emit('add-reaction', { messageId: msgId, emoji });
@@ -1541,7 +1752,13 @@ _setThreadParentHeader(meta = {}) {
   const nameEl = document.getElementById('thread-parent-name');
   if (!wrap || !nameEl) return;
 
-  const username = (meta.username || '').trim() || 'Thread starter';
+  const baseUsername = (meta.username || '').trim() || 'Thread starter';
+  // Apply the local user's nickname assignment so threads match the rest of
+  // the UI (members list, message author, mentions). Falls back to the
+  // server-provided display name when no nickname is set. (#5291)
+  const username = meta.userId != null
+    ? (this._getNickname?.(meta.userId, baseUsername) || baseUsername)
+    : baseUsername;
   const shape = (meta.avatarShape || 'circle') === 'square' ? 'square' : 'circle';
   const shapeClass = shape === 'square' ? ' thread-parent-avatar-square' : '';
 
@@ -1671,12 +1888,37 @@ _openDMPiP(code) {
   if (!ch || !ch.is_dm) return;
   this._activeDMPip = code;
   try { localStorage.setItem('haven_active_dm_pip', code); } catch {}
-  // Keep the DM PiP cleared from the unread badge
+  // Keep the DM PiP cleared from the unread badge AND tell the server
+  // we've read up to its latest message.  Without the server emit the
+  // local mirror gets clobbered the next time `channels-list` snapshots
+  // (which can happen at any moment for unrelated reasons — a peer
+  // joining a voice channel, an admin tweak, a role change, etc.) and
+  // the unread dot keeps coming back forever.  This was the root cause
+  // of "I've sat on this DM for an hour and it still keeps re-notifying".
+  // We use the channel's last-known latestMessageId from the snapshot;
+  // the in-pane render of the message history will fire its own _markRead
+  // for the actual painted message id on top, and the server takes
+  // MAX(last_read, incoming) so the two can't fight.
   this.unreadCounts[code] = 0;
   this._updateBadge?.(code);
+  if (ch.latestMessageId) {
+    try { this.socket.emit('mark-read', { code, messageId: ch.latestMessageId }); } catch {}
+  }
+  try { this._updateDmSectionBadge?.(); } catch {}
+  try { this._updateTabTitle?.(); } catch {}
+  try { this._updateDesktopBadge?.(); } catch {}
 
   const panel = document.getElementById('dm-pip-panel');
-  if (!panel) return;
+  if (!panel) {
+    // Fallback: cached app shell may predate the PiP panel element. Open the
+    // DM in the main pane so the click isn't a no-op (notably for self-DMs
+    // where users were seeing the toast but no panel — issue: SerChiz v3.8).
+    console.warn('[DM] PiP panel not found in DOM, falling back to switchChannel');
+    this._activeDMPip = null;
+    try { localStorage.removeItem('haven_active_dm_pip'); } catch {}
+    this.switchChannel?.(code);
+    return;
+  }
   panel.style.display = 'flex';
   panel.dataset.code = code;
   // Title: partner name
@@ -1688,8 +1930,8 @@ _openDMPiP(code) {
   const avatarWrap = document.getElementById('dm-pip-avatar-wrap');
   if (avatarWrap) {
     const partnerId = ch.dm_target && ch.dm_target.id;
-    const onlinePartner = partnerId && this.users
-      ? this.users.find(u => u.id === partnerId)
+    const onlinePartner = partnerId && this._lastOnlineUsers
+      ? this._lastOnlineUsers.find(u => u.id === partnerId)
       : null;
     const avatarUrl = (onlinePartner && onlinePartner.avatar) || (ch.dm_target && ch.dm_target.avatar);
     const shape = (onlinePartner && onlinePartner.avatarShape)
@@ -1727,11 +1969,29 @@ _openDMPiP(code) {
   // Clear messages and request fresh
   const msgsEl = document.getElementById('dm-pip-messages');
   if (msgsEl) msgsEl.innerHTML = '<div class="dm-pip-loading">Loading…</div>';
-  // E2E: ensure partner key is loaded before history arrives so messages decrypt
+  // E2E: ensure partner key is loaded before history arrives so messages decrypt.
+  // For self-DMs the "partner" is the user themselves, so seed our own public
+  // key directly instead of round-tripping through the server. Avoids any
+  // chance of the loading state lingering when the server's get-public-key
+  // for our own id returns null/empty (issue: SerChiz v3.10.3).
   if (ch.dm_target && this._dmPublicKeys && !this._dmPublicKeys[ch.dm_target.id]) {
-    try { this._fetchDMPartnerKey?.(ch); } catch {}
+    if (ch.is_self_dm && this.e2e && this.e2e.publicKeyJwk) {
+      this._dmPublicKeys[ch.dm_target.id] = this.e2e.publicKeyJwk;
+    } else {
+      try { this._fetchDMPartnerKey?.(ch); } catch {}
+    }
   }
   this.socket.emit('get-messages', { code });
+  // Safety: if message-history doesn't arrive within 6s (e.g. a transient
+  // server issue or a stuck E2E key fetch), replace the localized "Loading…"
+  // placeholder so the panel never looks frozen. Cleared on next open/close.
+  clearTimeout(this._dmPipLoadingTimer);
+  this._dmPipLoadingTimer = setTimeout(() => {
+    const stillLoading = document.querySelector('#dm-pip-messages .dm-pip-loading');
+    if (stillLoading && this._activeDMPip === code) {
+      stillLoading.textContent = 'No messages yet.';
+    }
+  }, 6000);
 
   // Clear any stale reply state
   this._clearDMPiPReply();
@@ -1744,6 +2004,7 @@ _openDMPiP(code) {
 _closeDMPiP() {
   this._activeDMPip = null;
   this._dmPipReplyingTo = null;
+  clearTimeout(this._dmPipLoadingTimer);
   try { localStorage.removeItem('haven_active_dm_pip'); } catch {}
   const panel = document.getElementById('dm-pip-panel');
   if (panel) panel.style.display = 'none';
@@ -1972,7 +2233,9 @@ _openThread(parentId) {
   let avatar = null;
   if (avatarImg && avatarImg.getAttribute('src')) avatar = avatarImg.getAttribute('src');
   const avatarShape = (avatarImg && avatarImg.classList.contains('avatar-square')) ? 'square' : 'circle';
-  this._setThreadParentHeader({ username: author, avatar, avatarShape });
+  const parentUserIdRaw = msgEl?.dataset?.userId;
+  const parentUserId = parentUserIdRaw ? parseInt(parentUserIdRaw, 10) : null;
+  this._setThreadParentHeader({ userId: parentUserId, username: author, avatar, avatarShape });
 
   // Focus input
   const input = document.getElementById('thread-input');
@@ -2066,8 +2329,11 @@ _appendThreadMessage(msg) {
   const container = document.getElementById('thread-messages');
   if (!container) return;
 
+  // Apply the local user's nickname assignment so thread messages match
+  // everywhere else nicknames are honored. (#5291)
+  const displayName = this._getNickname?.(msg.user_id, msg.username) || msg.username;
   const color = this._getUserColor(msg.username);
-  const initial = msg.username.charAt(0).toUpperCase();
+  const initial = displayName.charAt(0).toUpperCase();
   let avatarHtml;
   if (msg.avatar) {
     avatarHtml = `<img class="thread-msg-avatar" src="${this._escapeHtml(msg.avatar)}" alt="${initial}">`;
@@ -2103,7 +2369,7 @@ _appendThreadMessage(msg) {
       ${avatarHtml}
       <div class="thread-msg-body">
         <div class="thread-msg-header">
-          <span class="thread-msg-author" style="color:${color}">${this._escapeHtml(msg.username)}</span>
+          <span class="thread-msg-author" style="color:${color}">${this._escapeHtml(displayName)}</span>
           <span class="thread-msg-time">${this._formatTime(msg.created_at)}</span>
           <span class="thread-msg-header-spacer"></span>
           <div class="thread-msg-toolbar">
@@ -2353,6 +2619,7 @@ _startEditMessage(msgEl, msgId) {
   // Enable @mention and :emoji autocomplete in edit textarea
   textarea.addEventListener('input', () => {
     this._checkMentionTrigger(textarea);
+    this._checkChannelTrigger(textarea);
     this._checkEmojiTrigger(textarea);
   });
 
@@ -2550,6 +2817,45 @@ _showPromptModal(title, message, defaultValue = '') {
       if (e.key === 'Enter') close(input.value);
       if (e.key === 'Escape') close(null);
     });
+  });
+},
+
+// ── Generic confirm modal (themed replacement for window.confirm) ──
+_showConfirmModal(title, message, opts = {}) {
+  const {
+    confirmLabel,
+    cancelLabel,
+    danger = false,
+  } = opts;
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.display = 'flex';
+    overlay.style.zIndex = '100002';
+    const okClass = danger ? 'btn-sm btn-danger-fill' : 'btn-sm btn-accent';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:420px">
+        <h3 style="margin-top:0">${this._escapeHtml(title || '')}</h3>
+        ${message ? `<p class="muted-text" style="margin:0 0 12px;white-space:pre-line">${this._escapeHtml(message)}</p>` : ''}
+        <div class="modal-actions" style="margin-top:12px">
+          <button class="btn-sm" id="confirm-modal-cancel">${this._escapeHtml(cancelLabel || t('modals.common.cancel'))}</button>
+          <button class="${okClass}" id="confirm-modal-ok">${this._escapeHtml(confirmLabel || t('modals.common.confirm'))}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const okBtn = overlay.querySelector('#confirm-modal-ok');
+    const cancelBtn = overlay.querySelector('#confirm-modal-cancel');
+    const close = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close(false);
+      if (e.key === 'Enter') close(true);
+    };
+    okBtn.addEventListener('click', () => close(true));
+    cancelBtn.addEventListener('click', () => close(false));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => okBtn.focus(), 0);
   });
 },
 

@@ -385,7 +385,8 @@
     "manage_roles": "Manage Roles",
     "manage_server": "Manage Server",
     "delete_channel": "Delete Channels",
-    "read_only_override": "Read-Only Override"
+    "read_only_override": "Read-Only Override",
+    "view_audit_log": "View Audit Log"
   },
   "slowmode": {
     "wait": "Slow mode — wait {{seconds}}s before sending another message",
@@ -1549,6 +1550,7 @@
     "leave_channel": "Leave channel \"{{name}}\"?\nYou'll need the channel code to rejoin.",
     "promote_channel": "Promote \"{{name}}\" to a top-level channel?",
     "delete_message": "Delete this message?",
+    "pin_message": "Pin this message?",
     "delete_user": "Are you SURE you want to delete {{username}}? This cannot be undone.",
     "delete_account": "Are you ABSOLUTELY sure? Your account will be gone forever.",
     "clear_invite_code": "Clear the server invite code? Anyone with the old code won't be able to use it.",

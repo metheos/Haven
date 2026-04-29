@@ -1529,6 +1529,7 @@
     "leave_channel": "离开频道 \"{{name}}\"？\n您需要频道邀请码才能重新加入。",
     "promote_channel": "将 \"{{name}}\" 提升为顶级频道？",
     "delete_message": "删除此消息？",
+    "pin_message": "置顶此消息？",
     "delete_user": "您确定要删除 {{username}}？此操作无法撤销。",
     "delete_account": "您是否绝对确定？您的账户将永远消失。",
     "clear_invite_code": "清除服务器邀请码？持有旧码的任何人将无法再使用它。",
