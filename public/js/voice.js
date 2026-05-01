@@ -41,6 +41,7 @@ class VoiceManager {
     this.talkingState = new Map();
     this.audioBitrate = 0;
     this.screenHasAudio = false;
+    this._subscribedTrackKeys = new Set();
     this._localTalkInterval = null;
     this._noiseGateInterval = null;
     this._noiseGateGain = null;
@@ -1199,12 +1200,29 @@ class VoiceManager {
     return participant.name || participant.identity || "Unknown";
   }
 
+  _getRemoteTrackKey(track, publication, participant) {
+    const publicationSid = publication?.trackSid || publication?.sid;
+    if (publicationSid) return publicationSid;
+
+    const trackSid = track?.sid;
+    if (trackSid) return trackSid;
+
+    const userId = this._getParticipantUserId(participant);
+    const source = publication?.source || "unknown";
+    const kind = publication?.kind || track?.kind || track?.mediaStreamTrack?.kind || "unknown";
+    return `${userId}:${source}:${kind}`;
+  }
+
   _handleTrackSubscribed(track, publication, participant) {
+    const trackKey = this._getRemoteTrackKey(track, publication, participant);
+    if (trackKey && this._subscribedTrackKeys.has(trackKey)) return;
+
     const userId = this._getParticipantUserId(participant);
     this.peers.set(userId, { username: this._getParticipantName(participant) });
 
     const mediaTrack = track?.mediaStreamTrack;
     if (!mediaTrack) return;
+    if (trackKey) this._subscribedTrackKeys.add(trackKey);
     const source = publication?.source;
     const stream = new MediaStream([mediaTrack]);
 
@@ -1237,6 +1255,9 @@ class VoiceManager {
   }
 
   _handleTrackUnsubscribed(publication, participant) {
+    const trackKey = this._getRemoteTrackKey(publication?.track, publication, participant);
+    if (trackKey) this._subscribedTrackKeys.delete(trackKey);
+
     const userId = this._getParticipantUserId(participant);
     const source = publication?.source;
     const screenAudioSource = this._getScreenAudioSource();
@@ -1346,6 +1367,7 @@ class VoiceManager {
       } catch {}
       this.room = null;
     }
+    this._subscribedTrackKeys.clear();
     this._localTrackState = {
       microphone: null,
       webcam: null,
@@ -1375,6 +1397,7 @@ class VoiceManager {
     this.isScreenSharing = false;
     this.isWebcamActive = false;
     this.screenHasAudio = false;
+    this._subscribedTrackKeys.clear();
 
     document.querySelectorAll("#audio-container audio").forEach((audio) => {
       audio.srcObject = null;
