@@ -24,6 +24,7 @@ class VoiceManager {
     this.gainNodes = new Map();
     this.sourceNodes = new Map();
     this.screenSourceNodes = new Map();
+    this.remotePlaybackRegistry = new Map();
     this.localUserId = null;
     this.onScreenStream = null;
     this.onWebcamStream = null;
@@ -1168,7 +1169,7 @@ class VoiceManager {
     }
   }
 
-  _playAudio(userId, stream) {
+  _playAudio(userId, stream, track, publication) {
     let audioEl = document.getElementById(`voice-audio-${userId}`);
     if (!audioEl) {
       audioEl = document.createElement("audio");
@@ -1182,23 +1183,40 @@ class VoiceManager {
         audioEl.setSinkId(savedOutput).catch(() => {});
       }
     }
+
+    const playbackTrackKey = this._getRemotePlaybackTrackKey(
+      track,
+      publication,
+    );
+    const mediaTrack =
+      track?.mediaStreamTrack || stream?.getAudioTracks?.()[0] || null;
+    const previousEntries = this._clearRemotePlaybackEntriesForUser(userId);
+
+    audioEl.muted = true;
+    audioEl.volume = 0;
     audioEl.srcObject = stream;
 
     // Disconnect and discard previous source + gain nodes for this user.
     const existingSource = this.sourceNodes.get(userId);
-    if (existingSource) {
+    if (
+      existingSource &&
+      !previousEntries.some((entry) => entry.sourceNode === existingSource)
+    ) {
       try {
         existingSource.disconnect();
       } catch {}
-      this.sourceNodes.delete(userId);
     }
+    this.sourceNodes.delete(userId);
     const existingGain = this.gainNodes.get(userId);
-    if (existingGain) {
+    if (
+      existingGain &&
+      !previousEntries.some((entry) => entry.gainNode === existingGain)
+    ) {
       try {
         existingGain.disconnect();
       } catch {}
-      this.gainNodes.delete(userId);
     }
+    this.gainNodes.delete(userId);
 
     try {
       if (!this.audioCtx)
@@ -1220,11 +1238,67 @@ class VoiceManager {
       gainNode.connect(this.audioCtx.destination);
       this.sourceNodes.set(userId, source);
       this.gainNodes.set(userId, gainNode);
-      audioEl.volume = 0;
+
+      if (playbackTrackKey) {
+        const endedHandler = () => {
+          this._clearRemotePlaybackEntry(playbackTrackKey);
+          if (this.sourceNodes.get(userId) === source)
+            this.sourceNodes.delete(userId);
+          if (this.gainNodes.get(userId) === gainNode)
+            this.gainNodes.delete(userId);
+          const currentAudioEl = document.getElementById(
+            `voice-audio-${userId}`,
+          );
+          if (currentAudioEl?.srcObject === stream) {
+            currentAudioEl.srcObject = null;
+            currentAudioEl.remove();
+          }
+        };
+        if (mediaTrack) {
+          mediaTrack.addEventListener("ended", endedHandler, { once: true });
+        }
+        this.remotePlaybackRegistry.set(playbackTrackKey, {
+          gainNode,
+          mediaTrack,
+          sink: "webaudio",
+          sourceNode: source,
+          stream,
+          audioElementId: audioEl.id,
+          endedHandler,
+          userId,
+        });
+      }
     } catch {
       const savedVolume = Math.min(1, this._getSavedVolume(userId));
       audioEl.dataset.prevVolume = String(savedVolume);
+      audioEl.muted = false;
       audioEl.volume = this._getAppliedIncomingVolume(userId, savedVolume);
+
+      if (playbackTrackKey) {
+        const endedHandler = () => {
+          this._clearRemotePlaybackEntry(playbackTrackKey);
+          const currentAudioEl = document.getElementById(
+            `voice-audio-${userId}`,
+          );
+          if (currentAudioEl?.srcObject === stream) {
+            currentAudioEl.srcObject = null;
+            currentAudioEl.remove();
+          }
+        };
+        if (mediaTrack) {
+          mediaTrack.addEventListener("ended", endedHandler, { once: true });
+        }
+        this.remotePlaybackRegistry.set(playbackTrackKey, {
+          gainNode: null,
+          mediaTrack,
+          sink: "element",
+          sourceNode: null,
+          stream,
+          audioElementId: audioEl.id,
+          endedHandler,
+          userId,
+        });
+      }
     }
   }
 
@@ -1365,6 +1439,9 @@ class VoiceManager {
     const trackSid = track?.sid;
     if (trackSid) return trackSid;
 
+    const mediaTrackId = track?.mediaStreamTrack?.id;
+    if (mediaTrackId) return mediaTrackId;
+
     const userId = this._getParticipantUserId(participant);
     const source = publication?.source || "unknown";
     const kind =
@@ -1373,6 +1450,60 @@ class VoiceManager {
       track?.mediaStreamTrack?.kind ||
       "unknown";
     return `${userId}:${source}:${kind}`;
+  }
+
+  _getRemotePlaybackTrackKey(track, publication) {
+    return (
+      publication?.trackSid ||
+      publication?.sid ||
+      track?.sid ||
+      track?.mediaStreamTrack?.id ||
+      null
+    );
+  }
+
+  _clearRemotePlaybackEntry(trackKey) {
+    if (!trackKey) return null;
+    const entry = this.remotePlaybackRegistry.get(trackKey);
+    if (!entry) return null;
+
+    if (entry.mediaTrack && entry.endedHandler) {
+      entry.mediaTrack.removeEventListener("ended", entry.endedHandler);
+    }
+
+    if (entry.sourceNode) {
+      try {
+        entry.sourceNode.disconnect();
+      } catch {}
+    }
+
+    if (entry.gainNode) {
+      try {
+        entry.gainNode.disconnect();
+      } catch {}
+    }
+
+    this.remotePlaybackRegistry.delete(trackKey);
+    return entry;
+  }
+
+  _clearRemotePlaybackEntriesForUser(userId) {
+    const matchingKeys = [];
+    for (const [trackKey, entry] of this.remotePlaybackRegistry.entries()) {
+      if (
+        entry?.userId === userId ||
+        String(entry?.userId) === String(userId)
+      ) {
+        matchingKeys.push(trackKey);
+      }
+    }
+
+    const clearedEntries = [];
+    for (const trackKey of matchingKeys) {
+      const entry = this._clearRemotePlaybackEntry(trackKey);
+      if (entry) clearedEntries.push(entry);
+    }
+    return clearedEntries;
   }
 
   _handleTrackSubscribed(track, publication, participant) {
@@ -1413,7 +1544,7 @@ class VoiceManager {
       return;
     }
 
-    this._playAudio(userId, stream);
+    this._playAudio(userId, stream, track, publication);
   }
 
   _handleTrackUnsubscribed(publication, participant) {
@@ -1452,6 +1583,9 @@ class VoiceManager {
       return;
     }
 
+    this._clearRemotePlaybackEntry(
+      this._getRemotePlaybackTrackKey(publication?.track, publication),
+    );
     this._clearVoiceAudio(userId);
   }
 
@@ -1479,9 +1613,13 @@ class VoiceManager {
       audioEl.srcObject = null;
       audioEl.remove();
     }
+    const clearedEntries = this._clearRemotePlaybackEntriesForUser(userId);
     const sourceNode =
       this.sourceNodes.get(userId) || this.sourceNodes.get(String(userId));
-    if (sourceNode) {
+    if (
+      sourceNode &&
+      !clearedEntries.some((entry) => entry.sourceNode === sourceNode)
+    ) {
       try {
         sourceNode.disconnect();
       } catch {}
@@ -1490,7 +1628,10 @@ class VoiceManager {
     this.sourceNodes.delete(String(userId));
     const gainNode =
       this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
-    if (gainNode) {
+    if (
+      gainNode &&
+      !clearedEntries.some((entry) => entry.gainNode === gainNode)
+    ) {
       try {
         gainNode.disconnect();
       } catch {}
@@ -1605,6 +1746,10 @@ class VoiceManager {
     this.screenSourceNodes.clear();
     this.gainNodes.clear();
     this.screenGainNodes.clear();
+    for (const trackKey of this.remotePlaybackRegistry.keys()) {
+      this._clearRemotePlaybackEntry(trackKey);
+    }
+    this.remotePlaybackRegistry.clear();
 
     if (this.audioCtx) {
       this.audioCtx.close().catch(() => {});
