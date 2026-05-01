@@ -66,7 +66,8 @@ class VoiceManager {
 
     const savedRes = localStorage.getItem("haven_screen_res");
     this.screenResolution = savedRes !== null ? parseInt(savedRes, 10) : 1080;
-    this.screenFrameRate = parseInt(localStorage.getItem("haven_screen_fps") || "30", 10) || 30;
+    this.screenFrameRate =
+      parseInt(localStorage.getItem("haven_screen_fps") || "30", 10) || 30;
 
     this._setupSocketListeners();
   }
@@ -94,7 +95,8 @@ class VoiceManager {
 
     this.socket.on("voice-user-left", (data) => {
       if (!data?.user) return;
-      if (this.onVoiceLeave) this.onVoiceLeave(data.user.id, data.user.username);
+      if (this.onVoiceLeave)
+        this.onVoiceLeave(data.user.id, data.user.username);
       this._cleanupRemoteParticipant(data.user.id, false);
       this.peers.delete(data.user.id);
     });
@@ -121,9 +123,14 @@ class VoiceManager {
     this.socket.on("screen-share-started", (data) => {
       if (!data?.userId) return;
       this.screenSharers.add(data.userId);
-      this.peers.set(data.userId, { username: data.username || this.peers.get(data.userId)?.username || "Unknown" });
-      if (this.onScreenShareStarted) this.onScreenShareStarted(data.userId, data.username);
-      if (!data.hasAudio && this.onScreenNoAudio) this.onScreenNoAudio(data.userId);
+      this.peers.set(data.userId, {
+        username:
+          data.username || this.peers.get(data.userId)?.username || "Unknown",
+      });
+      if (this.onScreenShareStarted)
+        this.onScreenShareStarted(data.userId, data.username);
+      if (!data.hasAudio && this.onScreenNoAudio)
+        this.onScreenNoAudio(data.userId);
     });
 
     this.socket.on("screen-share-stopped", (data) => {
@@ -135,7 +142,10 @@ class VoiceManager {
     this.socket.on("webcam-started", (data) => {
       if (!data?.userId) return;
       this.webcamUsers.add(data.userId);
-      this.peers.set(data.userId, { username: data.username || this.peers.get(data.userId)?.username || "Unknown" });
+      this.peers.set(data.userId, {
+        username:
+          data.username || this.peers.get(data.userId)?.username || "Unknown",
+      });
       if (this.onWebcamStatusChange) this.onWebcamStatusChange();
     });
 
@@ -177,7 +187,9 @@ class VoiceManager {
       if (this.inVoice) this.leave();
 
       if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
       }
       if (this.audioCtx.state === "suspended") await this.audioCtx.resume();
 
@@ -190,16 +202,25 @@ class VoiceManager {
       if (savedInputId) audioConstraints.deviceId = { exact: savedInputId };
 
       try {
-        this.rawStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+        this.rawStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false,
+        });
       } catch (deviceErr) {
         if (!savedInputId) throw deviceErr;
         localStorage.removeItem("haven_input_device");
         delete audioConstraints.deviceId;
-        this.rawStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+        this.rawStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false,
+        });
       }
 
       if (window.havenDesktop?.audio?.optOutOfDucking) {
-        setTimeout(() => window.havenDesktop.audio.optOutOfDucking().catch(() => {}), 500);
+        setTimeout(
+          () => window.havenDesktop.audio.optOutOfDucking().catch(() => {}),
+          500,
+        );
       }
 
       this._buildProcessedMicrophoneStream();
@@ -211,7 +232,10 @@ class VoiceManager {
       } else if (this.noiseMode === "off") {
         this.setNoiseSensitivity(0);
       } else {
-        const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
+        const saved = parseInt(
+          localStorage.getItem("haven_ns_value") || "10",
+          10,
+        );
         this.setNoiseSensitivity(saved);
       }
 
@@ -227,7 +251,11 @@ class VoiceManager {
         this._rememberParticipant(participant);
         for (const [, publication] of participant.trackPublications) {
           if (publication.isSubscribed && publication.track) {
-            this._handleTrackSubscribed(publication.track, publication, participant);
+            this._handleTrackSubscribed(
+              publication.track,
+              publication,
+              participant,
+            );
           }
         }
       }
@@ -367,10 +395,16 @@ class VoiceManager {
 
   _applyGlobalDeafenState() {
     for (const [userId, gainNode] of this.gainNodes) {
-      gainNode.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedVolume(userId));
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        userId,
+        this._getSavedVolume(userId),
+      );
     }
     for (const [userId, gainNode] of this.screenGainNodes) {
-      gainNode.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedStreamVolume(userId));
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        userId,
+        this._getSavedStreamVolume(userId),
+      );
     }
     document.querySelectorAll("#audio-container audio").forEach((el) => {
       if (this.isDeafened) {
@@ -380,18 +414,28 @@ class VoiceManager {
       }
       if (el.id.startsWith("voice-audio-screen-")) {
         const userId = el.id.replace("voice-audio-screen-", "");
-        el.volume = this._getAppliedIncomingVolume(userId, parseFloat(el.dataset.prevVolume || 1));
+        el.volume = this._getAppliedIncomingVolume(
+          userId,
+          parseFloat(el.dataset.prevVolume || 1),
+        );
         return;
       }
       if (el.id.startsWith("voice-audio-")) {
         const userId = el.id.replace("voice-audio-", "");
-        el.volume = this._getAppliedIncomingVolume(userId, parseFloat(el.dataset.prevVolume || 1));
+        el.volume = this._getAppliedIncomingVolume(
+          userId,
+          parseFloat(el.dataset.prevVolume || 1),
+        );
       }
     });
   }
 
   _getAppliedIncomingVolume(userId, volume) {
-    return this.isDeafened || this.deafenedUsers.has(userId) || this.deafenedUsers.has(String(userId)) ? 0 : volume;
+    return this.isDeafened ||
+      this.deafenedUsers.has(userId) ||
+      this.deafenedUsers.has(String(userId))
+      ? 0
+      : volume;
   }
 
   async shareScreen() {
@@ -413,14 +457,17 @@ class VoiceManager {
         audio: true,
       };
 
-      const isElectron = !!(window.havenDesktop || navigator.userAgent.includes("Electron"));
+      const isElectron = !!(
+        window.havenDesktop || navigator.userAgent.includes("Electron")
+      );
       if (!isElectron) {
         displayMediaOptions.surfaceSwitching = "exclude";
         displayMediaOptions.selfBrowserSurface = "include";
         displayMediaOptions.monitorTypeSurfaces = "include";
       }
 
-      this.screenStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+      this.screenStream =
+        await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
       this.isScreenSharing = true;
       this.screenSharers.add(this.localUserId);
 
@@ -451,7 +498,10 @@ class VoiceManager {
         this._localTrackState.screenAudio = audioTrack;
       }
 
-      this.socket.emit("screen-share-started", { code: this.currentChannel, hasAudio: !!audioTrack });
+      this.socket.emit("screen-share-started", {
+        code: this.currentChannel,
+        hasAudio: !!audioTrack,
+      });
       return true;
     } catch (err) {
       console.error("Screen share failed:", err);
@@ -491,7 +541,8 @@ class VoiceManager {
     this._localTrackState.screenVideo = null;
     this._localTrackState.screenAudio = null;
 
-    if (this.currentChannel) this.socket.emit("screen-share-stopped", { code: this.currentChannel });
+    if (this.currentChannel)
+      this.socket.emit("screen-share-stopped", { code: this.currentChannel });
     if (this.onScreenStream) this.onScreenStream(this.localUserId, null);
   }
 
@@ -506,7 +557,10 @@ class VoiceManager {
       };
       if (savedCamId) videoConstraints.deviceId = { exact: savedCamId };
 
-      this.webcamStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+      this.webcamStream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false,
+      });
       const camTrack = this.webcamStream.getVideoTracks()[0] || null;
       if (!camTrack) return false;
 
@@ -550,7 +604,8 @@ class VoiceManager {
     this.webcamUsers.delete(this.localUserId);
     this._localTrackState.webcam = null;
 
-    if (this.currentChannel) this.socket.emit("webcam-stopped", { code: this.currentChannel });
+    if (this.currentChannel)
+      this.socket.emit("webcam-stopped", { code: this.currentChannel });
     if (this.onWebcamStream) this.onWebcamStream(this.localUserId, null);
   }
 
@@ -566,7 +621,10 @@ class VoiceManager {
 
     let newStream;
     try {
-      newStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+      newStream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false,
+      });
     } catch (err) {
       console.error("[Voice] Failed to switch camera:", err);
       return;
@@ -596,7 +654,8 @@ class VoiceManager {
     this._localTrackState.webcam = newTrack;
 
     localStorage.setItem("haven_cam_device", deviceId || "");
-    if (this.onWebcamStream) this.onWebcamStream(this.localUserId, this.webcamStream);
+    if (this.onWebcamStream)
+      this.onWebcamStream(this.localUserId, this.webcamStream);
   }
 
   setScreenResolution(height) {
@@ -622,21 +681,34 @@ class VoiceManager {
   }
 
   setVolume(userId, volume) {
-    const gainNode = this.gainNodes.get(userId) || this.gainNodes.get(String(userId)) || this.gainNodes.get(Number(userId));
+    const gainNode =
+      this.gainNodes.get(userId) ||
+      this.gainNodes.get(String(userId)) ||
+      this.gainNodes.get(Number(userId));
     if (gainNode) {
-      gainNode.gain.value = this._getAppliedIncomingVolume(userId, Math.max(0, Math.min(2, volume)));
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        userId,
+        Math.max(0, Math.min(2, volume)),
+      );
     } else {
       const audioEl = document.getElementById(`voice-audio-${userId}`);
-      if (audioEl) audioEl.volume = this._getAppliedIncomingVolume(userId, Math.max(0, Math.min(1, volume)));
+      if (audioEl)
+        audioEl.volume = this._getAppliedIncomingVolume(
+          userId,
+          Math.max(0, Math.min(1, volume)),
+        );
     }
   }
 
   deafenUser(userId) {
     this.deafenedUsers.add(userId);
     this.deafenedUsers.add(String(userId));
-    const gainNode = this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
+    const gainNode =
+      this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
     if (gainNode) gainNode.gain.value = 0;
-    const screenGain = this.screenGainNodes.get(userId) || this.screenGainNodes.get(String(userId));
+    const screenGain =
+      this.screenGainNodes.get(userId) ||
+      this.screenGainNodes.get(String(userId));
     if (screenGain) screenGain.gain.value = 0;
     const audioEl = document.getElementById(`voice-audio-${userId}`);
     if (audioEl) audioEl.volume = 0;
@@ -647,23 +719,46 @@ class VoiceManager {
   undeafenUser(userId) {
     this.deafenedUsers.delete(userId);
     this.deafenedUsers.delete(String(userId));
-    const gainNode = this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
-    if (gainNode) gainNode.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedVolume(userId));
-    const screenGain = this.screenGainNodes.get(userId) || this.screenGainNodes.get(String(userId));
-    if (screenGain) screenGain.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedStreamVolume(userId));
+    const gainNode =
+      this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
+    if (gainNode)
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        userId,
+        this._getSavedVolume(userId),
+      );
+    const screenGain =
+      this.screenGainNodes.get(userId) ||
+      this.screenGainNodes.get(String(userId));
+    if (screenGain)
+      screenGain.gain.value = this._getAppliedIncomingVolume(
+        userId,
+        this._getSavedStreamVolume(userId),
+      );
     const audioEl = document.getElementById(`voice-audio-${userId}`);
-    if (audioEl) audioEl.volume = this._getAppliedIncomingVolume(userId, Math.min(1, this._getSavedVolume(userId)));
+    if (audioEl)
+      audioEl.volume = this._getAppliedIncomingVolume(
+        userId,
+        Math.min(1, this._getSavedVolume(userId)),
+      );
     const screenEl = document.getElementById(`voice-audio-screen-${userId}`);
-    if (screenEl) screenEl.volume = this._getAppliedIncomingVolume(userId, Math.min(1, this._getSavedStreamVolume(userId)));
+    if (screenEl)
+      screenEl.volume = this._getAppliedIncomingVolume(
+        userId,
+        Math.min(1, this._getSavedStreamVolume(userId)),
+      );
   }
 
   isUserDeafened(userId) {
-    return this.deafenedUsers.has(userId) || this.deafenedUsers.has(String(userId));
+    return (
+      this.deafenedUsers.has(userId) || this.deafenedUsers.has(String(userId))
+    );
   }
 
   _getSavedVolume(userId) {
     try {
-      const volumes = JSON.parse(localStorage.getItem("haven_voice_volumes") || "{}");
+      const volumes = JSON.parse(
+        localStorage.getItem("haven_voice_volumes") || "{}",
+      );
       return (volumes[userId] ?? 100) / 100;
     } catch {
       return 1;
@@ -682,7 +777,10 @@ class VoiceManager {
 
     let newRawStream;
     try {
-      newRawStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+      newRawStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: false,
+      });
     } catch (err) {
       console.error("[Voice] Failed to switch input device:", err);
       return;
@@ -702,7 +800,10 @@ class VoiceManager {
       this.setNoiseSensitivity(0);
       this._enableRNNoise();
     } else if (this.noiseMode === "gate") {
-      const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
+      const saved = parseInt(
+        localStorage.getItem("haven_ns_value") || "10",
+        10,
+      );
       this.setNoiseSensitivity(saved);
     } else {
       this.setNoiseSensitivity(0);
@@ -769,12 +870,21 @@ class VoiceManager {
     }
 
     try {
-      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const resumeCtx = this.audioCtx.state === "suspended" ? this.audioCtx.resume() : Promise.resolve();
+      if (!this.audioCtx)
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      const resumeCtx =
+        this.audioCtx.state === "suspended"
+          ? this.audioCtx.resume()
+          : Promise.resolve();
       resumeCtx.catch(() => {});
       const source = this.audioCtx.createMediaStreamSource(stream);
       const gainNode = this.audioCtx.createGain();
-      gainNode.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedStreamVolume(userId));
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        userId,
+        this._getSavedStreamVolume(userId),
+      );
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
       this.screenSourceNodes.set(userId, source);
@@ -790,17 +900,24 @@ class VoiceManager {
   }
 
   setStreamVolume(userId, volume) {
-    const gainNode = this.screenGainNodes.get(userId) || this.screenGainNodes.get(String(userId)) || this.screenGainNodes.get(Number(userId));
+    const gainNode =
+      this.screenGainNodes.get(userId) ||
+      this.screenGainNodes.get(String(userId)) ||
+      this.screenGainNodes.get(Number(userId));
     const clampedGain = Math.max(0, Math.min(2, volume));
     const clampedVol = Math.max(0, Math.min(1, volume));
-    if (gainNode) gainNode.gain.value = this._getAppliedIncomingVolume(userId, clampedGain);
+    if (gainNode)
+      gainNode.gain.value = this._getAppliedIncomingVolume(userId, clampedGain);
     const audioEl = document.getElementById(`voice-audio-screen-${userId}`);
-    if (audioEl) audioEl.volume = this._getAppliedIncomingVolume(userId, clampedVol);
+    if (audioEl)
+      audioEl.volume = this._getAppliedIncomingVolume(userId, clampedVol);
   }
 
   _getSavedStreamVolume(userId) {
     try {
-      const volumes = JSON.parse(localStorage.getItem("haven_stream_volumes") || "{}");
+      const volumes = JSON.parse(
+        localStorage.getItem("haven_stream_volumes") || "{}",
+      );
       return (volumes[userId] ?? 100) / 100;
     } catch {
       return 1;
@@ -822,7 +939,10 @@ class VoiceManager {
       }
     } else if (mode === "gate") {
       this._disableRNNoise();
-      const saved = parseInt(localStorage.getItem("haven_ns_value") || "10", 10);
+      const saved = parseInt(
+        localStorage.getItem("haven_ns_value") || "10",
+        10,
+      );
       this.setNoiseSensitivity(saved);
     } else {
       this._disableRNNoise();
@@ -845,7 +965,8 @@ class VoiceManager {
   }
 
   _enableRNNoise() {
-    if (!this._rnnoiseReady || !this._rnnoiseSource || this._rnnoiseNode) return;
+    if (!this._rnnoiseReady || !this._rnnoiseSource || this._rnnoiseNode)
+      return;
     try {
       const node = new AudioWorkletNode(this.audioCtx, "rnnoise-processor", {
         numberOfInputs: 1,
@@ -853,7 +974,10 @@ class VoiceManager {
         outputChannelCount: [1],
         channelCount: 1,
       });
-      node.port.postMessage({ type: "wasm-module", module: this._rnnoiseWasmModule });
+      node.port.postMessage({
+        type: "wasm-module",
+        module: this._rnnoiseWasmModule,
+      });
       this._rnnoiseSource.disconnect(this._noiseGateGain);
       this._rnnoiseSource.connect(node);
       node.connect(this._noiseGateGain);
@@ -880,7 +1004,11 @@ class VoiceManager {
   setNoiseSensitivity(value) {
     this.noiseSensitivity = Math.max(0, Math.min(100, value));
     if (this.noiseSensitivity === 0 && this._noiseGateGain && this.audioCtx) {
-      this._noiseGateGain.gain.setTargetAtTime(1, this.audioCtx.currentTime, 0.01);
+      this._noiseGateGain.gain.setTargetAtTime(
+        1,
+        this.audioCtx.currentTime,
+        0.01,
+      );
     }
     return this.noiseSensitivity;
   }
@@ -958,7 +1086,9 @@ class VoiceManager {
     if (!this.rawStream || this._localTalkInterval) return;
     try {
       if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
       }
       if (this.audioCtx.state === "suspended") this.audioCtx.resume();
 
@@ -983,7 +1113,8 @@ class VoiceManager {
               clearTimeout(holdTimer);
               holdTimer = null;
             }
-            if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: false });
+            if (this.socket && this.inVoice)
+              this.socket.emit("voice-speaking", { speaking: false });
           }
           return;
         }
@@ -1001,9 +1132,15 @@ class VoiceManager {
           }
           if (!wasTalking) {
             wasTalking = true;
-            if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: true });
+            if (this.socket && this.inVoice)
+              this.socket.emit("voice-speaking", { speaking: true });
           }
-          if (this.socket && this.inVoice && (!this._lastVoiceSpeakPing || Date.now() - this._lastVoiceSpeakPing > 15000)) {
+          if (
+            this.socket &&
+            this.inVoice &&
+            (!this._lastVoiceSpeakPing ||
+              Date.now() - this._lastVoiceSpeakPing > 15000)
+          ) {
             this._lastVoiceSpeakPing = Date.now();
             this.socket.emit("voice-activity");
           }
@@ -1011,7 +1148,8 @@ class VoiceManager {
           holdTimer = setTimeout(() => {
             wasTalking = false;
             holdTimer = null;
-            if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: false });
+            if (this.socket && this.inVoice)
+              this.socket.emit("voice-speaking", { speaking: false });
           }, HOLD_MS);
         }
       }, 60);
@@ -1023,7 +1161,8 @@ class VoiceManager {
       clearInterval(this._localTalkInterval);
       this._localTalkInterval = null;
       this._localTalkAnalyser = null;
-      if (this.socket && this.inVoice) this.socket.emit("voice-speaking", { speaking: false });
+      if (this.socket && this.inVoice)
+        this.socket.emit("voice-speaking", { speaking: false });
       this.talkingState.set("self", false);
       if (this.onTalkingChange) this.onTalkingChange("self", false);
     }
@@ -1062,12 +1201,21 @@ class VoiceManager {
     }
 
     try {
-      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const resumeCtx = this.audioCtx.state === "suspended" ? this.audioCtx.resume() : Promise.resolve();
+      if (!this.audioCtx)
+        this.audioCtx = new (
+          window.AudioContext || window.webkitAudioContext
+        )();
+      const resumeCtx =
+        this.audioCtx.state === "suspended"
+          ? this.audioCtx.resume()
+          : Promise.resolve();
       resumeCtx.catch(() => {});
       const source = this.audioCtx.createMediaStreamSource(stream);
       const gainNode = this.audioCtx.createGain();
-      gainNode.gain.value = this._getAppliedIncomingVolume(userId, this._getSavedVolume(userId));
+      gainNode.gain.value = this._getAppliedIncomingVolume(
+        userId,
+        this._getSavedVolume(userId),
+      );
       source.connect(gainNode);
       gainNode.connect(this.audioCtx.destination);
       this.sourceNodes.set(userId, source);
@@ -1115,13 +1263,19 @@ class VoiceManager {
       this._cleanupRemoteParticipant(userId, true);
     });
 
-    room.on(this.livekit.RoomEvent.TrackSubscribed, (track, publication, participant) => {
-      this._handleTrackSubscribed(track, publication, participant);
-    });
+    room.on(
+      this.livekit.RoomEvent.TrackSubscribed,
+      (track, publication, participant) => {
+        this._handleTrackSubscribed(track, publication, participant);
+      },
+    );
 
-    room.on(this.livekit.RoomEvent.TrackUnsubscribed, (_track, publication, participant) => {
-      this._handleTrackUnsubscribed(publication, participant);
-    });
+    room.on(
+      this.livekit.RoomEvent.TrackUnsubscribed,
+      (_track, publication, participant) => {
+        this._handleTrackUnsubscribed(publication, participant);
+      },
+    );
 
     room.on(this.livekit.RoomEvent.Disconnected, () => {
       if (!this._roomDisconnectExpected && this.inVoice) {
@@ -1187,13 +1341,17 @@ class VoiceManager {
   _getParticipantUserId(participant) {
     const identity = String(participant?.identity || "");
     const asNumber = Number(identity);
-    return Number.isFinite(asNumber) && String(asNumber) === identity ? asNumber : identity;
+    return Number.isFinite(asNumber) && String(asNumber) === identity
+      ? asNumber
+      : identity;
   }
 
   _getParticipantName(participant) {
     if (!participant) return "Unknown";
     try {
-      const meta = participant.metadata ? JSON.parse(participant.metadata) : null;
+      const meta = participant.metadata
+        ? JSON.parse(participant.metadata)
+        : null;
       if (meta?.displayName) return meta.displayName;
       if (meta?.username) return meta.username;
     } catch {}
@@ -1209,7 +1367,11 @@ class VoiceManager {
 
     const userId = this._getParticipantUserId(participant);
     const source = publication?.source || "unknown";
-    const kind = publication?.kind || track?.kind || track?.mediaStreamTrack?.kind || "unknown";
+    const kind =
+      publication?.kind ||
+      track?.kind ||
+      track?.mediaStreamTrack?.kind ||
+      "unknown";
     return `${userId}:${source}:${kind}`;
   }
 
@@ -1255,13 +1417,19 @@ class VoiceManager {
   }
 
   _handleTrackUnsubscribed(publication, participant) {
-    const trackKey = this._getRemoteTrackKey(publication?.track, publication, participant);
+    const trackKey = this._getRemoteTrackKey(
+      publication?.track,
+      publication,
+      participant,
+    );
     if (trackKey) this._subscribedTrackKeys.delete(trackKey);
 
     const userId = this._getParticipantUserId(participant);
     const source = publication?.source;
     const screenAudioSource = this._getScreenAudioSource();
-    const isAudioPublication = publication?.kind === this.livekit.Track.Kind.Audio || publication?.kind === "audio";
+    const isAudioPublication =
+      publication?.kind === this.livekit.Track.Kind.Audio ||
+      publication?.kind === "audio";
 
     if (source === this.livekit.Track.Source.Camera) {
       this._clearWebcamMedia(userId);
@@ -1299,7 +1467,10 @@ class VoiceManager {
   }
 
   _getScreenAudioSource() {
-    return this.livekit.Track.Source.ScreenShareAudio || this.livekit.Track.Source.ScreenShare;
+    return (
+      this.livekit.Track.Source.ScreenShareAudio ||
+      this.livekit.Track.Source.ScreenShare
+    );
   }
 
   _clearVoiceAudio(userId) {
@@ -1308,7 +1479,8 @@ class VoiceManager {
       audioEl.srcObject = null;
       audioEl.remove();
     }
-    const sourceNode = this.sourceNodes.get(userId) || this.sourceNodes.get(String(userId));
+    const sourceNode =
+      this.sourceNodes.get(userId) || this.sourceNodes.get(String(userId));
     if (sourceNode) {
       try {
         sourceNode.disconnect();
@@ -1316,7 +1488,8 @@ class VoiceManager {
     }
     this.sourceNodes.delete(userId);
     this.sourceNodes.delete(String(userId));
-    const gainNode = this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
+    const gainNode =
+      this.gainNodes.get(userId) || this.gainNodes.get(String(userId));
     if (gainNode) {
       try {
         gainNode.disconnect();
@@ -1332,7 +1505,9 @@ class VoiceManager {
       audioEl.srcObject = null;
       audioEl.remove();
     }
-    const screenSource = this.screenSourceNodes.get(userId) || this.screenSourceNodes.get(String(userId));
+    const screenSource =
+      this.screenSourceNodes.get(userId) ||
+      this.screenSourceNodes.get(String(userId));
     if (screenSource) {
       try {
         screenSource.disconnect();
@@ -1340,7 +1515,9 @@ class VoiceManager {
     }
     this.screenSourceNodes.delete(userId);
     this.screenSourceNodes.delete(String(userId));
-    const gainNode = this.screenGainNodes.get(userId) || this.screenGainNodes.get(String(userId));
+    const gainNode =
+      this.screenGainNodes.get(userId) ||
+      this.screenGainNodes.get(String(userId));
     if (gainNode) {
       try {
         gainNode.disconnect();
